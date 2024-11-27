@@ -1228,3 +1228,6 @@ def on_exit():
         main_window.container_manager.stop_container(app_settings.editable_settings["Whisper Caddy Container Name"])
 
 atexit.register(on_exit)
+
+def main():
+    print("Starting FreeScribe...")
