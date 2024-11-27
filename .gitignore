@@ -15,4 +15,4 @@ client.spec
 realtime.wav
 src/FreeScribe.client/models
 freescribe-client.spec
-src/FreeScribe.egg-info/PKG-INFO
+src/FreeScribe.egg-info/*
