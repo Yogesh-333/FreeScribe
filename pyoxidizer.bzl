@@ -19,7 +19,7 @@ def make_exe():
     python_config = dist.make_python_interpreter_config()
     python_config.module_search_paths = ["$ORIGIN/lib"]
     # python_config.run_filename = "C:\Work\AIScribe\src\FreeScribe.client\client.py"
-    python_config.run_module = "FreeScribe.client.client"
+    python_config.run_module = "FreeScribe.Client.client"
 
     exe = dist.to_python_executable(
         name = "numpy",
@@ -29,6 +29,10 @@ def make_exe():
 
     for resource in exe.pip_install(["-r", "client_requirements.txt"]):
         resource.add_location = "filesystem-relative:lib"
+        exe.add_python_resource(resource)
+
+    for resource in exe.pip_install(["."]):
+        resource.add_location = "in-memory"
         exe.add_python_resource(resource)
 
     return exe
