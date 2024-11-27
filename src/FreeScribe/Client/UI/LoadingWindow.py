@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from utils.file_utils import get_file_path
+from FreeScribe.Client.utils.file_utils import get_file_path
 
 class LoadingWindow:
     """

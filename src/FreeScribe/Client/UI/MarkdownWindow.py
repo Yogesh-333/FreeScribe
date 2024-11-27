@@ -2,7 +2,7 @@ from tkinter import Toplevel, messagebox
 import markdown as md
 import tkinter as tk
 from tkhtmlview import HTMLLabel
-from utils.file_utils import get_file_path
+from FreeScribe.Client.utils.file_utils import get_file_path
 
 """
 A class to create a window displaying rendered Markdown content.

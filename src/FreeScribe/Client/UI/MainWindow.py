@@ -19,7 +19,7 @@ and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and N
 
 """
 
-from ContainerManager import ContainerManager
+from FreeScribe.Client.ContainerManager import ContainerManager
 import tkinter as tk
 
 class MainWindow:

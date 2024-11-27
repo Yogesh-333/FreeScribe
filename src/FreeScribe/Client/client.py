@@ -31,13 +31,13 @@ import speech_recognition as sr # python package is named speechrecognition
 import time
 import queue
 import atexit
-from UI.MainWindowUI import MainWindowUI
-from UI.SettingsWindow import SettingsWindow
-from UI.Widgets.CustomTextBox import CustomTextBox
-from UI.LoadingWindow import LoadingWindow
-from Model import  ModelManager
-from utils.ip_utils import is_private_ip
-from utils.file_utils import get_file_path, get_resource_path
+from FreeScribe.Client.UI.MainWindowUI import MainWindowUI
+from FreeScribe.Client.UI.SettingsWindow import SettingsWindow
+from FreeScribe.Client.UI.Widgets.CustomTextBox import CustomTextBox
+from FreeScribe.Client.UI.LoadingWindow import LoadingWindow
+from FreeScribe.Client.Model import ModelManager
+from FreeScribe.Client.utils.ip_utils import is_private_ip
+from FreeScribe.Client.utils.file_utils import get_file_path, get_resource_path
 import ctypes
 
 # GUI Setup

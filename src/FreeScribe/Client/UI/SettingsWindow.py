@@ -24,8 +24,8 @@ from tkinter import ttk, messagebox
 import requests
 import numpy as np
 import pyaudio
-from utils.file_utils import get_resource_path
-from Model import ModelManager
+from FreeScribe.Client.utils.file_utils import get_resource_path
+from FreeScribe.Client.Model import ModelManager
 import threading
 
 

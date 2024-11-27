@@ -22,11 +22,10 @@ Classes:
 import json
 import tkinter as tk
 from tkinter import ttk, messagebox
-from UI.Widgets.AudioMeter import AudioMeter
+from FreeScribe.Client.UI.Widgets.AudioMeter import AudioMeter
 import threading
-from Model import Model, ModelManager
-from utils.file_utils import get_file_path
-from UI.MarkdownWindow import MarkdownWindow
+from FreeScribe.Client.utils.file_utils import get_file_path
+from FreeScribe.Client.UI.MarkdownWindow import MarkdownWindow
 
 
 

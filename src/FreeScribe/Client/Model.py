@@ -2,7 +2,7 @@ from llama_cpp import Llama
 import os
 from typing import Optional, Dict, Any
 import threading
-from UI.LoadingWindow import LoadingWindow
+from FreeScribe.Client.UI.LoadingWindow import LoadingWindow
 import tkinter.messagebox as messagebox
 
 class Model:

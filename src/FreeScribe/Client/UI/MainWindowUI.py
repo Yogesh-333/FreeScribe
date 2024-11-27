@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-import UI.MainWindow as mw
-from UI.SettingsWindowUI import SettingsWindowUI
-from UI.MarkdownWindow import MarkdownWindow
-from utils.file_utils import get_file_path
+import FreeScribe.Client.UI.MainWindow as mw
+from FreeScribe.Client.UI.SettingsWindowUI import SettingsWindowUI
+from FreeScribe.Client.UI.MarkdownWindow import MarkdownWindow
+from FreeScribe.Client.utils.file_utils import get_file_path
 
 class MainWindowUI:
     """
