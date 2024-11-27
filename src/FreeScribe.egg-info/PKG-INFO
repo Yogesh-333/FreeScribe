@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: FreeScribe
+Version: 1.0.0
+Summary: An AI-powered medical scribe application
+License-File: LICENSE.txt
+Requires-Dist: tk
+Requires-Dist: requests
+Requires-Dist: pyperclip
+Requires-Dist: numpy
+Requires-Dist: pyaudio
+Requires-Dist: openai-whisper
+Requires-Dist: scrubadub
+Requires-Dist: speechrecognition

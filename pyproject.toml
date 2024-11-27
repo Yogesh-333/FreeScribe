@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FreeScribe"
+version = "1.0.0"
+description = "An AI-powered medical scribe application"
+dependencies = [
+    "tk",
+    "requests",
+    "pyperclip",
+    "numpy",
+    "pyaudio",
+    "openai-whisper",
+    "scrubadub",
+    "speechrecognition",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+FreeScribe = "FreeScribe.Client.client:main"
+

@@ -1,0 +1,8 @@
+tk
+requests
+pyperclip
+numpy
+pyaudio
+openai-whisper
+scrubadub
+speechrecognition

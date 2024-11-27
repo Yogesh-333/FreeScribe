@@ -1,0 +1,2 @@
+[console_scripts]
+FreeScribe = FreeScribe.Client.client:main
