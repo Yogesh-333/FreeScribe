@@ -47,7 +47,6 @@ import sys
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
 import gc
 from pathlib import Path
-
 from WhisperModel import TranscribeError
 
 
@@ -386,7 +385,7 @@ def start_record_button():
     if app_settings.editable_settings["Real Time"]:
         print("realtime transcription")
 
-        def process_segment(segment, probability):
+        def process_segment(segment):
             #Send segment to whisper
             transcript = faster_whisper_transcribe(segment)
 
@@ -400,7 +399,7 @@ def start_record_button():
         recorder.start_recording(False)  
     else:
         print("Whole text transcription ")
-        def process_whole(recording, probability):
+        def process_whole(recording):
             print("Processing whole audio")
             # Send the recording to whisper
             transcript = faster_whisper_transcribe("./recording.wav")
