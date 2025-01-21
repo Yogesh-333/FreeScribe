@@ -447,12 +447,8 @@ def toggle_recording():
 
     if is_paused:
         toggle_pause()
-
-    realtime_thread = threaded_realtime_text()
-
     if not is_recording:
         disable_recording_ui_elements()
-        REALTIME_TRANSCRIBE_THREAD_ID = realtime_thread.ident
         user_input.scrolled_text.configure(state='normal')
         user_input.scrolled_text.delete("1.0", tk.END)
         if not app_settings.editable_settings["Real Time"]:
@@ -463,7 +459,7 @@ def toggle_recording():
         response_display.scrolled_text.configure(state='disabled')
         is_recording = True
 
-        recording_thread = threading.Thread(target=record_audio)
+        recording_thread = threading.Thread(target=start_record_button)
         recording_thread.start()
 
 
