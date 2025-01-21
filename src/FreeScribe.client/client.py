@@ -48,7 +48,7 @@ from utils.utils import window_has_running_instance, bring_to_front, close_mutex
 import gc
 from pathlib import Path
 from WhisperModel import TranscribeError
-
+from AudioRecorder import AudioRecorder
 
 
 dual = DualOutput()
@@ -184,74 +184,6 @@ def toggle_pause():
             pause_button.config(text="⏸️", bg=DEFAULT_BUTTON_COLOUR)
     
 SILENCE_WARNING_LENGTH = 10 # seconds, warn the user after 10s of no input something might be wrong
-
-def record_audio():
-    global is_paused, frames, audio_queue
-
-    try:
-        stream = p.open(
-            format=FORMAT, 
-            channels=1, 
-            rate=RATE, 
-            input=True,
-            frames_per_buffer=CHUNK, 
-            input_device_index=int(MicrophoneState.SELECTED_MICROPHONE_INDEX))
-    except (OSError, IOError) as e:
-        messagebox.showerror("Audio Error", f"Please check your microphone settings under whisper settings. Error opening audio stream: {e}")
-        return
-
-    try:
-
-        current_chunk = []
-        silent_duration = 0
-        silent_warning_duration = 0
-        record_duration = 0
-        minimum_silent_duration = int(app_settings.editable_settings["Real Time Silence Length"])
-        minimum_audio_duration = int(app_settings.editable_settings["Real Time Audio Length"])
-        
-        while is_recording:
-            if not is_paused:
-                data = stream.read(CHUNK, exception_on_overflow=False)
-                frames.append(data)
-                # Check for silence
-                audio_buffer = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768
-                if is_silent(audio_buffer, app_settings.editable_settings["Silence cut-off"]):
-                    silent_duration += CHUNK / RATE
-                    silent_warning_duration += CHUNK / RATE
-                else:
-                    current_chunk.append(data)
-                    silent_duration = 0
-                    silent_warning_duration = 0
-                
-                record_duration += CHUNK / RATE
-
-                # Check if we need to warn if silence is long than warn time
-                check_silence_warning(silent_warning_duration)
-
-                # If the current_chunk has at least 5 seconds of audio and 1 second of silence at the end
-                if record_duration >= minimum_audio_duration and silent_duration >= minimum_silent_duration:
-                    if app_settings.editable_settings["Real Time"] and current_chunk:
-                        audio_queue.put(b''.join(current_chunk))
-                    current_chunk = []
-                    silent_duration = 0
-                    record_duration = 0
-
-        # Send any remaining audio chunk when recording stops
-        if current_chunk:
-            audio_queue.put(b''.join(current_chunk))
-    except Exception as e:
-        # Log the error message
-        # TODO System logger
-        # For now general catch on any problems
-        print(f"An error occurred: {e}")
-    finally:
-        stream.stop_stream()
-        stream.close()
-        audio_queue.put(None)
-
-        # If the warning bar is displayed, remove it
-        if window.warning_bar is not None:
-            window.destroy_warning_bar()
 
 def check_silence_warning(silence_duration):
     """Check if silence warning should be displayed."""
