@@ -361,6 +361,82 @@ def save_audio():
     elif app_settings.editable_settings["Real Time"] == False and is_audio_processing_whole_canceled.is_set() is False:
         threaded_send_audio_to_server()
 
+recorder = AudioRecorder()
+
+def start_record_button():
+    """
+    Start the audio recording and transcription process based on application settings.
+
+    This function handles two modes of audio recording and transcription:
+
+    1. Real-time transcription:
+       - Processes audio segments as they are recorded
+       - Transcribes each segment using Whisper
+       - Updates the UI immediately with transcribed text
+
+    2. Whole text transcription:
+       - Records the complete audio
+       - Saves it as 'recording.wav'
+       - Processes the entire recording at once
+       - Updates the UI with complete transcription
+
+    The mode is determined by the ``app_settings.editable_settings["Real Time"]`` value.
+    """
+    # if realtime 
+    if app_settings.editable_settings["Real Time"]:
+        print("realtime transcription")
+
+        def process_segment(segment, probability):
+            #Send segment to whisper
+            transcript = faster_whisper_transcribe(segment)
+
+            # Update the UI with the transcribed text
+            user_input.scrolled_text.configure(state='normal')
+            user_input.scrolled_text.insert(tk.END, transcript)
+            user_input.scrolled_text.configure(state='disabled')
+            user_input.scrolled_text.see(tk.END)
+
+        recorder.set_chunk_callback(process_segment)
+        recorder.start_recording(False)  
+    else:
+        print("Whole text transcription ")
+        def process_whole(recording, probability):
+            print("Processing whole audio")
+            # Send the recording to whisper
+            transcript = faster_whisper_transcribe("./recording.wav")
+            print("transcript: ", transcript)
+
+            # Update the UI with the transcribed text
+            user_input.scrolled_text.configure(state='normal')
+            user_input.scrolled_text.insert(tk.END, transcript)
+            user_input.scrolled_text.configure(state='disabled')
+            user_input.scrolled_text.see(tk.END)
+            
+        recorder.set_chunk_callback(process_whole)
+        recorder.start_recording(True)  
+
+def stop_record_button():
+    """
+    Stop the active audio recording and transcription process.
+
+    This function halts the recording process based on the current application mode:
+
+    1. Real-time transcription mode:
+       - Stops the continuous recording and processing of audio segments
+       - Calls recorder.stop_recording(True)
+
+    2. Whole text transcription mode:
+       - Stops the single-session recording
+       - Calls recorder.stop_recording(False)
+
+    The mode is determined by ``app_settings.editable_settings["Real Time"]`` value.
+    """
+    print("stop recording")
+    if app_settings.editable_settings["Real Time"]:
+        recorder.stop_recording(True)
+    else:
+        recorder.stop_recording(False)
+
 def toggle_recording():
     global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID
 
