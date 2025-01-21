@@ -474,50 +474,11 @@ def toggle_recording():
         
         start_flashing()
     else:
+        loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_realtime_processing(REALTIME_TRANSCRIBE_THREAD_ID)))
+        stop_record_button()
         enable_recording_ui_elements()
         is_recording = False
-        if recording_thread.is_alive():
-            recording_thread.join()  # Ensure the recording thread is terminated
-        
-        if app_settings.editable_settings["Real Time"] and not is_audio_processing_realtime_canceled.is_set():
-            def cancel_realtime_processing(thread_id):
-                """Cancels any ongoing audio processing.
-                
-                Sets the global flag to stop audio processing operations.
-                """
-                global REALTIME_TRANSCRIBE_THREAD_ID
-
-                try:
-                    kill_thread(thread_id)
-                except Exception as e:
-                    # Log the error message
-                    # TODO System logger
-                    print(f"An error occurred: {e}")
-                finally:
-                    REALTIME_TRANSCRIBE_THREAD_ID = None
-
-                #empty the queue
-                while not audio_queue.empty():
-                    audio_queue.get()
-                    audio_queue.task_done()
-
-            loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_realtime_processing(REALTIME_TRANSCRIBE_THREAD_ID)))
-
-
-            timeout_timer = 0
-            while audio_queue.empty() is False and timeout_timer < 180:
-                # break because cancel was requested
-                if is_audio_processing_realtime_canceled.is_set():
-                    break
-                
-                timeout_timer += 0.1
-                time.sleep(0.1)
-            
-            loading_window.destroy()
-
-            realtime_thread.join()
-
-        save_audio()
+        loading_window.destroy()
 
         if current_view == "full":
             mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording")
