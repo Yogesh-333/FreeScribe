@@ -119,7 +119,7 @@ class AudioRecorder:
             # Call user callback if provided
             if self.chunk_callback:
                 try:
-                    self.chunk_callback(speech_data, 0.5)
+                    self.chunk_callback(speech_data)
                 except Exception as e:
                     print(f"Error in user callback: {e}")
             
@@ -150,7 +150,7 @@ class AudioRecorder:
 
             if self.chunk_callback:
                 try:
-                    self.chunk_callback(complete_data, 0.5)
+                    self.chunk_callback(complete_data)
                 except Exception as e:
                     print(f"Error in user callback: {e}")
             
@@ -204,10 +204,8 @@ class AudioRecorder:
         self.stream.stop()
         self.stream.close()
         
-        print("Stopping recording..")
         # Wait for processing thread to finish
         self.process_thread.join()
-        print("waiting for process thread to join")
         
         # Save any remaining speech in the buffer
         if self.speech_buffer and segments:
