@@ -214,5 +214,18 @@ class AudioRecorder:
         # Save the complete recording
         if not segments:
             self.save_complete_recording()
+
+        self.audio_queue.queue.clear()
         
         print("Recording stopped.")
+
+    def cleanup(self):
+        """
+        Stops and cleans up the audio recording stream.
+        
+        Stops the stream, closes it, sets recording flag to False, and clears the audio queue.
+        """
+        self.stream.stop()
+        self.stream.close()
+        self.is_recording = False
+        self.audio_queue.queue.clear()
