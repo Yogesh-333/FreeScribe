@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import sounddevice as sd
+import pyaudio
 import soundfile as sf
 import queue
 import threading
@@ -11,10 +11,11 @@ from typing import Callable, Optional
 
 class AudioRecorder:
     def __init__(self, sample_rate=16000, device=None, chunk_callback: Optional[Callable[[np.ndarray], None]] = None):
-        # Silero
-        # 16000 Hz = 512
-        # 8000 Hz = 256
         self.chunk_size = 512
+        self.format = pyaudio.paInt16
+        
+        # Initialize PyAudio
+        self.p = pyaudio.PyAudio()
         
         # Initialize Silero VAD
         self.model, _ = torch.hub.load(repo_or_dir='snakers4/silero-vad',
@@ -45,16 +46,19 @@ class AudioRecorder:
     @staticmethod
     def get_default_device():
         """Get the default input device"""
-        try:
-            return sd.query_devices(kind='input')['name']
-        except:
-            return None
+        p = pyaudio.PyAudio()
+        default_device = p.get_default_input_device_info()
+        p.terminate()
+        return default_device['name']
     
-    def audio_callback(self, indata, frames, time, status):
+    def audio_callback(self, in_data, frame_count, time_info, status):
         """Callback function for the audio stream"""
         if status:
             print(f"Stream status: {status}")
             
+        # Convert bytes to numpy array
+        indata = np.frombuffer(in_data, dtype=np.int16).reshape(-1, 1)
+        
         # Get speech probability for the chunk
         try:
             audio_normalized = indata.flatten().astype(np.float32) / np.iinfo(np.int16).max
@@ -66,6 +70,8 @@ class AudioRecorder:
 
         # Put in queue for normal processing
         self.audio_queue.put((indata.copy(), speech_prob))
+        
+        return (in_data, pyaudio.paContinue)
     
     def process_audio(self, whole_audio: bool):
         """Process audio chunks and detect speech"""
@@ -82,14 +88,11 @@ class AudioRecorder:
                     self.silence_duration = 0
                     self.speech_detected = True
                     self.speech_buffer.append(audio_chunk)
-                    
-                    # Store the chunk in complete recording buffer
                     self.complete_recording_buffer.append(audio_chunk.copy())
                 else:
                     if self.speech_detected:
                         self.silence_duration += len(audio_chunk) / self.sample_rate
                         
-                        # If silence duration exceeds threshold, save the buffer
                         if self.silence_duration > 0.5:  # Adjust silence threshold as needed
                             if not whole_audio:
                                 self.save_speech_segment()
@@ -113,19 +116,16 @@ class AudioRecorder:
             return
             
         try:
-            # Combine all chunks in the buffer
             speech_data = np.concatenate(self.speech_buffer)
 
-            # Call user callback if provided
             if self.chunk_callback:
                 try:
+                    print("CALLING BACK")
                     self.chunk_callback(speech_data)
                 except Exception as e:
                     print(f"Error in user callback: {e}")
             
-            # Generate filename for segment
             self.segment_count += 1
-            
         except Exception as e:
             print(f"Error saving speech segment: {e}")
     
@@ -135,16 +135,12 @@ class AudioRecorder:
             return
             
         try:
-            # Combine all chunks
             complete_data = np.concatenate(self.complete_recording_buffer)
-
-            # Generate filename for complete recording
             complete_filename = os.path.join(
                 self.output_dir,
                 "recording.wav"
             )
             
-            # Save the complete recording
             sf.write(complete_filename, complete_data, self.sample_rate)
             print(f"Saved complete recording to {complete_filename}")
 
@@ -159,36 +155,39 @@ class AudioRecorder:
     
     def start_recording(self, segments: bool):
         """Start recording audio"""
-        # Create output directory if it doesn't exist
         self.output_dir = "./"
         
-        # Generate base filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.base_filename = f"recording_{timestamp}"
         
-        # Initialize recording state
         self.is_recording = True
         self.speech_buffer = []
         self.complete_recording_buffer = []
         self.segment_count = 0
         
-        # Start audio stream
         try:
-            self.stream = sd.InputStream(
-                device=self.device,
+            device_index = None
+            if self.device:
+                for i in range(self.p.get_device_count()):
+                    if self.p.get_device_info_by_index(i)['name'] == self.device:
+                        device_index = i
+                        break
+            
+            self.stream = self.p.open(
+                format=self.format,
                 channels=1,
-                samplerate=self.sample_rate,
-                blocksize=self.chunk_size,
-                dtype=np.int16,
-                callback=self.audio_callback
+                rate=self.sample_rate,
+                input=True,
+                frames_per_buffer=self.chunk_size,
+                input_device_index=device_index,
+                stream_callback=self.audio_callback
             )
             
-            # Start processing thread
             self.process_thread = threading.Thread(target=self.process_audio, args=(segments,))
             self.process_thread.start()
             
-            self.stream.start()
-            device_info = sd.query_devices(self.device) if self.device is not None else sd.query_devices(kind='input')
+            self.stream.start_stream()
+            device_info = self.p.get_device_info_by_index(device_index if device_index is not None else self.p.get_default_input_device_info()['index'])
             print(f"Recording started... (using device: {device_info['name']})")
             
         except Exception as e:
@@ -198,34 +197,38 @@ class AudioRecorder:
     
     def stop_recording(self, segments: bool):
         """Stop recording audio"""
+        print("FALSE")
         self.is_recording = False
         
-        # Stop and close the audio stream
-        self.stream.stop()
+        print("Closing streams")
+        self.stream.stop_stream()
         self.stream.close()
         
-        # Wait for processing thread to finish
+        print("Joining process thread")
         self.process_thread.join()
         
-        # Save any remaining speech in the buffer
-        if self.speech_buffer and segments:
+        print("Saving final speech segment1")
+        print(self.speech_buffer)
+        print(segments)
+        if segments:
+            print("Saving final speech segment2.")
             self.save_speech_segment()
         
-        # Save the complete recording
+        print("Attempting to save complete recording.")
         if not segments:
+            print("Saving complete recording.")
             self.save_complete_recording()
 
+        print("Clearing audio queue.")
         self.audio_queue.queue.clear()
         
         print("Recording stopped.")
 
     def cleanup(self):
-        """
-        Stops and cleans up the audio recording stream.
-        
-        Stops the stream, closes it, sets recording flag to False, and clears the audio queue.
-        """
-        self.stream.stop()
-        self.stream.close()
+        """Clean up PyAudio resources"""
+        if hasattr(self, 'stream'):
+            self.stream.stop_stream()
+            self.stream.close()
+        self.p.terminate()
         self.is_recording = False
         self.audio_queue.queue.clear()
