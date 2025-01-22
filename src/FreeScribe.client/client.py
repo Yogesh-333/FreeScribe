@@ -316,29 +316,59 @@ def start_record_button():
     # if realtime 
     if app_settings.editable_settings["Real Time"]:
         def process_segment(segment):
-            #Send segment to whisper
-            transcript = faster_whisper_transcribe(segment)
+            if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
+                print("Local Real Time Whisper")
+                if stt_local_model is None:
+                    update_gui("Local Whisper model not loaded. Attempting to load now.")
+                    load_stt_model()
+                    return
+                try:
+                    result = faster_whisper_transcribe(segment)
+                except Exception as e:
+                    update_gui(f"\nError: {e}\n")
 
-            # Update the UI with the transcribed text
-            user_input.scrolled_text.configure(state='normal')
-            user_input.scrolled_text.insert(tk.END, transcript)
-            user_input.scrolled_text.configure(state='disabled')
-            user_input.scrolled_text.see(tk.END)
+                if not is_audio_processing_realtime_canceled.is_set():
+                    update_gui(result)
+            else:
+                print("Remote Real Time Whisper")
+                with wave.open(get_resource_path("realtime.wav"), 'wb') as wf:
+                    wf.setnchannels(CHANNELS)
+                    wf.setsampwidth(p.get_sample_size(FORMAT))
+                    wf.setframerate(RATE)
+                    wf.writeframes(b''.join(segment))
+                file_to_send = get_resource_path("realtime.wav")
+                with open(file_to_send, 'rb') as f:
+                    files = {'audio': f}
+
+                    headers = {
+                        "Authorization": "Bearer "+app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]
+                    }
+
+                    try:
+                        verify = not app_settings.editable_settings["S2T Server Self-Signed Certificates"]
+                        response = requests.post(app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value], headers=headers,files=files, verify=verify)
+                        if response.status_code == 200:
+                            text = response.json()['text']
+                            if is_audio_processing_realtime_canceled.is_set():
+                                update_gui(text)
+                        else:
+                            update_gui(f"Error (HTTP Status {response.status_code}): {response.text}")
+                    except Exception as e:
+                        update_gui(f"Error: {e}")
+                    finally:
+                        #Task done clean up file
+                        if os.path.exists(file_to_send):
+                            f.close()
+                            os.remove(file_to_send)
 
         recorder.set_chunk_callback(process_segment)
         recorder.start_recording(False)  
     else:
         def process_whole(recording):
-            # Send the recording to whisper
-            transcript = faster_whisper_transcribe("./recording.wav")
+            # send audio to server when callback is complete on recording
+            transcribe_thread = threaded_send_audio_to_server()
 
-            # Update the UI with the transcribed text
-            user_input.scrolled_text.configure(state='normal')
-            #clear the text box
-            user_input.scrolled_text.delete("1.0", tk.END)
-            user_input.scrolled_text.insert(tk.END, transcript)
-            user_input.scrolled_text.configure(state='disabled')
-            user_input.scrolled_text.see(tk.END)
+            
             
         recorder.set_chunk_callback(process_whole)
         recorder.start_recording(True)  
@@ -361,6 +391,9 @@ def stop_record_button():
     """
     if app_settings.editable_settings["Real Time"]:
         recorder.stop_recording(True)
+        
+        # SEND THE TRANSCRIPTION TO SOAP NOTE GENERATOR
+        send_and_receive()
     else:
         recorder.stop_recording(False)
 
