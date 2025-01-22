@@ -49,6 +49,7 @@ import gc
 from pathlib import Path
 from WhisperModel import TranscribeError
 from AudioRecorder import AudioRecorder
+import io
 
 
 dual = DualOutput()
@@ -100,7 +101,7 @@ use_aiscribe = True
 is_gpt_button_active = False
 p = pyaudio.PyAudio()
 audio_queue = queue.Queue()
-CHUNK = 1024
+CHUNK = 512
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
@@ -316,12 +317,13 @@ def start_record_button():
     # if realtime 
     if app_settings.editable_settings["Real Time"]:
         def process_segment(segment):
+            print("Processing segment!!!!!!!!!!!!!!!!!!!!")
             if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
                 print("Local Real Time Whisper")
                 if stt_local_model is None:
                     update_gui("Local Whisper model not loaded. Attempting to load now.")
                     load_stt_model()
-                    return
+
                 try:
                     result = faster_whisper_transcribe(segment)
                 except Exception as e:
@@ -331,35 +333,44 @@ def start_record_button():
                     update_gui(result)
             else:
                 print("Remote Real Time Whisper")
-                with wave.open(get_resource_path("realtime.wav"), 'wb') as wf:
+                # Change ndarray to bytes
+                writeable_segment = (segment * 32767).astype(np.int16).tobytes()
+
+                # Create in-memory wave file
+                buffer = io.BytesIO()
+                with wave.open(buffer, 'wb') as wf:
                     wf.setnchannels(CHANNELS)
                     wf.setsampwidth(p.get_sample_size(FORMAT))
                     wf.setframerate(RATE)
-                    wf.writeframes(b''.join(segment))
-                file_to_send = get_resource_path("realtime.wav")
-                with open(file_to_send, 'rb') as f:
-                    files = {'audio': f}
+                    wf.writeframes(writeable_segment)
 
-                    headers = {
-                        "Authorization": "Bearer "+app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]
-                    }
+                # Reset buffer position
+                buffer.seek(0)
 
-                    try:
-                        verify = not app_settings.editable_settings["S2T Server Self-Signed Certificates"]
-                        response = requests.post(app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value], headers=headers,files=files, verify=verify)
-                        if response.status_code == 200:
-                            text = response.json()['text']
-                            if is_audio_processing_realtime_canceled.is_set():
-                                update_gui(text)
-                        else:
-                            update_gui(f"Error (HTTP Status {response.status_code}): {response.text}")
-                    except Exception as e:
-                        update_gui(f"Error: {e}")
-                    finally:
-                        #Task done clean up file
-                        if os.path.exists(file_to_send):
-                            f.close()
-                            os.remove(file_to_send)
+                # Prepare request
+                files = {'audio': ('audio.wav', buffer, 'audio/wav')}
+                headers = {
+                    "Authorization": "Bearer "+app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]
+                }
+
+                try:
+                    verify = not app_settings.editable_settings["S2T Server Self-Signed Certificates"]
+                    response = requests.post(
+                        app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value],
+                        headers=headers,
+                        files=files,
+                        verify=verify
+                    )
+                    if response.status_code == 200:
+                        text = response.json()['text']
+                        if not is_audio_processing_realtime_canceled.is_set():
+                            update_gui(text)
+                    else:
+                        update_gui(f"Error (HTTP Status {response.status_code}): {response.text}")
+                except Exception as e:
+                    update_gui(f"Error: {e}")
+                finally:
+                    buffer.close()
 
         recorder.set_chunk_callback(process_segment)
         recorder.start_recording(False)  
@@ -367,9 +378,7 @@ def start_record_button():
         def process_whole(recording):
             # send audio to server when callback is complete on recording
             transcribe_thread = threaded_send_audio_to_server()
-
-            
-            
+ 
         recorder.set_chunk_callback(process_whole)
         recorder.start_recording(True)  
 
