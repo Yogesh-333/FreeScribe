@@ -397,8 +397,18 @@ def toggle_recording():
         
         start_flashing()
     else:
-        loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), kill_thread(recording_thread.ident), kill_thread(recorder.process_thread.ident)))
-        stop_record_button()
+        stop_thread = threading.Thread(target=stop_record_button)
+        stop_thread.start()
+
+        def cancel_audio_proc():
+            kill_thread(stop_thread.ident)
+            cancel_processing()
+            kill_thread(recorder.process_thread.ident)
+            kill_thread(recording_thread.ident)
+            recorder.cleanup()
+
+        loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=cancel_audio_proc)
+        stop_thread.join()
         enable_recording_ui_elements()
         is_recording = False
         loading_window.destroy()
