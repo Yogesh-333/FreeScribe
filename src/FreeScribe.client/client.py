@@ -339,6 +339,8 @@ def start_record_button():
 
             # Update the UI with the transcribed text
             user_input.scrolled_text.configure(state='normal')
+            #clear the text box
+            user_input.scrolled_text.delete("1.0", tk.END)
             user_input.scrolled_text.insert(tk.END, transcript)
             user_input.scrolled_text.configure(state='disabled')
             user_input.scrolled_text.see(tk.END)
