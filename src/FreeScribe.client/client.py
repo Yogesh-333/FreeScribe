@@ -315,8 +315,6 @@ def start_record_button():
     """
     # if realtime 
     if app_settings.editable_settings["Real Time"]:
-        print("realtime transcription")
-
         def process_segment(segment):
             #Send segment to whisper
             transcript = faster_whisper_transcribe(segment)
@@ -330,12 +328,9 @@ def start_record_button():
         recorder.set_chunk_callback(process_segment)
         recorder.start_recording(False)  
     else:
-        print("Whole text transcription ")
         def process_whole(recording):
-            print("Processing whole audio")
             # Send the recording to whisper
             transcript = faster_whisper_transcribe("./recording.wav")
-            print("transcript: ", transcript)
 
             # Update the UI with the transcribed text
             user_input.scrolled_text.configure(state='normal')
@@ -364,7 +359,6 @@ def stop_record_button():
 
     The mode is determined by ``app_settings.editable_settings["Real Time"]`` value.
     """
-    print("stop recording")
     if app_settings.editable_settings["Real Time"]:
         recorder.stop_recording(True)
     else:
@@ -403,7 +397,7 @@ def toggle_recording():
         
         start_flashing()
     else:
-        loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_realtime_processing(REALTIME_TRANSCRIBE_THREAD_ID)))
+        loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), kill_thread(recording_thread.ident), kill_thread(recorder.process_thread.ident)))
         stop_record_button()
         enable_recording_ui_elements()
         is_recording = False
