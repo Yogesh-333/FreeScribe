@@ -50,6 +50,7 @@ from utils.OneInstance import OneInstance
 from UI.DebugWindow import DualOutput
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
 from WhisperModel import TranscribeError
+from deepmultilingualpunctuation import PunctuationModel
 
 
 
@@ -398,7 +399,10 @@ def save_audio():
             wf.writeframes(b''.join(frames))
         frames = []  # Clear recorded data
 
+    restorer = PunctuationModel()
+
     if app_settings.editable_settings["Real Time"] == True and is_audio_processing_realtime_canceled.is_set() is False:
+        restorer.restore_punctuation(restorer)
         send_and_receive()
     elif app_settings.editable_settings["Real Time"] == False and is_audio_processing_whole_canceled.is_set() is False:
         threaded_send_audio_to_server()
@@ -656,6 +660,8 @@ def send_audio_to_server():
 
     loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_whole_audio_process(current_thread_id)))
 
+    restorer = PunctuationModel()
+
     # Check if SettingsKeys.LOCAL_WHISPER is enabled in the editable settings
     if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
         # Inform the user that SettingsKeys.LOCAL_WHISPER.value is being used for transcription
@@ -679,6 +685,8 @@ def send_audio_to_server():
                 result = f"An error occurred ({type(e).__name__}): {e}"
 
             transcribed_text = result
+
+            transcribed_text = restorer.restore_punctuation(transcribed_text)
 
             # done with file clean up
             if os.path.exists(file_to_send) and delete_file is True:
@@ -761,6 +769,7 @@ def send_audio_to_server():
                 if not is_audio_processing_whole_canceled.is_set():
                     # Update the UI with the transcribed text
                     transcribed_text = response.json()['text']
+                    transcribed_text = restorer.restore_punctuation(transcribed_text)
                     user_input.scrolled_text.configure(state='normal')
                     user_input.scrolled_text.delete("1.0", tk.END)
                     user_input.scrolled_text.insert(tk.END, transcribed_text)
