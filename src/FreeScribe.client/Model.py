@@ -29,7 +29,7 @@ class Model:
         self,
         model_path: str,
         chat_template: str = None,
-        context_size: int = 4096,
+        context_size: int = 8192,
         gpu_layers: int = -1,  # -1 means load all layers to GPU
         main_gpu: int = 0,     # Primary GPU device index
         tensor_split: Optional[list] = None,  # For multi-GPU setup
@@ -204,7 +204,7 @@ class ModelManager:
             model_path = f"./models/{model_to_use}"
             try:
                 ModelManager.local_model = Model(model_path,
-                    context_size=4096,
+                    context_size=8192,
                     gpu_layers=gpu_layers,
                     main_gpu=0,
                     n_batch=512,
