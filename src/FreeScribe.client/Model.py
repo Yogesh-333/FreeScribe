@@ -7,7 +7,7 @@ import tkinter.messagebox as messagebox
 from UI.SettingsConstant import SettingsKeys
 
 
-DEFAULT_CONTEXT_WINDOW_SIZE = 8192
+DEFAULT_CONTEXT_WINDOW_SIZE = 6000
 
 
 class Model:
@@ -67,6 +67,7 @@ class Model:
                 seed=seed,
                 tensor_split=tensor_split,
                 chat_format=chat_template,
+                logits_all=True,
             )
         
             # Store configuration
@@ -101,6 +102,11 @@ class Model:
         Returns:
             Generated text response
         """
+        import logging
+        import time
+
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
         try:
             # Generate response using the model
 
@@ -110,19 +116,27 @@ class Model:
                 "content": prompt}
             ]
 
+            time_start = time.monotonic()
             response = self.model.create_chat_completion(
                 messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=top_p,
                 repeat_penalty=repeat_penalty,
+                logprobs=True,
+                top_logprobs=1,
             )
+
+            logger.debug(f"*** llama cpp response generated in {time.monotonic() - time_start} sec ***")
+            logger.debug(f"{response}")
+            logger.debug(f"avg logprob {sum(response['choices'][0]['logprobs']['token_logprobs']) / len(response['choices'][0]['logprobs']['token_logprobs'])}")
 
             # reset the model tokens
             self.model.reset()
             return response["choices"][0]["message"]["content"]
-            
+
         except Exception as e:
+            logger.exception('')
             print(f"GPU inference error ({e.__class__.__name__}): {str(e)}")
             return f"({e.__class__.__name__}): {str(e)}"
 
