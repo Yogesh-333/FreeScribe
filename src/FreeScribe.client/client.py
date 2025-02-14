@@ -2014,16 +2014,17 @@ def await_models(timeout_length=60):
     if not whisper_loaded or not llm_loaded:
         print("Waiting for models to load...")
 
-        # if error null out the model
-        if ModelManager.local_model == ModelStatus.ERROR:
-            ModelManager.local_model = None
-
         # override the lock in case something else tried to edit
         window.disable_settings_menu()
 
         root.after(100, await_models)
     else:
         print("*** Models loaded successfully on startup.")
+
+        # if error null out the model
+        if ModelManager.local_model == ModelStatus.ERROR:
+            ModelManager.local_model = None
+
         window.enable_settings_menu()
 
 root.after(100, await_models)
