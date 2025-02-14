@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from utils.file_utils import get_file_path
+import utils.system
 
 class LoadingWindow:
     """
@@ -78,8 +79,19 @@ class LoadingWindow:
                 self.popup.transient(parent)
                 
                 # Disable the parent window
-                parent.wm_attributes('-disabled', True)
-
+                # Os check because -disabled is unavail on macos
+                if utils.system.is_windows():
+                    parent.wm_attributes('-disabled', True)
+                elif utils.system.is_macos():
+                    # if not windows take a different approach 
+                    # Make window modal on macOS
+                    self.popup.transient(parent)
+                    self.popup.grab_set()
+                    
+                    # Set window to stay on top (macOS modal behavior)
+                    self.popup.attributes('-topmost', True)
+                # todo: add linux support
+                    
             # Use label and progress bar
             self.label = tk.Label(self.popup, text=initial_text)
             self.label.pack(pady=(10,5))
@@ -104,7 +116,15 @@ class LoadingWindow:
         except Exception:
             # Enable the window on exception
             if parent:
-                parent.wm_attributes('-disabled', False)
+                if utils.system.is_windows():
+                    parent.wm_attributes('-disabled', False)
+                elif utils.system.is_macos():
+                    # macos/linux
+                    # Release modal state
+                    self.popup.grab_release()
+                    # Destroy child window
+                    self.popup.destroy()
+                #TODO: Add linux support
             raise
 
     def _handle_cancel(self):
@@ -144,8 +164,12 @@ class LoadingWindow:
         if self.popup:
             # Enable the parent window
             if self.parent:
-                self.parent.wm_attributes('-disabled', False)
-            
+                if utils.system.is_windows():
+                    self.parent.wm_attributes('-disabled', False)
+                elif utils.system.is_macos():
+                    self.popup.grab_release()
+                #TODO: Add linux support
+
             if self.progress.winfo_exists():
                 self.progress.stop()
 
