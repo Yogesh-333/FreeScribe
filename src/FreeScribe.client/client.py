@@ -49,6 +49,7 @@ from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
 from utils.utils import get_application_version
+import utils.system
 from UI.DebugWindow import DualOutput
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
@@ -87,6 +88,9 @@ if app_manager.run():
 else:
     root = tk.Tk()
     root.title(APP_NAME)
+
+if utils.system.is_macos():
+    utils.system.install_macos_ssl_certificates()
     
 def delete_temp_file(filename):
     """

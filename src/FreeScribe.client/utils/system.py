@@ -12,6 +12,9 @@ Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 """
 
 import platform
+import certifi
+import sys
+import os
 
 def is_macos():
     """
@@ -39,3 +42,15 @@ def is_linux():
     """
     
     return platform.system() == "Linux"
+
+def install_macos_ssl_certificates():
+    """
+    Install the SSL certificates for macOS.
+
+    This function is necessary to ensure that the requests library can make HTTPS requests on macOS.
+    """
+    abspath_to_certifi_cafile = os.path.abspath(certifi.where())
+    os.environ['SSL_CERT_FILE'] = abspath_to_certifi_cafile
+    os.environ['REQUESTS_CA_BUNDLE'] = abspath_to_certifi_cafile
+    if getattr(sys, 'frozen', False):  # Check if running as a bundled app in macOS
+        os.environ["PATH"] = os.path.join(sys._MEIPASS, 'ffmpeg')+ os.pathsep + os.environ["PATH"]
