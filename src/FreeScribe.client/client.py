@@ -87,6 +87,9 @@ if app_manager.run():
     sys.exit(1)
 else:
     root = tk.Tk()
+    if utils.system.is_macos():
+        # Set the appearance of the window to Aqua on macOS (Light Mode)
+        root.tk.call('::tk::unsupported::MacWindowStyle', 'appearance', root, 'aqua')
     root.title(APP_NAME)
 
 if utils.system.is_macos():

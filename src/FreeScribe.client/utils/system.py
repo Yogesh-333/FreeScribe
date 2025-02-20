@@ -54,3 +54,4 @@ def install_macos_ssl_certificates():
     os.environ['REQUESTS_CA_BUNDLE'] = abspath_to_certifi_cafile
     if getattr(sys, 'frozen', False):  # Check if running as a bundled app in macOS
         os.environ["PATH"] = os.path.join(sys._MEIPASS, 'ffmpeg')+ os.pathsep + os.environ["PATH"]
+        
