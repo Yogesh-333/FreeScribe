@@ -18,7 +18,6 @@ class SettingsKeys(Enum):
     WHISPER_LANGUAGE_CODE = "Whisper Language Code"
     S2T_SELF_SIGNED_CERT = "S2T Server Self-Signed Certificates"
     LLM_ARCHITECTURE = "Built-in AI Architecture"
-    USE_PRESCREEN_AI_INPUT = "Use Pre-Screen AI Input"
     LOCAL_LLM = "Built-in AI Processing"
     LOCAL_LLM_MODEL = "AI Model"
     LOCAL_LLM_CONTEXT_WINDOW = "AI Context Window"

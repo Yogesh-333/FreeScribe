@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from utils.file_utils import get_file_path
+import utils.system
+import UI.Helpers
 
 class LoadingWindow:
     """
@@ -78,8 +80,8 @@ class LoadingWindow:
                 self.popup.transient(parent)
                 
                 # Disable the parent window
-                parent.wm_attributes('-disabled', True)
-
+                UI.Helpers.disable_parent_window(parent, self.popup)
+                
             # Use label and progress bar
             self.label = tk.Label(self.popup, text=initial_text)
             self.label.pack(pady=(10,5))
@@ -104,7 +106,7 @@ class LoadingWindow:
         except Exception:
             # Enable the window on exception
             if parent:
-                parent.wm_attributes('-disabled', False)
+                UI.Helpers.enable_parent_window(parent, self.popup)
             raise
 
     def _handle_cancel(self):
@@ -144,8 +146,8 @@ class LoadingWindow:
         if self.popup:
             # Enable the parent window
             if self.parent:
-                self.parent.wm_attributes('-disabled', False)
-            
+                UI.Helpers.enable_parent_window(self.parent, self.popup)
+
             if self.progress.winfo_exists():
                 self.progress.stop()
 

@@ -13,7 +13,7 @@ Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 
 import tkinter as tk
 import platform
-from ctypes import windll
+import ctypes
 from utils.decorators import windows_only
 
 @windows_only
@@ -42,7 +42,7 @@ def remove_min_max(window):
     WS_MAXIMIZEBOX = 0x00010000
 
     # Get current window style
-    style = windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+    style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
 
     # Remove minimize and maximize box styles
     style &= ~WS_MINIMIZEBOX
@@ -50,8 +50,8 @@ def remove_min_max(window):
 
     # Apply the new style
     # 0x0027 = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAME
-    windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style)
-    windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 
+    ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+    ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 
                                0x0027)
 
 @windows_only
@@ -73,14 +73,14 @@ def add_min_max(window):
         This function requires the windll module from ctypes and only works on Windows systems.
         The window style changes are applied immediately.
     """
-    hwnd = windll.user32.GetParent(window.winfo_id())
+    hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
 
     GWL_STYLE = -16
     WS_MINIMIZEBOX = 0x00020000
     WS_MAXIMIZEBOX = 0x00010000
 
     # Get current window style
-    style = windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+    style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
 
     # Add minimize and maximize box styles back
     style |= WS_MINIMIZEBOX
@@ -88,6 +88,6 @@ def add_min_max(window):
 
     # Apply the new style
     # 0x0027 = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAME
-    windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style)
-    windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 
+    ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+    ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 
                                0x0027)
