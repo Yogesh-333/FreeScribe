@@ -31,6 +31,7 @@ def get_selected_whisper_architecture(app_settings):
 
     return device_type
 
+
 def load_stt_model(event=None, app_settings=None):
     """
     Initialize speech-to-text model loading in a separate thread.
@@ -195,6 +196,7 @@ def faster_whisper_transcribe(audio, app_settings):
         error_message = f"Transcription failed: {str(e)}"
         print(f"Error during transcription: {str(e)}")
         raise TranscribeError(error_message) from e
+
 
 def is_whisper_valid():
     """
