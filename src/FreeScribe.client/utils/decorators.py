@@ -25,9 +25,6 @@ def windows_only(func):
         The wrapped function that only executes on Windows
     """
     def wrapper(*args, **kwargs):
-        print("TESTeST TEST")
-        print(platform.system())
-        print(utils.system.is_windows())
         if not utils.system.is_windows():
             print("This feature is only supported on Windows.")
             return
