@@ -2,11 +2,11 @@
 This software is released under the AGPL-3.0 license
 Copyright (c) 2023-2024 Braedon Hendy
 
-Further updates and packaging added in 2024 through the ClinicianFOCUS initiative, 
-a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied 
-Learning and Technology as part of the CNERG+ applied research project, 
-Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform". 
-Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner), 
+Further updates and packaging added in 2024 through the ClinicianFOCUS initiative,
+a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied
+Learning and Technology as part of the CNERG+ applied research project,
+Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform".
+Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner),
 and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and Naitik Patel.
 
 """
@@ -32,7 +32,7 @@ import torch
 import pyaudio
 import requests
 import pyperclip
-import speech_recognition as sr # python package is named speechrecognition
+import speech_recognition as sr  # python package is named speechrecognition
 import scrubadub
 import numpy as np
 import tkinter as tk
@@ -44,7 +44,7 @@ from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures
 from UI.Widgets.CustomTextBox import CustomTextBox
 from UI.LoadingWindow import LoadingWindow
-from Model import  ModelManager
+from Model import ModelManager
 from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
@@ -95,7 +95,8 @@ else:
 
 if utils.system.is_macos():
     utils.system.install_macos_ssl_certificates()
-    
+
+
 def delete_temp_file(filename):
     """
     Deletes a temporary file if it exists.
@@ -111,10 +112,12 @@ def delete_temp_file(filename):
         except OSError as e:
             print(f"Error deleting temporary file {filename}: {e}")
 
+
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
     close_mutex()
+
 
 # Register the close_mutex function to be called on exit
 atexit.register(on_closing)
@@ -194,7 +197,7 @@ cancel_await_thread = threading.Event()
 # Constants
 DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
 
-#Thread tracking variables
+# Thread tracking variables
 REALTIME_TRANSCRIBE_THREAD_ID = None
 GENERATION_THREAD_ID = None
 
@@ -227,10 +230,11 @@ def get_prompt(formatted_message):
         "frmtrmblln": app_settings.editable_settings["frmtrmblln"]
     }
 
+
 def threaded_check_stt_model():
     """
     Starts a new thread to check the status of the speech-to-text (STT) model loading process.
-    
+
     A separate thread is spawned to run the `double_check_stt_model_loading` function,
     which monitors the loading of the STT model. The function waits for the task to be completed and
     handles cancellation if requested.
@@ -238,19 +242,20 @@ def threaded_check_stt_model():
     # Create a Boolean variable to track if the task is done/canceled
     task_done_var = tk.BooleanVar(value=False)
     task_cancel_var = tk.BooleanVar(value=False)
-    
+
     # Start a new thread to run the double_check_stt_model_loading function
     stt_thread = threading.Thread(target=double_check_stt_model_loading, args=(task_done_var, task_cancel_var))
     stt_thread.start()
-    
+
     # Wait for the task_done_var to be set to True (indicating task completion)
     root.wait_variable(task_done_var)
-    
+
     # Check if the task was canceled via task_cancel_var
     if task_cancel_var.get():
         logging.debug(f"double checking canceled")
         return False
     return True
+
 
 def threaded_toggle_recording():
     logging.debug(f"*** Toggle Recording - Recording status: {is_recording}, STT local model is {is_whisper_valid()}")
@@ -322,10 +327,12 @@ def threaded_realtime_text():
     thread.start()
     return thread
 
+
 def threaded_handle_message(formatted_message):
     thread = threading.Thread(target=show_edit_transcription_popup, args=(formatted_message,))
     thread.start()
     return thread
+
 
 def threaded_send_audio_to_server():
     thread = threading.Thread(target=send_audio_to_server)
@@ -347,8 +354,10 @@ def toggle_pause():
             pause_button.config(text="Pause", bg=DEFAULT_BUTTON_COLOUR)
         elif current_view == "minimal":
             pause_button.config(text="⏸️", bg=DEFAULT_BUTTON_COLOUR)
-    
-SILENCE_WARNING_LENGTH = 10 # seconds, warn the user after 10s of no input something might be wrong
+
+
+SILENCE_WARNING_LENGTH = 10  # seconds, warn the user after 10s of no input something might be wrong
+
 
 def open_microphone_stream():
     """
@@ -368,11 +377,11 @@ def open_microphone_stream():
     try:
         selected_index = MicrophoneTestFrame.get_selected_microphone_index()
         stream = p.open(
-            format=FORMAT, 
-            channels=1, 
-            rate=RATE, 
+            format=FORMAT,
+            channels=1,
+            rate=RATE,
             input=True,
-            frames_per_buffer=CHUNK, 
+            frames_per_buffer=CHUNK,
             input_device_index=int(selected_index))
 
         return stream, None
@@ -382,9 +391,10 @@ def open_microphone_stream():
         print(f"An error occurred opening the stream({type(e).__name__}): {e}")
         return None, e
 
+
 def record_audio():
     """
-    Records audio from the selected microphone, processes the audio to detect silence, 
+    Records audio from the selected microphone, processes the audio to detect silence,
     and manages the recording state.
 
     Global Variables:
@@ -416,15 +426,16 @@ def record_audio():
                 frames.append(data)
                 # Check for silence
                 audio_buffer = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768
-                
+
                 # convert the setting from str to float
-                try: 
-                    speech_prob_threshold = float(app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value])
+                try:
+                    speech_prob_threshold = float(
+                        app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value])
                 except ValueError:
                     # default it to 0.5 on invalid error
                     speech_prob_threshold = 0.5
-                
-                if is_silent(audio_buffer, speech_prob_threshold ):
+
+                if is_silent(audio_buffer, speech_prob_threshold):
                     silent_duration += CHUNK / RATE
                     silent_warning_duration += CHUNK / RATE
                 else:
@@ -1930,10 +1941,10 @@ def await_models(timeout_length=60):
 
     # wait for both models to be loaded
     if not whisper_loaded or not llm_loaded:
-        # print("Waiting for models to load...")
+        print("Waiting for models to load...")
 
         # override the lock in case something else tried to edit
-        # window.disable_settings_menu()
+        window.disable_settings_menu()
 
         root.after(100, await_models)
     else:
@@ -1948,7 +1959,7 @@ def await_models(timeout_length=60):
 
 root.after(100, await_models)
 
-root.bind("<<LoadSttModel>>", lambda: load_stt_model(app_settings=app_settings))
+root.bind("<<LoadSttModel>>", lambda event: load_stt_model(app_settings=app_settings))
 
 root.mainloop()
 

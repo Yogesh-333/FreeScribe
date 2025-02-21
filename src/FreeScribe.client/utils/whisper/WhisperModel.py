@@ -7,6 +7,7 @@ from UI.SettingsConstant import SettingsKeys, Architectures
 import tkinter.messagebox as messagebox
 import platform
 import utils.system
+import gc
 
 
 stt_local_model = None
