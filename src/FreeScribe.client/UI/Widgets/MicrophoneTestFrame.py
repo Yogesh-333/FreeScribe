@@ -31,6 +31,14 @@ class MicrophoneTestFrame:
         self.stream = None  # Persistent audio stream
         self.is_stream_active = False  # Track if the stream is active
 
+        # Style colours for the volume meter segments
+        self.style_colours = {
+            'green': '#2ecc71',
+            'yellow': '#f1c40f',
+            'red': '#e74c3c',
+            'inactive': '#95a5a6'
+        }
+
         self.setting_window = SettingsWindowUI(self.app_settings, self, self.root)  # Settings window
 
         # Create a frame for the microphone test
@@ -311,14 +319,14 @@ class MicrophoneTestFrame:
                 if i < active_segments:
                     # Adjusted threshold for green
                     if i < self.SEGMENT_COUNT * 0.4:  
-                        segment.configure(bg='#2ecc71')
+                        segment.configure(bg=self.style_colours['green'])
                         # Adjusted threshold for yellow
                     elif i < self.SEGMENT_COUNT * 0.7:
-                        segment.configure(bg='#f1c40f')
+                        segment.configure(bg=self.style_colours['yellow'])
                     else:
-                        segment.configure(bg='#e74c3c')
+                        segment.configure(bg=self.style_colours['red'])
                 else:
-                    segment.configure(bg='#95a5a6')
+                    segment.configure(bg=self.style_colours['inactive'])
 
         except OSError as e:
             # Handle both Stream closed and Unanticipated host error
@@ -332,7 +340,7 @@ class MicrophoneTestFrame:
             self.is_stream_active = False
             self.stream = None
             for segment in self.segments:
-                segment.configure(bg='#95a5a6')
+                segment.configure(bg=self.style_colours['inactive'])
 
         self.frame.after(50, self.update_volume_meter)
 
