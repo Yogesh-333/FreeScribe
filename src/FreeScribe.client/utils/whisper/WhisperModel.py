@@ -42,14 +42,22 @@ def load_model_with_loading_screen(root, app_settings):
     Args:
         root: The root window to bind the loading screen to.
     """
-    loading_window = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text="Loading Speech to Text model. Please wait.",
-                                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience.")
-    thread = load_stt_model(loading_window, app_settings)
-    thread.start()
+    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text="Loading Speech to Text model. Please wait.",
+                                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!")
 
-    thread.join()
-    loading_window.destroy()
-    
+    load_thread = load_stt_model(app_settings=app_settings)
+
+    # wait for load_thread to finish before closing loading screen
+
+    def wait_for_loading_thread():
+        nonlocal load_thread
+        if load_thread.is_alive():
+            root.after(100, wait_for_loading_thread)
+        else:
+            loading_screen.destroy()
+
+    root.after(0, wait_for_loading_thread)
+
 
 def load_stt_model(event=None, app_settings=None):
     """
@@ -67,7 +75,7 @@ def load_stt_model(event=None, app_settings=None):
         raise NotImplementedError(f"Unsupported platform: {platform.system()}")
     thread = threading.Thread(target=load_func, args=(app_settings,))
     thread.start()
-    thread.join()
+    return thread
 
 
 @utils.decorators.macos_only
@@ -79,7 +87,8 @@ def _load_stt_model_macos(app_settings):
 
     torch_dtype = torch.float32
 
-    model_id = utils.whisper.Constants.WhisperModels.find_by_label(app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
+    model_id = utils.whisper.Constants.WhisperModels.find_by_label(
+        app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
 
     print("Loading STT model: ", model_id)
 
@@ -122,7 +131,8 @@ def _load_stt_model_windows(app_settings):
         def on_cancel_whisper_load():
             cancel_await_thread.set()
 
-        model_name = utils.whisper.Constants.WhisperModels.find_by_label(app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
+        model_name = utils.whisper.Constants.WhisperModels.find_by_label(
+            app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
         # stt_loading_window = LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text {model_name} model. Please wait.",
         #                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!", on_cancel=on_cancel_whisper_load)
         # window.disable_settings_menu()
@@ -191,6 +201,7 @@ def faster_whisper_transcribe(audio, app_settings):
     else:
         raise NotImplementedError(f"Unsupported platform: {platform.system()}")
 
+
 @utils.decorators.macos_only
 def _faster_whisper_transcribe_macos(audio, app_settings):
     """
@@ -202,10 +213,10 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     Returns
         str: Transcribed text or error message if transcription fails.
     """
-        # Perform transcription
+    # Perform transcription
     result = stt_local_model(audio)
     return result["text"]
-    
+
 
 @utils.decorators.windows_only
 def _faster_whisper_transcribe_windows(audio, app_settings):
@@ -253,6 +264,7 @@ def _faster_whisper_transcribe_windows(audio, app_settings):
         error_message = f"Transcription failed: {str(e)}"
         print(f"Error during transcription: {str(e)}")
         raise TranscribeError(error_message) from e
+
 
 def is_whisper_valid():
     """
