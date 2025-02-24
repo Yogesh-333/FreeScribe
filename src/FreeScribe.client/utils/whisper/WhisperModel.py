@@ -8,6 +8,7 @@ import tkinter.messagebox as messagebox
 import platform
 import utils.system
 import gc
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
 
 stt_local_model = None
@@ -54,6 +55,7 @@ def load_stt_model(event=None, app_settings=None):
 
 @utils.decorators.macos_only
 def _load_stt_model_macos(app_settings):
+    global stt_local_model
     # test_audio_path = r"/Users/alex/Downloads/Doctor-Patient Cost of Care Conversation.mp3"
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -79,7 +81,7 @@ def _load_stt_model_macos(app_settings):
         return_timestamps=True,
     )
 
-    local_stt_model = pipe
+    stt_local_model = pipe
 
 
 @utils.decorators.windows_only
@@ -94,8 +96,9 @@ def _load_stt_model_windows(app_settings):
         Exception: Any error that occurs during model loading is caught, logged,
                   and displayed to the user via a message box.
     """
+    global stt_local_model
+
     with stt_model_loading_thread_lock:
-        global stt_local_model
 
         def on_cancel_whisper_load():
             cancel_await_thread.set()
@@ -206,6 +209,7 @@ def is_whisper_valid():
     Returns:
         bool: True if the Whisper model is loaded and valid, False otherwise.
     """
+
     return stt_local_model is not None
 
 

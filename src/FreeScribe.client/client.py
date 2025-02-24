@@ -1941,7 +1941,8 @@ def await_models(timeout_length=60):
 
     # wait for both models to be loaded
     if not whisper_loaded or not llm_loaded:
-        print("Waiting for models to load...")
+        print("Waiting for models to load... Model status:")
+        print(f"Whisper: {whisper_loaded}, LLM: {llm_loaded}")
 
         # override the lock in case something else tried to edit
         window.disable_settings_menu()
