@@ -9,7 +9,7 @@ import platform
 import utils.system
 import gc
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-
+import utils.whisper.Constants
 
 stt_local_model = None
 
@@ -62,7 +62,9 @@ def _load_stt_model_macos(app_settings):
 
     torch_dtype = torch.float32
 
-    model_id = "openai/whisper-medium.en"
+    model_id = utils.whisper.Constants.WhisperModels.find_by_label(app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
+
+    print("Loading STT model: ", model_id)
 
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
         model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
@@ -103,7 +105,7 @@ def _load_stt_model_windows(app_settings):
         def on_cancel_whisper_load():
             cancel_await_thread.set()
 
-        model_name = app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value].strip()
+        model_name = utils.whisper.Constants.WhisperModels.find_by_label(app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
         # stt_loading_window = LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text {model_name} model. Please wait.",
         #                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!", on_cancel=on_cancel_whisper_load)
         # window.disable_settings_menu()

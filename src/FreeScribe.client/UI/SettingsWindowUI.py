@@ -213,14 +213,6 @@ class SettingsWindowUI:
             # If not in list then just force set text
             self.whisper_models_drop_down.set(self.settings.editable_settings[SettingsKeys.WHISPER_MODEL.value])
 
-        # First, save the original get method
-        original_get = self.whisper_models_drop_down.get
-
-        # Then define the new get method that uses the original one
-        self.whisper_models_drop_down.get = lambda: utils.whisper.Constants.WhisperModels.find_by_label(
-            original_get()
-        ).get_platform_value()
-
         self.settings.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value] = self.whisper_models_drop_down
 
         # create the whisper model dropdown slection
