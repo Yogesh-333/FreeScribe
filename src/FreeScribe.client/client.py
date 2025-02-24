@@ -59,7 +59,7 @@ from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
-from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock
+from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen
 
 
 if os.environ.get("FREESCRIBE_DEBUG"):
@@ -308,7 +308,7 @@ def double_check_stt_model_loading(task_done_var, task_cancel_var):
         # double check
         if is_whisper_valid():
             # mandatory loading, synchronous
-            t = load_stt_model(app_settings=app_settings)
+            t = load_model_with_loading_screen(root=root, app_settings=app_settings)
             t.join()
 
     except Exception as e:
@@ -1902,7 +1902,7 @@ if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
 if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
     # Inform the user that Local Whisper is being used for transcription
     print("Using Local Whisper for transcription.")
-    root.after(100, lambda: (load_stt_model(app_settings=app_settings)))
+    root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
 
 # wait for both whisper and llm to be loaded before unlocking the settings button
 
@@ -1960,7 +1960,7 @@ def await_models(timeout_length=60):
 
 root.after(100, await_models)
 
-root.bind("<<LoadSttModel>>", lambda event: load_stt_model(app_settings=app_settings))
+root.bind("<<LoadSttModel>>", lambda event: load_model_with_loading_screen(root=root, app_settings=app_settings))
 
 root.mainloop()
 

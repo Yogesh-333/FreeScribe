@@ -10,6 +10,7 @@ import utils.system
 import gc
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import utils.whisper.Constants
+import UI.LoadingWindow
 
 stt_local_model = None
 
@@ -34,6 +35,22 @@ def get_selected_whisper_architecture(app_settings):
     return device_type
 
 
+def load_model_with_loading_screen(root, app_settings):
+    """
+    Initialize speech-to-text model loading in a separate thread.
+
+    Args:
+        root: The root window to bind the loading screen to.
+    """
+    loading_window = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text="Loading Speech to Text model. Please wait.",
+                                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience.")
+    thread = load_stt_model(loading_window, app_settings)
+    thread.start()
+
+    thread.join()
+    loading_window.destroy()
+    
+
 def load_stt_model(event=None, app_settings=None):
     """
     Initialize speech-to-text model loading in a separate thread.
@@ -50,7 +67,7 @@ def load_stt_model(event=None, app_settings=None):
         raise NotImplementedError(f"Unsupported platform: {platform.system()}")
     thread = threading.Thread(target=load_func, args=(app_settings,))
     thread.start()
-    return thread
+    thread.join()
 
 
 @utils.decorators.macos_only
@@ -206,7 +223,7 @@ def _faster_whisper_transcribe_windows(audio, app_settings):
     """
     try:
         if stt_local_model is None:
-            load_stt_model()
+            load_model_with_loading_screen(root=root, app_settings=app_settings)
             raise TranscribeError("Speech2Text model not loaded. Please try again once loaded.")
 
         # Validate beam_size
