@@ -164,6 +164,40 @@ def faster_whisper_transcribe(audio, app_settings):
 
     Returns:
         str: Transcribed text or error message if transcription fails.
+    """
+    if utils.system.is_windows():
+        return _faster_whisper_transcribe_windows(audio, app_settings)
+    elif utils.system.is_macos():
+        return _faster_whisper_transcribe_macos(audio, app_settings)
+    else:
+        raise NotImplementedError(f"Unsupported platform: {platform.system()}")
+
+@utils.decorators.macos_only
+def _faster_whisper_transcribe_macos(audio, app_settings):
+    """
+    Transcribe audio using the Faster Whisper model.
+
+    Args:
+        audio: Audio data to transcribe.
+
+    Returns
+        str: Transcribed text or error message if transcription fails.
+    """
+        # Perform transcription
+    result = stt_local_model(audio)
+    return result["text"]
+    
+
+@utils.decorators.windows_only
+def _faster_whisper_transcribe_windows(audio, app_settings):
+    """
+    Transcribe audio using the Faster Whisper model.
+
+    Args:
+        audio: Audio data to transcribe.
+
+    Returns:
+        str: Transcribed text or error message if transcription fails.
 
     Raises:
         Exception: Any error during transcription is caught and returned as an error message.
@@ -200,7 +234,6 @@ def faster_whisper_transcribe(audio, app_settings):
         error_message = f"Transcription failed: {str(e)}"
         print(f"Error during transcription: {str(e)}")
         raise TranscribeError(error_message) from e
-
 
 def is_whisper_valid():
     """
