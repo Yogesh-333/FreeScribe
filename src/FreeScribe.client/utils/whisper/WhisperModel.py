@@ -179,6 +179,11 @@ def unload_stt_model():
         # no risk of temporary "stt_local_model in globals() is False" with same gc effect
         stt_local_model = None
         gc.collect()
+
+        if utils.system.is_macos():
+            print("Clearing memory on MacOS.")
+            torch.mps.empty_cache()  # Clear MPS memory (if on macOS)
+
         print("STT model unloaded successfully.")
     else:
         print("STT model is already unloaded.")
