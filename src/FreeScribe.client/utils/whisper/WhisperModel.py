@@ -42,7 +42,10 @@ def load_model_with_loading_screen(root, app_settings):
     Args:
         root: The root window to bind the loading screen to.
     """
-    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text="Loading Speech to Text model. Please wait.",
+
+    model_id = get_model_from_settings(app_settings)
+
+    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text model ({model_id}). Please wait.",
                                                     note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!")
 
     load_thread = load_stt_model(app_settings=app_settings)
@@ -87,8 +90,7 @@ def _load_stt_model_macos(app_settings):
 
     torch_dtype = torch.float32
 
-    model_id = utils.whisper.Constants.WhisperModels.find_by_label(
-        app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
+    model_id = get_model_from_settings(app_settings)
 
     print("Loading STT model: ", model_id)
 
@@ -131,11 +133,7 @@ def _load_stt_model_windows(app_settings):
         def on_cancel_whisper_load():
             cancel_await_thread.set()
 
-        model_name = utils.whisper.Constants.WhisperModels.find_by_label(
-            app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]).get_platform_value()
-        # stt_loading_window = LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text {model_name} model. Please wait.",
-        #                                    note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!", on_cancel=on_cancel_whisper_load)
-        # window.disable_settings_menu()
+        model_name = get_model_from_settings(app_settings)
         print(f"Loading STT model: {model_name}")
 
         try:
@@ -238,10 +236,6 @@ def _faster_whisper_transcribe_windows(audio, app_settings):
         Exception: Any error during transcription is caught and returned as an error message.
     """
     try:
-        if stt_local_model is None:
-            load_model_with_loading_screen(root=root, app_settings=app_settings)
-            raise TranscribeError("Speech2Text model not loaded. Please try again once loaded.")
-
         # Validate beam_size
         try:
             beam_size = int(app_settings.editable_settings[SettingsKeys.WHISPER_BEAM_SIZE.value])
@@ -290,3 +284,16 @@ def is_whisper_lock():
         bool: True if the Whisper model is being loaded, False otherwise.
     """
     return stt_model_loading_thread_lock.locked()
+
+
+def get_model_from_settings(app_settings):
+    """
+    Get the model name from the app settings.
+
+    Returns:
+        str: The model name.
+    """
+
+    label_name = app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]
+
+    return utils.whisper.Constants.WhisperModels.find_by_label(label_name).get_platform_value()
