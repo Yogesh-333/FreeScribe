@@ -1,3 +1,17 @@
+"""
+This software is released under the AGPL-3.0 license
+Copyright (c) 2023-2025 Braedon Hendy
+
+Further updates and packaging added in 2024-2025 through the ClinicianFOCUS initiative,
+a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied
+Learning and Technology as part of the CNERG+ applied research project,
+Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform.
+Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner),
+and Research Students (Software Developers) -
+Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
+"""
+
+
 import utils.decorators
 from faster_whisper import WhisperModel
 import torch
@@ -83,13 +97,21 @@ def load_stt_model(event=None, app_settings=None):
 
 @utils.decorators.macos_only
 def _load_stt_model_macos(app_settings):
-    global stt_local_model
-    # test_audio_path = r"/Users/alex/Downloads/Doctor-Patient Cost of Care Conversation.mp3"
+    """
+    Internal function to load the Whisper speech-to-text model on MacOS.
 
+
+    :param app_settings: The application settings
+    :type app_settings: SettingsWindow
+    """
+    global stt_local_model
+
+    # get the device metal if its avail else use cpu
     device = "mps" if torch.backends.mps.is_available() else "cpu"
 
     torch_dtype = torch.float32
 
+    # Model ID to load and pull from hugging face
     model_id = get_model_from_settings(app_settings)
 
     print("Loading STT model: ", model_id)
