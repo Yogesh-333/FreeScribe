@@ -70,10 +70,7 @@ class WhisperModels(Enum):
         Find a model by its label
         """
 
-        for model in cls:
-            if model.label == label:
-                return model
-        return None
+        return next((model for model in cls if model.label == label), None)
 
     def __str__(self) -> str:
         """
