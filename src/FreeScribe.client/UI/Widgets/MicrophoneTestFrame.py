@@ -31,6 +31,14 @@ class MicrophoneTestFrame:
         self.stream = None  # Persistent audio stream
         self.is_stream_active = False  # Track if the stream is active
 
+        # Style colours for the volume meter segments
+        self.style_colours = {
+            'green': '#2ecc71',
+            'yellow': '#f1c40f',
+            'red': '#e74c3c',
+            'inactive': '#95a5a6'
+        }
+
         self.setting_window = SettingsWindowUI(self.app_settings, self, self.root)  # Settings window
 
         # Create a frame for the microphone test
@@ -100,10 +108,6 @@ class MicrophoneTestFrame:
         style = ttk.Style()
         style.configure('Disabled.TFrame', background='lightgray')  # Gray background for disabled state 
         style.configure('Mic.TCombobox', padding=(5, 5, 5, 5))
-        style.configure('Green.TFrame', background='#2ecc71')
-        style.configure('Yellow.TFrame', background='#f1c40f')
-        style.configure('Red.TFrame', background='#e74c3c')
-        style.configure('Inactive.TFrame', background='#95a5a6')
 
         # Dropdown for microphone selection
         mic_options = [f"{name}" for _, name in self.mic_list]
@@ -147,7 +151,7 @@ class MicrophoneTestFrame:
         self.SEGMENT_COUNT = 20
         self.segments = []
         for i in range(self.SEGMENT_COUNT):
-            segment = ttk.Frame(self.segments_frame, width=10, height=20)
+            segment = tk.Frame(self.segments_frame, width=10, height=20)
             segment.grid(row=0, column=i, padx=1)
             segment.grid_propagate(False)
             self.segments.append(segment)
@@ -315,14 +319,14 @@ class MicrophoneTestFrame:
                 if i < active_segments:
                     # Adjusted threshold for green
                     if i < self.SEGMENT_COUNT * 0.4:  
-                        segment.configure(style='Green.TFrame')
+                        segment.configure(bg=self.style_colours['green'])
                         # Adjusted threshold for yellow
                     elif i < self.SEGMENT_COUNT * 0.7:
-                        segment.configure(style='Yellow.TFrame')
+                        segment.configure(bg=self.style_colours['yellow'])
                     else:
-                        segment.configure(style='Red.TFrame')
+                        segment.configure(bg=self.style_colours['red'])
                 else:
-                    segment.configure(style='Inactive.TFrame')
+                    segment.configure(bg=self.style_colours['inactive'])
 
         except OSError as e:
             # Handle both Stream closed and Unanticipated host error
@@ -336,7 +340,7 @@ class MicrophoneTestFrame:
             self.is_stream_active = False
             self.stream = None
             for segment in self.segments:
-                segment.configure(style='Inactive.TFrame')
+                segment.configure(bg=self.style_colours['inactive'])
 
         self.frame.after(50, self.update_volume_meter)
 
