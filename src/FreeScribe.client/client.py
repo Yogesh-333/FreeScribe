@@ -552,7 +552,7 @@ def realtime_text():
                     files = {'audio': buffer}
 
                     headers = {
-                        "Authorization": "Bearer " + app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]
+                        "Authorization": f"Bearer {app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]}"
                     }
 
                     body = {
