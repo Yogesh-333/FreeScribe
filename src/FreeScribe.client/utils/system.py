@@ -15,6 +15,8 @@ import platform
 import certifi
 import sys
 import os
+from pathlib import Path
+from utils.file_utils import get_file_path, get_resource_path
 
 def is_macos():
     """
@@ -54,4 +56,25 @@ def install_macos_ssl_certificates():
     os.environ['REQUESTS_CA_BUNDLE'] = abspath_to_certifi_cafile
     if getattr(sys, 'frozen', False):  # Check if running as a bundled app in macOS
         os.environ["PATH"] = os.path.join(sys._MEIPASS, 'ffmpeg')+ os.pathsep + os.environ["PATH"]
-        
+
+def set_cuda_paths():
+    """
+    Configure CUDA-related environment variables and paths.
+
+    Sets up the necessary environment variables for CUDA execution when CUDA
+    architecture is selected. Updates CUDA_PATH, CUDA_PATH_V12_4, and PATH
+    environment variables with the appropriate NVIDIA driver paths.
+    """
+    nvidia_base_path = Path(get_file_path('nvidia-drivers'))
+
+    cuda_path = nvidia_base_path / 'cuda_runtime' / 'bin'
+    cublas_path = nvidia_base_path / 'cublas' / 'bin'
+    cudnn_path = nvidia_base_path / 'cudnn' / 'bin'
+
+    paths_to_add = [str(cuda_path), str(cublas_path), str(cudnn_path)]
+    env_vars = ['CUDA_PATH', 'CUDA_PATH_V12_4', 'PATH']
+
+    for env_var in env_vars:
+        current_value = os.environ.get(env_var, '')
+        new_value = os.pathsep.join(paths_to_add + ([current_value] if current_value else []))
+        os.environ[env_var] = new_value
