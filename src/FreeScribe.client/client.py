@@ -76,7 +76,10 @@ sys.stdout = dual
 sys.stderr = dual
 
 APP_NAME = 'AI Medical Scribe'  # Application name
-APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+if utils.system.is_windows():
+    APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+else:
+    APP_TASK_MANAGER_NAME = 'FreeScribe'
 
 # check if another instance of the application is already running.
 # if false, create a new instance of the application
