@@ -1164,14 +1164,18 @@ def send_text_to_localmodel(edited_text):
             timer += 0.1
             time.sleep(0.1)
         
-
-    return ModelManager.local_model.generate_response(
+    response  = ModelManager.local_model.generate_response(
         edited_text,
         max_tokens=int(app_settings.editable_settings["max_length"]),
         temperature=float(app_settings.editable_settings["temperature"]),
         top_p=float(app_settings.editable_settings["top_p"]),
         repeat_penalty=float(app_settings.editable_settings["rep_pen"]),
     )
+
+    if app_settings.is_low_mem_mode():
+        ModelManager.unload_model()
+
+    return response
 
 def screen_input_with_llm(conversation):
     """
@@ -1796,8 +1800,13 @@ def faster_whisper_transcribe(audio):
             vad_filter=vad_filter,
             **additional_kwargs
         )
+        
+        result = "".join(f"{segment.text} " for segment in segments)
 
-        return "".join(f"{segment.text} " for segment in segments)
+        if app_settings.is_low_mem_mode():
+            unload_stt_model()
+        
+        return result 
     except Exception as e:
         error_message = f"Transcription failed: {str(e)}"
         print(f"Error during transcription: {str(e)}")
@@ -1959,15 +1968,17 @@ if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
 
 #Wait for the UI root to be intialized then load the model. If using local llm.
-if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
-    def on_cancel_llm_load():
-        cancel_await_thread.set()
-    root.after(100, lambda:(ModelManager.setup_model(app_settings=app_settings, root=root, on_cancel=on_cancel_llm_load)))
+# Do not load the models if low mem is activated.
+if not app_settings.is_low_mem_mode():
+    if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
+        def on_cancel_llm_load():
+            cancel_await_thread.set()
+        root.after(100, lambda:(ModelManager.setup_model(app_settings=app_settings, root=root, on_cancel=on_cancel_llm_load)))
 
-if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
-    # Inform the user that Local Whisper is being used for transcription
-    print("Using Local Whisper for transcription.")
-    root.after(100, lambda: (load_stt_model()))
+    if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
+        # Inform the user that Local Whisper is being used for transcription
+        print("Using Local Whisper for transcription.")
+        root.after(100, lambda: (load_stt_model()))
 
 # wait for both whisper and llm to be loaded before unlocking the settings button
 def await_models(timeout_length=60):

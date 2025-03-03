@@ -169,6 +169,21 @@ class ModelManager:
     local_model = None
 
     @staticmethod
+    def generate_response(app_settings, *kwargs):
+        """
+        Generate a response using the loaded model.
+
+        This method generates a response based on the current model instance
+        and the provided text prompt. It returns the generated response or an
+        error message if the model is not loaded.
+
+        Returns:
+            Generated text response or error message
+        """
+        
+        if app_settings.
+
+    @staticmethod
     def setup_model(app_settings, root, on_cancel: callable = None):
         """
         Initialize and load the LLM model based on application settings.
