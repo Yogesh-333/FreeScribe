@@ -1978,7 +1978,7 @@ if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
     if popup_box.response == "button_1":
         app_settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value] = True
         app_settings.save_settings_to_file()
-        print("Low Memory Mode Enabled")
+        logging.debug("Low Memory Mode enabled.")
 
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
