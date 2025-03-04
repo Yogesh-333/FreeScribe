@@ -29,7 +29,7 @@ from utils.utils import get_application_version
 from Model import ModelManager
 from utils.ip_utils import is_valid_url
 import multiprocessing
-
+import utils.whisper.Constants
 
 class SettingsWindow():
     """
@@ -109,7 +109,7 @@ class SettingsWindow():
             SettingsKeys.WHISPER_CPU_COUNT.value: multiprocessing.cpu_count(),
             SettingsKeys.WHISPER_VAD_FILTER.value: False,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value: "float16",
-            SettingsKeys.WHISPER_MODEL.value: "medium",
+            SettingsKeys.WHISPER_MODEL.value: utils.whisper.Constants.WhisperModels.SMALL_EN.label,
             "Current Mic": "None",
             SettingsKeys.WHISPER_REAL_TIME.value: True,
             "Real Time Audio Length": 10,
