@@ -15,7 +15,11 @@ import platform
 import certifi
 import sys
 import os
-import psutil   
+import psutil
+
+# Constants
+# Low memory threshold, Amount of ram that defines it low mem in bytes
+LOW_MEM_THRESHOLD = 12e9  # 12 GB
 
 def is_macos():
     """
@@ -72,4 +76,4 @@ def is_system_low_memory():
     :returns bool: True if the system is in low memory mode, False otherwise
     """
     
-    return get_total_system_memory() < 9e9  # 8 GB
+    return get_total_system_memory() < LOW_MEM_THRESHOLD
