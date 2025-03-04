@@ -137,6 +137,7 @@ class SettingsWindow():
             SettingsKeys.WHISPER_LANGUAGE_CODE.value: "None (Auto Detect)",
             SettingsKeys.Enable_Word_Count_Validation.value : True,  # Default to enabled
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
+            SettingsKeys.USE_LOW_MEM_MODE.value: False,
         }
 
     def __init__(self):
@@ -220,6 +221,7 @@ class SettingsWindow():
         self.adv_general_settings = [
             # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
+            SettingsKeys.USE_LOW_MEM_MODE.value,
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
@@ -650,3 +652,12 @@ class SettingsWindow():
         ):
             return True
         return False
+
+    def is_low_mem_mode(self):
+        """
+        Returns the value of the 'Use Low Memory Mode' setting.
+        
+        Returns:
+            bool: The value of the 'Use Low Memory Mode' setting
+        """
+        return self.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value]
