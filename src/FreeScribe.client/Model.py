@@ -6,6 +6,8 @@ from UI.LoadingWindow import LoadingWindow
 import tkinter.messagebox as messagebox
 from UI.SettingsConstant import SettingsKeys, DEFAULT_CONTEXT_WINDOW_SIZE
 from enum import Enum
+import utils.system
+from utils.file_utils import get_resource_path
 
 class ModelStatus(Enum):
     """
@@ -216,8 +218,11 @@ class ModelManager:
                 gpu_layers = -1
 
             model_to_use = "gemma-2-2b-it-Q8_0.gguf"
-                
-            model_path = f"./models/{model_to_use}"
+            if utils.system.is_macos():
+                model_path = get_resource_path(filename=f"models/{model_to_use}", shared=True)
+            else:
+                model_path = f"./models/{model_to_use}"
+
             try:
                 context_size = app_settings.editable_settings.get(SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value) or DEFAULT_CONTEXT_WINDOW_SIZE
                 ModelManager.local_model = Model(

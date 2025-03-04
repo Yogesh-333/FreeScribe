@@ -24,3 +24,4 @@ freescribe-client-nvidia.spec
 scripts/FreeScribeInstaller.exe
 
 _build
+/mac/scripts/preinstall

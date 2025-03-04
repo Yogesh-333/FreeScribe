@@ -15,17 +15,18 @@ def get_file_path(*file_names: str) -> str:
     base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.')
     return os.path.join(base, *file_names)
 
-def get_resource_path(filename: str) -> str:
+def get_resource_path(filename: str, shared: bool = False) -> str:
     """
     Get the path to the files. Use User data directory for bundled apps, otherwise use the current working directory.
 
     :param filename: The name of the file.
+    :param shared: Whether to use the shared directory.
     :type filename: str
     :return: The full path to the file.
     :rtype: str
     """
     if hasattr(sys, '_MEIPASS'):
-        base = _get_user_data_dir()
+        base = _get_user_data_dir(shared)
         freescribe_dir = os.path.join(base, 'FreeScribe')
         
         # Check if the FreeScribe directory exists, if not, create it
@@ -39,10 +40,11 @@ def get_resource_path(filename: str) -> str:
     else:
         return os.path.abspath(filename)
 
-def _get_user_data_dir() -> str:
+def _get_user_data_dir(shared: bool) -> str:
     """
     Get the user data directory for the current platform.
 
+    :param shared: Whether to use the shared directory.
     :return: The path to the user data directory.
     :rtype: str
     """
@@ -51,7 +53,7 @@ def _get_user_data_dir() -> str:
         ctypes.windll.shell32.SHGetFolderPathW(None, 0x001a, None, 0, buf)
         return buf.value
     elif sys.platform == "darwin": # macOS
-        return os.path.expanduser("~/Library/Application Support")
+        return "/Users/Shared/" if shared else os.path.expanduser("~/Library/Application Support")
     else: # Linux
         path = os.environ.get("XDG_DATA_HOME", "")
         if not path.strip():
