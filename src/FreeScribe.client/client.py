@@ -1964,6 +1964,22 @@ root.bind('<Alt-r>', lambda event: mic_button.invoke())
 #set min size
 root.minsize(900, 400)
 
+# ram checkj
+if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
+    logging.warning("System has low memory.")
+
+    popup_box = PopupBox(root, 
+    title="Low Memory Warning", 
+    message="Your system has low memory. Please consider enabling Low Memory Mode in the settings.",
+    button_text_1="Enable",
+    button_text_2="Dismiss",
+    )
+
+    if popup_box.response == "button_1":
+        app_settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value] = True
+        app_settings.save_settings_to_file()
+        print("Low Memory Mode Enabled")
+
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
 
@@ -2014,7 +2030,7 @@ def await_models(timeout_length=60):
         llm_loaded = True
 
     # wait for both models to be loaded
-    if not whisper_loaded or not llm_loaded:
+    if (not whisper_loaded or not llm_loaded ) and not app_settings.is_low_mem_mode():
         print("Waiting for models to load...")
 
         # override the lock in case something else tried to edit

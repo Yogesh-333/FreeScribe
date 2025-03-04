@@ -15,6 +15,7 @@ import platform
 import certifi
 import sys
 import os
+import psutil   
 
 def is_macos():
     """
@@ -55,3 +56,20 @@ def install_macos_ssl_certificates():
     if getattr(sys, 'frozen', False):  # Check if running as a bundled app in macOS
         os.environ["PATH"] = os.path.join(sys._MEIPASS, 'ffmpeg')+ os.pathsep + os.environ["PATH"]
         
+def get_total_system_memory():
+    """
+    Get the total system memory in bytes.
+    
+    :returns int: Total system memory in bytes
+    """
+    print(psutil.virtual_memory().total)
+    return psutil.virtual_memory().total 
+
+def is_system_low_memory():
+    """
+    Check if the system is in low memory mode.
+    
+    :returns bool: True if the system is in low memory mode, False otherwise
+    """
+    
+    return get_total_system_memory() < 9e9  # 8 GB
