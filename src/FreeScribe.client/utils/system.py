@@ -17,6 +17,11 @@ import sys
 import os
 from pathlib import Path
 from utils.file_utils import get_file_path, get_resource_path
+import psutil
+
+# Constants
+# Low memory threshold, Amount of ram that defines it low mem in bytes
+LOW_MEM_THRESHOLD = 12e9  # 12 GB
 
 def is_macos():
     """
@@ -57,6 +62,7 @@ def install_macos_ssl_certificates():
     if getattr(sys, 'frozen', False):  # Check if running as a bundled app in macOS
         os.environ["PATH"] = os.path.join(sys._MEIPASS, 'ffmpeg')+ os.pathsep + os.environ["PATH"]
 
+
 def set_cuda_paths():
     """
     Configure CUDA-related environment variables and paths.
@@ -78,3 +84,22 @@ def set_cuda_paths():
         current_value = os.environ.get(env_var, '')
         new_value = os.pathsep.join(paths_to_add + ([current_value] if current_value else []))
         os.environ[env_var] = new_value
+
+        
+def get_total_system_memory():
+    """
+    Get the total system memory in bytes.
+    
+    :returns int: Total system memory in bytes
+    """
+    return psutil.virtual_memory().total 
+
+  
+def is_system_low_memory():
+    """
+    Check if the system is in low memory mode.
+    
+    :returns bool: True if the system is in low memory mode, False otherwise
+    """
+    
+    return get_total_system_memory() < LOW_MEM_THRESHOLD

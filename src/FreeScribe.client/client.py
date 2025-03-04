@@ -77,7 +77,10 @@ sys.stdout = dual
 sys.stderr = dual
 
 APP_NAME = 'AI Medical Scribe'  # Application name
-APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+if utils.system.is_windows():
+    APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+else:
+    APP_TASK_MANAGER_NAME = 'FreeScribe'
 
 # check if another instance of the application is already running.
 # if false, create a new instance of the application
@@ -1209,8 +1212,8 @@ def send_text_to_localmodel(edited_text):
         while ModelManager.local_model is None and timer < 30:
             timer += 0.1
             time.sleep(0.1)
-
-    return ModelManager.local_model.generate_response(
+       
+    response  = ModelManager.local_model.generate_response(
         edited_text,
         max_tokens=int(app_settings.editable_settings["max_length"]),
         temperature=float(app_settings.editable_settings["temperature"]),
@@ -1218,6 +1221,10 @@ def send_text_to_localmodel(edited_text):
         repeat_penalty=float(app_settings.editable_settings["rep_pen"]),
     )
 
+    if app_settings.is_low_mem_mode():
+        ModelManager.unload_model()
+
+    return response
 
 def screen_input_with_llm(conversation):
     """
@@ -1880,27 +1887,44 @@ root.bind('<Alt-r>', lambda event: mic_button.invoke())
 # set min size
 root.minsize(900, 400)
 
+# ram checkj
+if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
+    logging.warning("System has low memory.")
+
+    popup_box = PopupBox(root, 
+    title="Low Memory Warning", 
+    message="Your system has low memory. Please consider enabling Low Memory Mode in the settings.",
+    button_text_1="Enable",
+    button_text_2="Dismiss",
+    )
+
+    if popup_box.response == "button_1":
+        app_settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value] = True
+        app_settings.save_settings_to_file()
+        logging.debug("Low Memory Mode enabled.")
+
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
 
-# Wait for the UI root to be intialized then load the model. If using local llm.
-if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
-    def on_cancel_llm_load():
-        cancel_await_thread.set()
-    root.after(
-        100,
-        lambda: (
-            ModelManager.setup_model(
-                app_settings=app_settings,
-                root=root,
-                on_cancel=on_cancel_llm_load)))
+#Wait for the UI root to be intialized then load the model. If using local llm.
+# Do not load the models if low mem is activated.
+if not app_settings.is_low_mem_mode():
+    # Wait for the UI root to be intialized then load the model. If using local llm.
+    if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
+        def on_cancel_llm_load():
+            cancel_await_thread.set()
+        root.after(
+            100,
+            lambda: (
+                ModelManager.setup_model(
+                    app_settings=app_settings,
+                    root=root,
+                    on_cancel=on_cancel_llm_load)))
 
-if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
-    # Inform the user that Local Whisper is being used for transcription
-    print("Using Local Whisper for transcription.")
-    root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
-
-# wait for both whisper and llm to be loaded before unlocking the settings button
+    if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
+        # Inform the user that Local Whisper is being used for transcription
+        print("Using Local Whisper for transcription.")
+        root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
 
 
 def await_models(timeout_length=60):
@@ -1936,9 +1960,8 @@ def await_models(timeout_length=60):
         llm_loaded = True
 
     # wait for both models to be loaded
-    if not whisper_loaded or not llm_loaded:
-        print("Waiting for models to load... Model status:")
-        print(f"Whisper: {whisper_loaded}, LLM: {llm_loaded}")
+    if (not whisper_loaded or not llm_loaded ) and not app_settings.is_low_mem_mode():
+        print("Waiting for models to load...")
 
         # override the lock in case something else tried to edit
         window.disable_settings_menu()

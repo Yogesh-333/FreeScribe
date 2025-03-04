@@ -685,7 +685,7 @@ class SettingsWindowUI:
         # unload / reload model after the settings are saved
         if local_model_unload_flag:
             ModelManager.unload_model()
-        if local_model_reload_flag:
+        if local_model_reload_flag and not self.is_low_mem_mode():
             ModelManager.start_model_threaded(self.settings, self.main_window.root)
 
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
