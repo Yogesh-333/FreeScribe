@@ -66,7 +66,6 @@ def get_total_system_memory():
     
     :returns int: Total system memory in bytes
     """
-    print(psutil.virtual_memory().total)
     return psutil.virtual_memory().total 
 
 def is_system_low_memory():
