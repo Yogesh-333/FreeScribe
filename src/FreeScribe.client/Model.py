@@ -10,6 +10,7 @@ import torch
 import utils.system
 from utils.file_utils import get_resource_path
 
+
 class ModelStatus(Enum):
     """
     Enum class for model loading status.

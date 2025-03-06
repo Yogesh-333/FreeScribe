@@ -483,11 +483,10 @@ def check_silence_warning(silence_duration):
 
     # Check if we need to warn if silence is long than warn time
     if silence_duration >= SILENCE_WARNING_LENGTH and window.warning_bar is None and not is_paused:
-        if current_view == "full":
-            window.create_warning_bar(
-                f"No audio input detected for {SILENCE_WARNING_LENGTH} seconds. Please check and ensure your microphone input device is working.")
+        if current_view == "full":            
+            window.create_warning_bar(f"No audio input detected for {SILENCE_WARNING_LENGTH} seconds. Please check and ensure your microphone input device is working.", closeButton=False)
         elif current_view == "minimal":
-            window.create_warning_bar(f"🔇No audio for {SILENCE_WARNING_LENGTH}s.")
+            window.create_warning_bar(f"🔇No audio for {SILENCE_WARNING_LENGTH}s.", closeButton=False)
     elif silence_duration <= SILENCE_WARNING_LENGTH and window.warning_bar is not None:
         # If the warning bar is displayed, remove it
         window.destroy_warning_bar()

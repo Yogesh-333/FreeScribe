@@ -129,7 +129,7 @@ class MainWindowUI:
         self._background_availbility_docker_check()
         self._background_check_container_status(llm_dot, whisper_dot)
 
-    def create_warning_bar(self, text):
+    def create_warning_bar(self, text, closeButton=True):
         """
         Create a warning bar at the bottom of the window to notify the user about microphone issues.
         
@@ -154,15 +154,17 @@ class MainWindowUI:
         )
         text_label.pack(side=tk.LEFT)
 
-        # Add a button to allow users to close the warning bar
-        close_button = tk.Button(
-            self.warning_bar,
-            text="X",
-            command=self.destroy_warning_bar,  # Call the destroy method when clicked
-            foreground="black"
-        )
+        if closeButton :
+            # Add a button to allow users to close the warning bar
+            close_button = tk.Button(
+                self.warning_bar,
+                text="X",
+                command=self.destroy_warning_bar,  # Call the destroy method when clicked
+                foreground="black"
+            )
 
-        close_button.pack(side=tk.RIGHT)
+            close_button.pack(side=tk.RIGHT)
+
 
     def destroy_warning_bar(self):
         """
