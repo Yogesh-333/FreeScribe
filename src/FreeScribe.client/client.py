@@ -1458,7 +1458,6 @@ def generate_note_thread(text: str):
 
     
     loading_window.destroy()
-    loading_window = LoadingWindow(root, "Generating Note.", "Generating Note. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))
 
     loading_window = LoadingWindow(
         root,
