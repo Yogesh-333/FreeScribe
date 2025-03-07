@@ -303,3 +303,5 @@ class ModelManager:
             ModelManager.local_model.model.close()
             del ModelManager.local_model
             ModelManager.local_model = None
+
+        print("*** Unloaded LLM Model")
