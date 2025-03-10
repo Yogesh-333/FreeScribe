@@ -59,7 +59,7 @@ from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
-from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model
+from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 
 
 if os.environ.get("FREESCRIBE_DEBUG"):
@@ -907,10 +907,6 @@ def send_audio_to_server():
 
     # Check if SettingsKeys.LOCAL_WHISPER is enabled in the editable settings
     if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
-        # load stt model for transcription
-        if not is_whisper_valid() and app_settings.is_low_mem_mode():
-            load_model_with_loading_screen(root=root, app_settings=app_settings)
-
         # Inform the user that SettingsKeys.LOCAL_WHISPER.value is being used for transcription
         print(f"Using {SettingsKeys.LOCAL_WHISPER.value} for transcription.")
         # Configure the user input widget to be editable and clear its content
@@ -924,6 +920,16 @@ def send_audio_to_server():
             file_to_send = uploaded_file_path or get_resource_path('recording.wav')
             delete_file = False if uploaded_file_path else True
             uploaded_file_path = None
+
+            # load stt model for transcription
+            if not is_whisper_valid() and app_settings.is_low_mem_mode():
+                model_id = get_model_from_settings(app_settings=app_settings)
+                loading_window = LoadingWindow(root, 
+                title = "Speech to Text model", 
+                initial_text = f"Loading Speech to Text model({model_id}). Please wait.")
+                load_thread = load_stt_model(app_settings=app_settings)
+                load_thread.join()
+                loading_window.destroy()
 
             # Transcribe the audio file using the loaded model
             try:
