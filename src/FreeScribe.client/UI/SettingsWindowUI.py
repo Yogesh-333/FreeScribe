@@ -86,8 +86,13 @@ class SettingsWindowUI:
         """
         self.settings_window = tk.Toplevel()
         self.settings_window.title("Settings")
-        self.settings_window.geometry("775x400")  # Set initial window size
-        self.settings_window.minsize(775, 400)    # Set minimum window size
+        if utils.system.is_windows():
+            self.settings_window.geometry("775x400")  # Set initial window size
+            self.settings_window.minsize(775, 400)    # Set minimum window size
+        else:
+            self.settings_window.geometry("1050x500")
+            self.settings_window.minsize(1050, 500)
+
         self.settings_window.resizable(True, True)
         self.settings_window.grab_set()
         self.settings_window.iconbitmap(get_file_path('assets','logo.ico'))
@@ -535,8 +540,7 @@ class SettingsWindowUI:
             self.advanced_settings_frame,
             text=pre_explanation,
             justify="left",
-            font=("Arial", 9),
-            fg="#272927"
+            font=("Arial", 14),
         ).grid(row=text_row1, column=1, padx=(10, 0), pady=5, sticky="nw")
 
         # Post convo instruction
@@ -557,8 +561,8 @@ class SettingsWindowUI:
             self.advanced_settings_frame,
             text=post_explanation,
             justify="left",           
-            font=("Arial", 9),
-            fg="#272927"
+            font=("Arial", 14),
+
         ).grid(row=text_row2, column=1, padx=(10, 0), pady=5, sticky="nw")
 
         if FeatureToggle.PRE_PROCESSING is True:
@@ -745,15 +749,14 @@ class SettingsWindowUI:
         note_frame.grid(padx=10, pady=5, sticky="w")
 
         # Add the red * label
-        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 10, "bold"))
+        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 12, "bold"))
         star_label.grid(row=0, column=0, sticky="w")
 
         # Add the rest of the text in black (bold and underlined)
         note_label = tk.Label(
             note_frame,
             text=note_text,
-            fg="black",  # Set text color to black
-            font=("Arial", 8, "bold underline"),  # Set font to bold and underlined
+            font=("Arial", 10, "bold"),  # Set font to bold and underlined
             wraplength=400,
             justify="left"
         )
