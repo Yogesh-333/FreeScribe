@@ -755,7 +755,7 @@ class SettingsWindowUI:
         star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", font_size, "bold"))
         star_label.grid(row=0, column=0, sticky="w")
 
-        font_size = 10 if utils.system.is_windows() else 12
+        font_size = 9 if utils.system.is_windows() else 12
         # Add the rest of the text in black (bold and underlined)
         note_label = tk.Label(
             note_frame,
