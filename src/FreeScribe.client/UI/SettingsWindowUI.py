@@ -536,11 +536,13 @@ class SettingsWindowUI:
             "• Conversation will be inserted after this\n\n"
             "⚠️ Modify with caution as it affects AI output quality"
         )
+
+        font_size = 9 if utils.system.is_windows() else 14
         tk.Label(
             self.advanced_settings_frame,
             text=pre_explanation,
             justify="left",
-            font=("Arial", 14),
+            font=("Arial", font_size),
         ).grid(row=text_row1, column=1, padx=(10, 0), pady=5, sticky="nw")
 
         # Post convo instruction
@@ -561,7 +563,7 @@ class SettingsWindowUI:
             self.advanced_settings_frame,
             text=post_explanation,
             justify="left",           
-            font=("Arial", 14),
+            font=("Arial", font_size),
 
         ).grid(row=text_row2, column=1, padx=(10, 0), pady=5, sticky="nw")
 
@@ -748,15 +750,17 @@ class SettingsWindowUI:
         note_frame = tk.Frame(self.general_settings_frame)
         note_frame.grid(padx=10, pady=5, sticky="w")
 
+        font_size = 12 if utils.system.is_windows() else 14
         # Add the red * label
-        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 14, "bold"))
+        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", font_size, "bold"))
         star_label.grid(row=0, column=0, sticky="w")
 
+        font_size = 10 if utils.system.is_windows() else 12
         # Add the rest of the text in black (bold and underlined)
         note_label = tk.Label(
             note_frame,
             text=note_text,
-            font=("Arial", 12, "bold"),  # Set font to bold and underlined
+            font=("Arial", font_size, "bold"),  # Set font to bold and underlined
             wraplength=400,
             justify="left"
         )
