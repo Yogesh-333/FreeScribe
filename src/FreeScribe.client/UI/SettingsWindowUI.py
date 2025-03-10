@@ -756,11 +756,11 @@ class SettingsWindowUI:
         star_label.grid(row=0, column=0, sticky="w")
 
         font_size = 9 if utils.system.is_windows() else 12
-        # Add the rest of the text in black (bold and underlined)
+        # Add the rest of the text in black (bold)
         note_label = tk.Label(
             note_frame,
             text=note_text,
-            font=("Arial", font_size, "bold"),  # Set font to bold and underlined
+            font=("Arial", font_size, "bold"),  # Set font to bold
             wraplength=400,
             justify="left"
         )
