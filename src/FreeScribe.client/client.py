@@ -924,12 +924,12 @@ def send_audio_to_server():
             # load stt model for transcription
             if not is_whisper_valid() and app_settings.is_low_mem_mode():
                 model_id = get_model_from_settings(app_settings=app_settings)
-                loading_window = LoadingWindow(root, 
+                model_load_window = LoadingWindow(root, 
                 title = "Speech to Text model", 
                 initial_text = f"Loading Speech to Text model({model_id}). Please wait.")
                 load_thread = load_stt_model(app_settings=app_settings)
                 load_thread.join()
-                loading_window.destroy()
+                model_load_window.destroy()
 
             # Transcribe the audio file using the loaded model
             try:
