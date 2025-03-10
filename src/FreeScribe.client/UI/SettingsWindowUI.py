@@ -749,14 +749,14 @@ class SettingsWindowUI:
         note_frame.grid(padx=10, pady=5, sticky="w")
 
         # Add the red * label
-        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 12, "bold"))
+        star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 14, "bold"))
         star_label.grid(row=0, column=0, sticky="w")
 
         # Add the rest of the text in black (bold and underlined)
         note_label = tk.Label(
             note_frame,
             text=note_text,
-            font=("Arial", 10, "bold"),  # Set font to bold and underlined
+            font=("Arial", 12, "bold"),  # Set font to bold and underlined
             wraplength=400,
             justify="left"
         )
