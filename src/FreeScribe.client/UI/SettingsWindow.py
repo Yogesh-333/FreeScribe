@@ -284,7 +284,7 @@ class SettingsWindow():
             tuple: A tuple containing the IPs, ports, SSL settings, and API key.
         """
         try:
-            with open(get_resource_path(filename), 'r') as file:
+            with open(get_resource_path(filename, True), 'r') as file:
                 try:
                     settings = json.load(file)
                 except json.JSONDecodeError:
@@ -326,7 +326,7 @@ class SettingsWindow():
             # "api_style": self.API_STYLE # FUTURE FEATURE REVISION
             "app_version": get_application_version()
         }
-        with open(get_resource_path('settings.txt'), 'w') as file:
+        with open(get_resource_path('settings.txt', True), 'w') as file:
             json.dump(settings, file)
 
     def save_settings(self, openai_api_key, aiscribe_text, aiscribe2_text, settings_window,
@@ -358,9 +358,9 @@ class SettingsWindow():
         self.AISCRIBE = aiscribe_text
         self.AISCRIBE2 = aiscribe2_text
 
-        with open(get_resource_path('aiscribe.txt'), 'w') as f:
+        with open(get_resource_path('aiscribe.txt', True), 'w') as f:
             f.write(self.AISCRIBE)
-        with open(get_resource_path('aiscribe2.txt'), 'w') as f:
+        with open(get_resource_path('aiscribe2.txt', True), 'w') as f:
             f.write(self.AISCRIBE2)
 
     def load_aiscribe_from_file(self):
@@ -371,7 +371,7 @@ class SettingsWindow():
         :rtype: str or None
         """
         try:
-            with open(get_resource_path('aiscribe.txt'), 'r') as f:
+            with open(get_resource_path('aiscribe.txt', True), 'r') as f:
                 return f.read()
         except FileNotFoundError:
             return None
@@ -384,7 +384,7 @@ class SettingsWindow():
         :rtype: str or None
         """
         try:
-            with open(get_resource_path('aiscribe2.txt'), 'r') as f:
+            with open(get_resource_path('aiscribe2.txt', True), 'r') as f:
                 return f.read()
         except FileNotFoundError:
             return None
@@ -394,9 +394,9 @@ class SettingsWindow():
         Clears the content of settings files and closes the settings window.
         """
         # Open the files and immediately close them to clear their contents.
-        open(get_resource_path('settings.txt'), 'w').close()  
-        open(get_resource_path('aiscribe.txt'), 'w').close()
-        open(get_resource_path('aiscribe2.txt'), 'w').close()
+        open(get_resource_path('settings.txt', True), 'w').close()
+        open(get_resource_path('aiscribe.txt', True), 'w').close()
+        open(get_resource_path('aiscribe2.txt', True), 'w').close()
         print("Settings file cleared.")
 
     def __keep_network_clear_settings(self):
@@ -590,7 +590,7 @@ class SettingsWindow():
         """
         Create the settings and AI Scribe files if they do not exist.
         """
-        if not os.path.exists(get_resource_path('settings.txt')):
+        if not os.path.exists(get_resource_path('settings.txt', True)):
             architectures = self.get_available_architectures()
             
             # If CUDA is available, set it as the default architecture to save in settings
@@ -602,13 +602,13 @@ class SettingsWindow():
                 print("Settings file not found. Creating default settings file.")
 
             self.save_settings_to_file()
-        if not os.path.exists(get_resource_path('aiscribe.txt')):
+        if not os.path.exists(get_resource_path('aiscribe.txt', True)):
             print("AIScribe file not found. Creating default AIScribe file.")
-            with open(get_resource_path('aiscribe.txt'), 'w') as f:
+            with open(get_resource_path('aiscribe.txt', True), 'w') as f:
                 f.write(self.AISCRIBE)
-        if not os.path.exists(get_resource_path('aiscribe2.txt')):
+        if not os.path.exists(get_resource_path('aiscribe2.txt', True)):
             print("AIScribe2 file not found. Creating default AIScribe2 file.")
-            with open(get_resource_path('aiscribe2.txt'), 'w') as f:
+            with open(get_resource_path('aiscribe2.txt', True), 'w') as f:
                 f.write(self.AISCRIBE2)
 
     def get_available_architectures(self):
