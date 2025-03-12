@@ -244,7 +244,7 @@ class SettingsWindowUI:
                 gpus = GPUtil.getGPUs()
                 for gpu in gpus:
                     vram_gb = max(vram_gb, gpu.memoryTotal / 1024)  # Convert from MB to GB
-            except:
+            except Exception as e:
                 # No GPU or GPUtil failed
                 pass
                 
@@ -311,7 +311,7 @@ class SettingsWindowUI:
             current_model = self.settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]
             # Find the display option that corresponds to the current model
             for display_option in whisper_models_display:
-                if display_option.startswith(current_model + " ") or display_option == current_model:
+                if display_option.startswith(f"{current_model} ") or display_option == current_model:
                     self.whisper_models_drop_down.set(display_option)
                     break
             else:
