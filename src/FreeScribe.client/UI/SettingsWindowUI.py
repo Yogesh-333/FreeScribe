@@ -31,6 +31,8 @@ from UI.MarkdownWindow import MarkdownWindow
 from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle
 from UI.Widgets.PopupBox import PopupBox
+import psutil
+import GPUtil
 
 
 LONG_ENTRY_WIDTH = 30
@@ -176,12 +178,87 @@ class SettingsWindowUI:
 
         return scrollable_frame
 
+    def generate_whisper_model_list(self, system_ram, system_vram):
+        """
+        Generates a list of Whisper models with recommendations based on system capabilities.
+        
+        Args:
+            system_ram (float): Available system RAM in GB
+            system_vram (float): Available system VRAM in GB
+            
+        Returns:
+            tuple: (display_options, actual_values, mapping_dict)
+        """
+        # Define model requirements
+        whisper_models = {
+            "tiny": {"ram": 8, "vram": 0, "display": "tiny"},
+            "tiny.en": {"ram": 8, "vram": 0, "display": "tiny.en"},
+            "base": {"ram": 8, "vram": 0, "display": "base"},
+            "base.en": {"ram": 8, "vram": 0, "display": "base.en"},
+            "small": {"ram": 8, "vram": 0, "display": "small"},
+            "small.en": {"ram": 8, "vram": 0, "display": "small.en"},
+            "medium": {"ram": 16, "vram": 0, "display": "medium"},
+            "medium.en": {"ram": 16, "vram": 0, "display": "medium.en"},
+            "turbo": {"ram": 16, "vram": 6, "display": "turbo"},
+            "large": {"ram": 16, "vram": 10, "display": "large"}
+        }
+        
+        # Create display options with recommendations
+        whisper_models_display = []
+        whisper_models_values = []
+        whisper_model_mapping = {}
+        
+        for model_name, requirements in whisper_models.items():
+            display_name = model_name
+
+            #logic to properly handle CPU-only models
+            ram_sufficient = system_ram >= requirements["ram"]
+            vram_sufficient = requirements["vram"] == 0 or system_vram >= requirements["vram"]
+            
+            if ram_sufficient and vram_sufficient:
+                display_name = f"{model_name} ✓"                
+            else:
+                display_name = f"{model_name} ⚠️"                
+            
+            whisper_models_display.append(display_name)
+            whisper_models_values.append(model_name)
+            whisper_model_mapping[display_name] = model_name
+        
+        return whisper_models_display, whisper_models_values, whisper_model_mapping
+
+    def get_system_memory_info(self):
+        """
+        Gets system RAM and VRAM information in GB.
+        Returns a tuple of (ram_gb, vram_gb)
+        """
+        try:
+            import psutil
+            import GPUtil
+            
+            # Get system RAM
+            ram_gb = psutil.virtual_memory().total / (1024**3)
+            
+            # Get VRAM (if available)
+            vram_gb = 0
+            try:
+                gpus = GPUtil.getGPUs()
+                for gpu in gpus:
+                    vram_gb = max(vram_gb, gpu.memoryTotal / 1024)  # Convert from MB to GB
+            except:
+                # No GPU or GPUtil failed
+                pass
+                
+            return ram_gb, vram_gb
+        except ImportError:
+            # If modules not available, return conservative estimates
+            return 4, 0  # Assume 4GB RAM, no VRAM
+
     def create_whisper_settings(self):
         """
         Creates the Whisper settings UI elements in a two-column layout.
         Settings alternate between left and right columns for even distribution.
+        Displays model recommendations based on system RAM and VRAM.
         """
-
         left_frame = ttk.Frame(self.whisper_settings_frame)
         left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nw")
 
@@ -201,24 +278,55 @@ class SettingsWindowUI:
         left_row += 1
 
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, left_row, right_row, self.settings.whisper_settings)
-        # create the whisper model dropdown slection
+        
+        # Get system RAM and VRAM
+        system_ram, system_vram = self.get_system_memory_info()
+        
+        # Create the whisper model dropdown selection with recommendations
         tk.Label(left_frame, text=SettingsKeys.WHISPER_MODEL.value).grid(row=3, column=0, padx=0, pady=5, sticky="w")
-        whisper_models_drop_down_options = ["medium", "small", "tiny", "tiny.en", "base", "base.en", "small.en", "medium.en", "large"]
-        self.whisper_models_drop_down = ttk.Combobox(left_frame, values=whisper_models_drop_down_options, width=SHORT_ENTRY_WIDTH)
+        
+        # Generate model list with recommendations
+        whisper_models_display, whisper_models_values, whisper_model_mapping = self.generate_whisper_model_list(system_ram, system_vram)
+        
+        # Create a variable to store the selected model value (not display text)
+        self.selected_whisper_model = tk.StringVar()
+        
+        self.whisper_models_drop_down = ttk.Combobox(left_frame, textvariable=self.selected_whisper_model, width=SHORT_ENTRY_WIDTH)
+        self.whisper_models_drop_down['values'] = whisper_models_display
         self.whisper_models_drop_down.grid(row=3, column=1, padx=0, pady=5, sticky="w")
-
+        
+        # Store the mapping from display text to actual model value
+        self.whisper_model_mapping = whisper_model_mapping
+        
+        # Add a trace to update the actual value when selection changes
+        def update_whisper_model_value(*args):
+            display_text = self.whisper_models_drop_down.get()
+            actual_value = self.whisper_model_mapping.get(display_text, display_text.split()[0])
+            self.selected_whisper_model.set(actual_value)
+        
+        self.whisper_models_drop_down.bind("<<ComboboxSelected>>", update_whisper_model_value)
+        
         try:
             # Try to set the whisper model dropdown to the current model
-            self.whisper_models_drop_down.current(whisper_models_drop_down_options.index(self.settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]))
+            current_model = self.settings.editable_settings[SettingsKeys.WHISPER_MODEL.value]
+            # Find the display option that corresponds to the current model
+            for display_option in whisper_models_display:
+                if display_option.startswith(current_model + " ") or display_option == current_model:
+                    self.whisper_models_drop_down.set(display_option)
+                    break
+            else:
+                # If not found, just set the raw value
+                self.whisper_models_drop_down.set(current_model)
         except ValueError:
-            # If not in list then just force set text
-            self.whisper_models_drop_down.set(self.settings.editable_settings[SettingsKeys.WHISPER_MODEL.value])
-
-        self.settings.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value] = self.whisper_models_drop_down
-
-        # create the whisper model dropdown slection
-        right_row += 1
+            # If error, set to first option
+            if whisper_models_display:
+                self.whisper_models_drop_down.set(whisper_models_display[0])
+        
+        # Store the actual model value, not the display text
+        self.settings.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value] = self.selected_whisper_model
+        
         # Whisper Architecture Dropdown
+        right_row += 1
         self.whisper_architecture_label = tk.Label(left_frame, text=SettingsKeys.WHISPER_ARCHITECTURE.value)
         self.whisper_architecture_label.grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
         whisper_architecture_options = self.settings.get_available_architectures()

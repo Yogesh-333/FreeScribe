@@ -67,3 +67,4 @@ llama-cpp-python==v0.2.90
 faster-whisper==1.1.0
 psutil==6.1.0
 Pillow==10.2.0
+gputil==1.4.0
