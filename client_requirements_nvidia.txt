@@ -59,6 +59,7 @@ tqdm==4.66.5
 typing_extensions==4.12.2
 tzdata==2024.2
 tzlocal==5.2
+transformers==4.49.0
 urllib3==2.2.3
 docker==7.1.0
 markdown==3.7

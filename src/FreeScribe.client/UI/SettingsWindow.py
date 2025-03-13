@@ -537,7 +537,7 @@ class SettingsWindow():
         self.main_window = window
 
     def load_or_unload_model(self, old_model, new_model, old_use_local_llm, new_use_local_llm, old_architecture, new_architecture,
-                             old_context_window, new_context_window):
+                             old_context_window, new_context_window, old_low_mem, new_low_mem):
         """
         Determine if the model needs to be loaded or unloaded based on settings changes.
 
@@ -566,6 +566,14 @@ class SettingsWindow():
                  - reload_flag: True if new model should be loaded
         :rtype: tuple(bool, bool)
         """
+        # unload models if low mem is now on
+        if old_low_mem != new_low_mem and new_low_mem == 1:
+            return True, True
+
+        # load models if low mem is turned off
+        if old_low_mem != new_low_mem and new_low_mem == 0:
+            return True, False
+
         # Check if old model and new model are different if they are reload and make sure new model is checked.
         if old_model != new_model and new_use_local_llm == 1:
             return True, True
@@ -637,6 +645,12 @@ class SettingsWindow():
         old_model = self.editable_settings[SettingsKeys.WHISPER_MODEL.value]
         old_cpu_count = self.editable_settings[SettingsKeys.WHISPER_CPU_COUNT.value]
         old_compute_type = self.editable_settings[SettingsKeys.WHISPER_COMPUTE_TYPE.value]
+
+        new_low_mem = self.editable_settings_entries[SettingsKeys.USE_LOW_MEM_MODE.value].get()
+
+        # IF unchecked then we need to load the model
+        if not new_low_mem:
+            return True
 
         # loading the model after the window is closed to prevent the window from freezing
         # if Local Whisper is selected, compare the old model with the new model and reload the model if it has changed

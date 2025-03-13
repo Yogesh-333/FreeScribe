@@ -59,7 +59,7 @@ from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
-from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen
+from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 
 
 if os.environ.get("FREESCRIBE_DEBUG"):
@@ -588,6 +588,10 @@ def realtime_text():
                         # close buffer. we dont need it anymore
                         buffer.close()
             audio_queue.task_done()
+
+        # unload thestt model on low mem mode
+        if app_settings.is_low_mem_mode():
+            unload_stt_model()  
     else:
         is_realtimeactive = False
 
@@ -628,6 +632,12 @@ def toggle_recording():
     realtime_thread = threaded_realtime_text()
 
     if not is_recording:
+        #load the stt model for transcription
+        if not is_whisper_valid() and app_settings.is_low_mem_mode():
+            loading_screen = LoadingWindow(root, "Loading Speech to Text model", "Loading Speech to Text model. Please wait.")
+            load_stt_model(app_settings=app_settings)
+            loading_screen.destroy()
+            
         disable_recording_ui_elements()
         REALTIME_TRANSCRIBE_THREAD_ID = realtime_thread.ident
         user_input.scrolled_text.configure(state='normal')
@@ -911,11 +921,24 @@ def send_audio_to_server():
             delete_file = False if uploaded_file_path else True
             uploaded_file_path = None
 
+            # load stt model for transcription
+            if not is_whisper_valid() and app_settings.is_low_mem_mode():
+                model_id = get_model_from_settings(app_settings=app_settings)
+                model_load_window = LoadingWindow(root, 
+                title = "Speech to Text model", 
+                initial_text = f"Loading Speech to Text model({model_id}). Please wait.")
+                load_thread = load_stt_model(app_settings=app_settings)
+                load_thread.join()
+                model_load_window.destroy()
+
             # Transcribe the audio file using the loaded model
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
             except Exception as e:
                 result = f"An error occurred ({type(e).__name__}): {e}"
+            finally:
+                if app_settings.is_low_mem_mode():
+                    unload_stt_model()
 
             transcribed_text = result
 
@@ -1458,7 +1481,6 @@ def generate_note_thread(text: str):
 
     
     loading_window.destroy()
-    loading_window = LoadingWindow(root, "Generating Note.", "Generating Note. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))
 
     loading_window = LoadingWindow(
         root,

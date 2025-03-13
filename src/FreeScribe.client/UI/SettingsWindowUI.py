@@ -31,6 +31,7 @@ from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle
 from UI.Widgets.PopupBox import PopupBox
 import utils.whisper.Constants
+from utils.whisper.WhisperModel import unload_stt_model
 
 LONG_ENTRY_WIDTH = 30
 SHORT_ENTRY_WIDTH = 20
@@ -653,6 +654,8 @@ class SettingsWindowUI:
             self.architecture_dropdown.get(),
             self.settings.editable_settings[SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value],
             self.settings.editable_settings_entries[SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value].get(),
+            self.settings.editable_settings_entries[SettingsKeys.USE_LOW_MEM_MODE.value].get(),
+            self.settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value]
         )
 
         if self.get_selected_model() not in ["Loading models...", "Failed to load models"]:
@@ -685,8 +688,13 @@ class SettingsWindowUI:
         # unload / reload model after the settings are saved
         if local_model_unload_flag:
             ModelManager.unload_model()
-        if local_model_reload_flag and not self.is_low_mem_mode():
+        if local_model_reload_flag:
             ModelManager.start_model_threaded(self.settings, self.main_window.root)
+
+        # check if we should unload the model
+        # unload models if low mem is now on
+        if self.settings.editable_settings_entries[SettingsKeys.USE_LOW_MEM_MODE.value].get():
+            unload_stt_model()
 
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
             self.main_window.create_docker_status_bar()
