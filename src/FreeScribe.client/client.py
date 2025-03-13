@@ -1469,18 +1469,9 @@ def generate_note_thread(text: str):
         # display the popup
         if display_screening_popup() is False:
             return
-
     
     loading_window.destroy()
 
-    loading_window = LoadingWindow(
-        root,
-        "Generating Note.",
-        "Generating Note. Please wait.",
-        on_cancel=lambda: (
-            cancel_note_generation(
-                GENERATION_THREAD_ID,
-                screen_thread)))
 
     thread = threading.Thread(target=generate_note, args=(text,))
     thread.start()
