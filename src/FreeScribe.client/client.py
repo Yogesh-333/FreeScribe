@@ -91,9 +91,6 @@ if app_manager.run():
     sys.exit(1)
 else:
     root = tk.Tk()
-    if utils.system.is_macos():
-        # Set the appearance of the window to Aqua on macOS (Light Mode)
-        root.tk.call('::tk::unsupported::MacWindowStyle', 'appearance', root, 'aqua')
     root.title(APP_NAME)
 
 if utils.system.is_macos():
@@ -646,7 +643,6 @@ def toggle_recording():
             user_input.scrolled_text.insert(tk.END, "Recording")
         response_display.scrolled_text.configure(state='normal')
         response_display.scrolled_text.delete("1.0", tk.END)
-        response_display.scrolled_text.configure(fg='black')
         response_display.scrolled_text.configure(state='disabled')
         is_recording = True
 
@@ -840,7 +836,6 @@ def clear_all_text_fields():
     response_display.scrolled_text.configure(state='normal')
     response_display.scrolled_text.delete("1.0", tk.END)
     response_display.scrolled_text.insert(tk.END, "Medical Note")
-    response_display.scrolled_text.config(fg='grey')
     response_display.scrolled_text.configure(state='disabled')
 
 # hidding the AI Scribe button Function
@@ -1093,7 +1088,6 @@ def display_text(text):
     response_display.scrolled_text.configure(state='normal')
     response_display.scrolled_text.delete("1.0", tk.END)
     response_display.scrolled_text.insert(tk.END, f"{text}\n")
-    response_display.scrolled_text.configure(fg='black')
     response_display.scrolled_text.configure(state='disabled')
 
 
@@ -1105,7 +1099,6 @@ def update_gui_with_response(response_text):
 
     if IS_FIRST_LOG:
         timestamp_listbox.delete(0, tk.END)
-        timestamp_listbox.config(fg='black')
         IS_FIRST_LOG = False
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1133,13 +1126,11 @@ def show_response(event):
         transcript_text = response_history[index][1]
         response_text = response_history[index][2]
         user_input.scrolled_text.configure(state='normal')
-        user_input.scrolled_text.config(fg='black')
         user_input.scrolled_text.delete("1.0", tk.END)
         user_input.scrolled_text.insert(tk.END, transcript_text)
         response_display.scrolled_text.configure(state='normal')
         response_display.scrolled_text.delete('1.0', tk.END)
         response_display.scrolled_text.insert('1.0', response_text)
-        response_display.scrolled_text.config(fg='black')
         response_display.scrolled_text.configure(state='disabled')
         pyperclip.copy(response_text)
 
@@ -1747,7 +1738,6 @@ def add_placeholder(event, text_widget, placeholder_text="Text box"):
     """
     if text_widget.get("1.0", "end-1c") == "":
         text_widget.insert("1.0", placeholder_text)
-        text_widget.config(fg='grey')
 
 
 def remove_placeholder(event, text_widget, placeholder_text="Text box"):
@@ -1761,7 +1751,6 @@ def remove_placeholder(event, text_widget, placeholder_text="Text box"):
     """
     if text_widget.get("1.0", "end-1c") == placeholder_text:
         text_widget.delete("1.0", "end")
-        text_widget.config(fg='black')
 
 
 # Configure grid weights for scalability
@@ -1792,7 +1781,6 @@ user_input.grid(row=0, column=1, columnspan=8, padx=5, pady=15, sticky='nsew')
 
 # Insert placeholder text
 user_input.scrolled_text.insert("1.0", "Transcript of Conversation")
-user_input.scrolled_text.config(fg='grey')
 
 # Bind events to remove or add the placeholder with arguments
 user_input.scrolled_text.bind(
@@ -1840,7 +1828,6 @@ response_display.grid(row=2, column=1, columnspan=8, padx=5, pady=15, sticky='ns
 # Insert placeholder text
 response_display.scrolled_text.configure(state='normal')
 response_display.scrolled_text.insert("1.0", "Medical Note")
-response_display.scrolled_text.config(fg='grey')
 response_display.scrolled_text.configure(state='disabled')
 
 if app_settings.editable_settings["Enable Scribe Template"]:
@@ -1876,7 +1863,6 @@ timestamp_listbox = TimestampListbox(history_frame, height=30, exportselection=F
 timestamp_listbox.grid(row=0, column=0, rowspan=3, sticky='nsew')
 timestamp_listbox.bind('<<ListboxSelect>>', show_response)
 timestamp_listbox.insert(tk.END, "Temporary Note History")
-timestamp_listbox.config(fg='grey')
 
 
 # Add microphone test frame
@@ -1884,7 +1870,7 @@ mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_setti
 mic_test.frame.grid(row=4, column=0, pady=10, sticky='nsew')  # Use grid to place the frame
 
 # Add a footer frame at the bottom of the window
-footer_frame = tk.Frame(root, bg="lightgray", height=30)
+footer_frame = tk.Frame(root, bg="darkgray", height=30)
 footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")  # Use grid instead of pack
 
 # Add "Version 2" label in the center of the footer
@@ -1892,8 +1878,7 @@ version = get_application_version()
 version_label = tk.Label(
     footer_frame,
     text=f"FreeScribe Client {version}",
-    bg="lightgray",
-    fg="black").pack(
+    bg="darkgray").pack(
         side="left",
         expand=True,
         padx=2,
