@@ -22,6 +22,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 import requests
+import logging
 
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle, DEFAULT_CONTEXT_WINDOW_SIZE
 from utils.file_utils import get_resource_path, get_file_path
@@ -107,12 +108,12 @@ class SettingsWindow():
             SettingsKeys.WHISPER_ARCHITECTURE.value: DEFAULT_WHISPER_ARCHITECTURE,
             SettingsKeys.WHISPER_BEAM_SIZE.value: 5,
             SettingsKeys.WHISPER_CPU_COUNT.value: multiprocessing.cpu_count(),
-            SettingsKeys.WHISPER_VAD_FILTER.value: False,
+            SettingsKeys.WHISPER_VAD_FILTER.value: True,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value: "float16",
             SettingsKeys.WHISPER_MODEL.value: utils.whisper.Constants.WhisperModels.SMALL_EN.label,
             "Current Mic": "None",
             SettingsKeys.WHISPER_REAL_TIME.value: True,
-            "Real Time Audio Length": 10,
+            "Real Time Audio Length": 3,
             "Real Time Silence Length": 1,
             "Silence cut-off": 0.035,
             "LLM Container Name": "ollama",
@@ -132,12 +133,13 @@ class SettingsWindow():
             "Post-Processing": "\n\nUsing the provided list of facts, review the SOAP note for accuracy. Verify that all details align with the information provided in the list of facts and ensure consistency throughout. Update or adjust the SOAP note as necessary to reflect the listed facts without offering opinions or subjective commentary. Ensure that the revised note excludes a \"Notes\" section and does not include a header for the SOAP note. Provide the revised note after making any necessary corrections.",
             "Show Scrub PHI": False,
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value: 180,
-            SettingsKeys.SILERO_SPEECH_THRESHOLD.value: 0.5,
+            SettingsKeys.SILERO_SPEECH_THRESHOLD.value: 0.75,
             SettingsKeys.USE_TRANSLATE_TASK.value: False,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value: "None (Auto Detect)",
             SettingsKeys.Enable_Word_Count_Validation.value : True,  # Default to enabled
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
             SettingsKeys.USE_LOW_MEM_MODE.value: False,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
         }
 
     def __init__(self):
@@ -209,12 +211,13 @@ class SettingsWindow():
             # "BlankSpace", # Represents the whisper cuttoff
             SettingsKeys.WHISPER_BEAM_SIZE.value,
             SettingsKeys.WHISPER_CPU_COUNT.value,
-            SettingsKeys.WHISPER_VAD_FILTER.value,
+            # SettingsKeys.WHISPER_VAD_FILTER.value,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value,
             # left out for now, dont need users tinkering and default is good and tested.
             # SettingsKeys.SILERO_SPEECH_THRESHOLD.value, 
             SettingsKeys.USE_TRANSLATE_TASK.value,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
 
 
@@ -566,33 +569,25 @@ class SettingsWindow():
                  - reload_flag: True if new model should be loaded
         :rtype: tuple(bool, bool)
         """
-        # unload models if low mem is now on
-        if old_low_mem != new_low_mem and new_low_mem == 1:
-            return True, True
-
-        # load models if low mem is turned off
-        if old_low_mem != new_low_mem and new_low_mem == 0:
-            return True, False
-
-        # Check if old model and new model are different if they are reload and make sure new model is checked.
-        if old_model != new_model and new_use_local_llm == 1:
-            return True, True
-
-        # Load the model if check box is now selected
-        if old_use_local_llm == 0 and new_use_local_llm == 1:
-            return False, True
-
-        # Check if Local LLM was on and if turned off unload model.abs
-        if old_use_local_llm == 1 and new_use_local_llm == 0:
-            return True, False
-
-        if old_architecture != new_architecture and new_use_local_llm == 1:
-            return True, True
-
-        if int(old_context_window) != int(new_context_window) and new_use_local_llm == 1:
-            return True, True
-
-        return False, False
+        unload_flag = False
+        reload_flag = False
+        try:
+            if new_use_local_llm:
+                if any([
+                    old_use_local_llm != new_use_local_llm,
+                    old_model != new_model,
+                    old_architecture != new_architecture,
+                    int(old_context_window) != int(new_context_window)]
+                ):
+                    reload_flag = True
+            else:
+                unload_flag = True
+        # in case context_window value is invalid
+        except (ValueError, TypeError) as e:
+            logging.error(str(e))
+            logging.exception("Failed to determine reload/unload model")
+        logging.debug(f"load_or_unload_model {unload_flag=}, {reload_flag=}")
+        return unload_flag, reload_flag
 
     def _create_settings_and_aiscribe_if_not_exist(self):
         """

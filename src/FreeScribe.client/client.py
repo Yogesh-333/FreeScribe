@@ -44,11 +44,13 @@ from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures
 from UI.Widgets.CustomTextBox import CustomTextBox
 from UI.LoadingWindow import LoadingWindow
+from UI.ImageWindow import ImageWindow
 from Model import ModelManager
 from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
 from utils.utils import get_application_version
+import utils.audio
 import utils.system
 from UI.DebugWindow import DualOutput
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
@@ -59,6 +61,7 @@ from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
+from services.whisper_hallucination_cleaner import hallucination_cleaner
 from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 
 
@@ -69,8 +72,11 @@ else:
 
 logging.basicConfig(
     level=LOG_LEVEL,
-    format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
 )
+
+logger = logging.getLogger(__name__)
 
 dual = DualOutput()
 sys.stdout = dual
@@ -419,7 +425,8 @@ def record_audio():
         if stream is None:
             clear_application_press()
             messagebox.showerror("Error", f"An error occurred while trying to record audio: {stream_exception}")
-
+        
+        audio_data_leng = 0
         while is_recording and stream is not None:
             if not is_paused:
                 data = stream.read(CHUNK, exception_on_overflow=False)
@@ -432,29 +439,43 @@ def record_audio():
                     speech_prob_threshold = float(
                         app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value])
                 except ValueError:
-                    # default it to 0.5 on invalid error
-                    speech_prob_threshold = 0.5
+                    # default it to value in DEFAULT_SETTINGS_TABLE on invalid error
+                    speech_prob_threshold = app_settings.DEFAULT_SETTINGS_TABLE[SettingsKeys.SILERO_SPEECH_THRESHOLD.value]
 
-                if is_silent(audio_buffer, speech_prob_threshold):
+                if is_silent(audio_buffer, speech_prob_threshold ):
                     silent_duration += CHUNK / RATE
                     silent_warning_duration += CHUNK / RATE
                 else:
-                    current_chunk.append(data)
                     silent_duration = 0
                     silent_warning_duration = 0
+                    audio_data_leng += CHUNK / RATE
 
+                current_chunk.append(data)
+                
                 record_duration += CHUNK / RATE
 
                 # Check if we need to warn if silence is long than warn time
                 check_silence_warning(silent_warning_duration)
 
                 # 1 second of silence at the end so we dont cut off speech
-                if silent_duration >= minimum_silent_duration:
+                if silent_duration >= minimum_silent_duration and audio_data_leng > 1.5  and record_duration > minimum_audio_duration:
                     if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and current_chunk:
-                        audio_queue.put(b''.join(current_chunk))
-                    current_chunk = []
+                        padded_audio = utils.audio.pad_audio_chunk(current_chunk, pad_seconds=0.5)
+                        audio_queue.put(b''.join(padded_audio))
+
+                    # Carry over the last .1 seconds of audio to the next one so next speech does not start abruptly or in middle of a word
+                    carry_over_chunk = current_chunk[-int(0.1 * RATE / CHUNK):]
+                    current_chunk = [] 
+                    current_chunk.extend(carry_over_chunk)
+
+                    # reset the variables and state holders for realtime audio processing
+                    audio_data_leng = 0
                     silent_duration = 0
                     record_duration = 0
+            else:
+                # Add a small delay to prevent high CPU usage
+                time.sleep(0.01)
+
 
         # Send any remaining audio chunk when recording stops
         if current_chunk:
@@ -526,7 +547,7 @@ def realtime_text():
                 print("Real Time Audio to Text")
                 audio_buffer = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768
                 if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
-                    print("Local Real Time Whisper")
+                    print(f"Local Real Time Whisper {audio_queue.qsize()=}")
                     if not is_whisper_valid():
                         update_gui("Local Whisper model not loaded. Please check your settings.")
                         break
@@ -616,7 +637,7 @@ def save_audio():
 
 
 def toggle_recording():
-    global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID, frames
+    global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID, frames, silent_warning_duration
 
     # Reset the cancel flags going into a fresh recording
     if not is_recording:
@@ -648,6 +669,7 @@ def toggle_recording():
 
         # reset frames before new recording so old data is not used
         frames = []
+        silent_warning_duration = 0
         recording_thread = threading.Thread(target=record_audio)
         recording_thread.start()
 
@@ -1228,7 +1250,6 @@ def send_text_to_localmodel(edited_text):
        
     response  = ModelManager.local_model.generate_response(
         edited_text,
-        max_tokens=int(app_settings.editable_settings["max_length"]),
         temperature=float(app_settings.editable_settings["temperature"]),
         top_p=float(app_settings.editable_settings["top_p"]),
         repeat_penalty=float(app_settings.editable_settings["rep_pen"]),
@@ -1471,6 +1492,7 @@ def generate_note_thread(text: str):
             return
     
     loading_window.destroy()
+    loading_window = LoadingWindow(root, "Generating Note.", "Generating Note. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))
 
 
     thread = threading.Thread(target=generate_note, args=(text,))
@@ -1577,8 +1599,10 @@ def set_full_view():
     switch_view_button.grid(row=1, column=6, pady=5, padx=0, sticky='nsew')
     blinking_circle_canvas.grid(row=1, column=7, padx=0, pady=5)
     footer_frame.grid()
+    
+    
 
-    window.toggle_menu_bar(enable=True)
+    window.toggle_menu_bar(enable=True, is_recording=is_recording)
 
     # Reconfigure button styles and text
     mic_button.config(bg="red" if is_recording else DEFAULT_BUTTON_COLOUR,
@@ -1903,6 +1927,7 @@ if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
 
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
+    ImageWindow(root, "Help Guide", get_file_path('assets', 'help.png'))
 
 #Wait for the UI root to be intialized then load the model. If using local llm.
 # Do not load the models if low mem is activated.
@@ -1978,6 +2003,7 @@ def await_models(timeout_length=60):
 root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", lambda event: load_model_with_loading_screen(root=root, app_settings=app_settings))
+root.bind("<<UnloadSttModel>>", unload_stt_model)
 
 root.mainloop()
 

@@ -2,6 +2,7 @@ from llama_cpp import Llama
 import os
 from typing import Optional, Dict, Any
 import threading
+import logging
 from UI.LoadingWindow import LoadingWindow
 import tkinter.messagebox as messagebox
 from UI.SettingsConstant import SettingsKeys, DEFAULT_CONTEXT_WINDOW_SIZE
@@ -92,7 +93,7 @@ class Model:
     def generate_response(
         self,
         prompt: str,
-        max_tokens: int = 50,
+        max_tokens: int | None = None,
         temperature: float = 0.1,
         top_p: float = 0.95,
         repeat_penalty: float = 1.1
@@ -300,8 +301,8 @@ class ModelManager:
         the application.
         """
         if ModelManager.local_model is not None:
-            ModelManager.local_model.model.close()
+            if ModelManager.local_model.model is not None:
+                ModelManager.local_model.model.close()
             del ModelManager.local_model
             ModelManager.local_model = None
-
-        print("*** Unloaded LLM Model")
+        logging.debug(f"{ModelManager.local_model=}")
