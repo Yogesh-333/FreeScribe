@@ -51,10 +51,10 @@ jobs:
       # Create CPU-only executable
       - name: Uninstall CUDA-enabled llama_cpp (if necessary) and install CPU-only llama_cpp
         run: |
-          pip uninstall nvidia-cudnn-cu12==9.5.0.50
-          pip uninstall nvidia-cuda-runtime-cu12==12.4.127
-          pip uninstall nvidia-cuda-nvrtc-cu12==12.4.127
-          pip uninstall nvidia-cublas-cu12==12.4.5.8
+          pip uninstall -y nvidia-cudnn-cu12==9.5.0.50
+          pip uninstall -y nvidia-cuda-runtime-cu12==12.4.127
+          pip uninstall -y nvidia-cuda-nvrtc-cu12==12.4.127
+          pip uninstall -y nvidia-cublas-cu12==12.4.5.8
           pip uninstall -y llama-cpp-python
           pip install --index-url https://abetlen.github.io/llama-cpp-python/whl/cpu --extra-index-url https://pypi.org/simple llama-cpp-python==v0.2.90
 
