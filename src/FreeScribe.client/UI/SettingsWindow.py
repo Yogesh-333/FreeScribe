@@ -113,7 +113,7 @@ class SettingsWindow():
             SettingsKeys.WHISPER_MODEL.value: "medium",
             "Current Mic": "None",
             SettingsKeys.WHISPER_REAL_TIME.value: True,
-            "Real Time Audio Length": 10,
+            "Real Time Audio Length": 3,
             "Real Time Silence Length": 1,
             "Silence cut-off": 0.035,
             "LLM Container Name": "ollama",
@@ -139,6 +139,7 @@ class SettingsWindow():
             SettingsKeys.Enable_Word_Count_Validation.value : True,  # Default to enabled
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
             SettingsKeys.WHISPER_PERFORMANCE_TEST_RESULTS.value: {},
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
         }
 
     def __init__(self):
@@ -216,6 +217,7 @@ class SettingsWindow():
             # SettingsKeys.SILERO_SPEECH_THRESHOLD.value, 
             SettingsKeys.USE_TRANSLATE_TASK.value,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
 
 

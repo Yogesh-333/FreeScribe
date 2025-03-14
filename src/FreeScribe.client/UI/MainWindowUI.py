@@ -225,7 +225,7 @@ class MainWindowUI:
             self.root.after_cancel(self.current_container_status_check_id)
             self.current_container_status_check_id = None
 
-    def toggle_menu_bar(self, enable: bool):
+    def toggle_menu_bar(self, enable: bool, is_recording: bool = False):
         """
         Enable or disable the menu bar.
 
@@ -234,6 +234,8 @@ class MainWindowUI:
         """
         if enable:
             self._create_menu_bar()
+            if is_recording:
+                self.disable_settings_menu()
         else:
             self._destroy_menu_bar()
 

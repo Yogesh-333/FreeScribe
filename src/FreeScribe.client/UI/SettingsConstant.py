@@ -26,6 +26,7 @@ class SettingsKeys(Enum):
     Enable_Word_Count_Validation = "Enable Word Count Validation"
     Enable_AI_Conversation_Validation = "Enable AI Conversation Validation"
     WHISPER_PERFORMANCE_TEST_RESULTS = "Built-in Speech2Text Model Performance Test Results"
+    ENABLE_HALLUCINATION_CLEAN = "Enable Hallucination Cleaning (Experimental)"
 
 
 class Architectures(Enum):

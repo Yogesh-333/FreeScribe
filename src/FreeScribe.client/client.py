@@ -50,6 +50,7 @@ from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
 from utils.utils import get_application_version
+import utils.audio
 from UI.DebugWindow import DualOutput
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
@@ -59,6 +60,7 @@ from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
+from services.whisper_hallucination_cleaner import hallucination_cleaner
 
 
 if os.environ.get("FREESCRIBE_DEBUG"):
@@ -68,8 +70,11 @@ else:
 
 logging.basicConfig(
     level=LOG_LEVEL,
-    format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
 )
+
+logger = logging.getLogger(__name__)
 
 dual = DualOutput()
 sys.stdout = dual
@@ -408,6 +413,7 @@ def record_audio():
             clear_application_press()
             messagebox.showerror("Error", f"An error occurred while trying to record audio: {stream_exception}")
         
+        audio_data_leng = 0
         while is_recording and stream is not None:
             if not is_paused:
                 data = stream.read(CHUNK, exception_on_overflow=False)
@@ -426,9 +432,11 @@ def record_audio():
                     silent_duration += CHUNK / RATE
                     silent_warning_duration += CHUNK / RATE
                 else:
-                    current_chunk.append(data)
                     silent_duration = 0
                     silent_warning_duration = 0
+                    audio_data_leng += CHUNK / RATE
+
+                current_chunk.append(data)
                 
                 record_duration += CHUNK / RATE
 
@@ -436,12 +444,24 @@ def record_audio():
                 check_silence_warning(silent_warning_duration)
 
                 # 1 second of silence at the end so we dont cut off speech
-                if silent_duration >= minimum_silent_duration:
+                if silent_duration >= minimum_silent_duration and audio_data_leng > 1.5  and record_duration > minimum_audio_duration:
                     if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and current_chunk:
-                        audio_queue.put(b''.join(current_chunk))
-                    current_chunk = []
+                        padded_audio = utils.audio.pad_audio_chunk(current_chunk, pad_seconds=0.5)
+                        audio_queue.put(b''.join(padded_audio))
+
+                    # Carry over the last .1 seconds of audio to the next one so next speech does not start abruptly or in middle of a word
+                    carry_over_chunk = current_chunk[-int(0.1 * RATE / CHUNK):]
+                    current_chunk = [] 
+                    current_chunk.extend(carry_over_chunk)
+
+                    # reset the variables and state holders for realtime audio processing
+                    audio_data_leng = 0
                     silent_duration = 0
                     record_duration = 0
+            else:
+                # Add a small delay to prevent high CPU usage
+                time.sleep(0.01)
+
 
         # Send any remaining audio chunk when recording stops
         if current_chunk:
@@ -590,7 +610,7 @@ def save_audio():
         threaded_send_audio_to_server()
 
 def toggle_recording():
-    global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID, frames
+    global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID, frames, silent_warning_duration
 
     # Reset the cancel flags going into a fresh recording
     if not is_recording:
@@ -617,6 +637,7 @@ def toggle_recording():
 
         # reset frames before new recording so old data is not used
         frames = []
+        silent_warning_duration = 0
         recording_thread = threading.Thread(target=record_audio)
         recording_thread.start()
 
@@ -1493,7 +1514,7 @@ def set_full_view():
     
     
 
-    window.toggle_menu_bar(enable=True)
+    window.toggle_menu_bar(enable=True, is_recording=is_recording)
 
     # Reconfigure button styles and text
     mic_button.config(bg="red" if is_recording else DEFAULT_BUTTON_COLOUR,
@@ -1770,7 +1791,7 @@ def faster_whisper_transcribe(audio):
         if stt_local_model is None:
             load_stt_model()
             raise TranscribeError("Speech2Text model not loaded. Please try again once loaded.")
-
+        
         # Validate beam_size
         try:
             beam_size = int(app_settings.editable_settings[SettingsKeys.WHISPER_BEAM_SIZE.value])
@@ -1798,10 +1819,17 @@ def faster_whisper_transcribe(audio):
         if type(audio) in [str, np.ndarray]:
             print(f"took {time.monotonic() - start_time:.3f} seconds to process {len(audio)=} {type(audio)=} audio.")
 
-        return "".join(f"{segment.text} " for segment in segments)
+        result = "".join(f"{segment.text} " for segment in segments)
+        logger.debug(f"Result: {result}")
+
+        # Only clean hallucinations if enabled in settings
+        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+            result = hallucination_cleaner.clean_text(result)
+            logger.debug(f"Cleaned result: {result}")
+        return result
     except Exception as e:
+        logger.exception(f"Error during transcription: {str(e)}")
         error_message = f"Transcription failed: {str(e)}"
-        print(f"Error during transcription: {str(e)}")
         raise TranscribeError(error_message) from e
 
 def set_cuda_paths():
