@@ -31,9 +31,8 @@ from UI.MarkdownWindow import MarkdownWindow
 from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle
 from UI.Widgets.PopupBox import PopupBox
-import psutil
-import GPUtil
-
+from utils.system_utils import get_system_memory, get_system_vram
+from DataModels import WhisperModelEnum
 
 LONG_ENTRY_WIDTH = 30
 SHORT_ENTRY_WIDTH = 20
@@ -181,77 +180,50 @@ class SettingsWindowUI:
     def generate_whisper_model_list(self, system_ram, system_vram):
         """
         Generates a list of Whisper models with recommendations based on system capabilities.
-        
+
         Args:
             system_ram (float): Available system RAM in GB
             system_vram (float): Available system VRAM in GB
-            
+
         Returns:
             tuple: (display_options, actual_values, mapping_dict)
         """
         # Define model requirements
-        whisper_models = {
-            "tiny": {"ram": 8, "vram": 0, "display": "tiny"},
-            "tiny.en": {"ram": 8, "vram": 0, "display": "tiny.en"},
-            "base": {"ram": 8, "vram": 0, "display": "base"},
-            "base.en": {"ram": 8, "vram": 0, "display": "base.en"},
-            "small": {"ram": 8, "vram": 0, "display": "small"},
-            "small.en": {"ram": 8, "vram": 0, "display": "small.en"},
-            "medium": {"ram": 16, "vram": 0, "display": "medium"},
-            "medium.en": {"ram": 16, "vram": 0, "display": "medium.en"},
-            "turbo": {"ram": 16, "vram": 6, "display": "turbo"},
-            "large": {"ram": 16, "vram": 10, "display": "large"}
-        }
-        
+        whisper_models = [
+            WhisperModelEnum("tiny", 8, 0, "tiny"),
+            WhisperModelEnum("tiny.en", 8, 0, "tiny.en"),
+            WhisperModelEnum("base", 8, 0, "base"),
+            WhisperModelEnum("base.en", 8, 0, "base.en"),
+            WhisperModelEnum("small", 8, 0, "small"),
+            WhisperModelEnum("small.en", 8, 0, "small.en"),
+            WhisperModelEnum("medium", 16, 0, "medium"),
+            WhisperModelEnum("medium.en", 16, 0, "medium.en"),
+            WhisperModelEnum("turbo", 16, 6, "turbo"),
+            WhisperModelEnum("large", 16, 10, "large"),
+        ]
+
         # Create display options with recommendations
         whisper_models_display = []
         whisper_models_values = []
         whisper_model_mapping = {}
-        
-        for model_name, requirements in whisper_models.items():
-            display_name = model_name
 
-            #logic to properly handle CPU-only models
-            ram_sufficient = system_ram >= requirements["ram"]
-            vram_sufficient = requirements["vram"] == 0 or system_vram >= requirements["vram"]
-            
+        for model in whisper_models:
+            display_name = model.name
+
+            # logic to properly handle CPU-only models
+            ram_sufficient = system_ram >= model.ram
+            vram_sufficient = model.vram == 0 or system_vram >= model.vram
+
             if ram_sufficient and vram_sufficient:
-                display_name = f"{model_name} ✓"                
+                display_name = f"{model.display} ✓"
             else:
-                display_name = f"{model_name} ⚠️"                
-            
-            whisper_models_display.append(display_name)
-            whisper_models_values.append(model_name)
-            whisper_model_mapping[display_name] = model_name
-        
-        return whisper_models_display, whisper_models_values, whisper_model_mapping
+                display_name = f"{model.display} ⚠️"
 
-    def get_system_memory_info(self):
-        """
-        Gets system RAM and VRAM information in GB.
-        Returns a tuple of (ram_gb, vram_gb)
-        """
-        try:
-            import psutil
-            import GPUtil
-            
-            # Get system RAM
-            ram_gb = psutil.virtual_memory().total / (1024**3)
-            
-            # Get VRAM (if available)
-            vram_gb = 0
-            try:
-                gpus = GPUtil.getGPUs()
-                for gpu in gpus:
-                    vram_gb = max(vram_gb, gpu.memoryTotal / 1024)  # Convert from MB to GB
-            except Exception as e:
-                # No GPU or GPUtil failed
-                pass
-                
-            return ram_gb, vram_gb
-        except ImportError:
-            # If modules not available, return conservative estimates
-            return 4, 0  # Assume 4GB RAM, no VRAM
+            whisper_models_display.append(display_name)
+            whisper_models_values.append(model.name)
+            whisper_model_mapping[display_name] = model.name
+
+        return whisper_models_display, whisper_models_values, whisper_model_mapping
 
     def create_whisper_settings(self):
         """
@@ -280,7 +252,8 @@ class SettingsWindowUI:
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, left_row, right_row, self.settings.whisper_settings)
         
         # Get system RAM and VRAM
-        system_ram, system_vram = self.get_system_memory_info()
+        system_ram = get_system_memory()
+        system_vram = get_system_vram()
         
         # Create the whisper model dropdown selection with recommendations
         tk.Label(left_frame, text=SettingsKeys.WHISPER_MODEL.value).grid(row=3, column=0, padx=0, pady=5, sticky="w")
