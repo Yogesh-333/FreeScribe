@@ -638,6 +638,13 @@ class SettingsWindow():
         old_cpu_count = self.editable_settings[SettingsKeys.WHISPER_CPU_COUNT.value]
         old_compute_type = self.editable_settings[SettingsKeys.WHISPER_COMPUTE_TYPE.value]
 
+        # Clean up the new model value if it contains spaces or indicators
+        new_model = self.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value].get()
+        if isinstance(new_model, str) and " " in new_model:
+            new_model = new_model.split()[0]  # Take only the first part before any space
+            # Update the entry directly to ensure clean value is saved
+            self.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value].set(new_model)
+
         # loading the model after the window is closed to prevent the window from freezing
         # if Local Whisper is selected, compare the old model with the new model and reload the model if it has changed
         # if switched from remote to local whisper
@@ -645,7 +652,7 @@ class SettingsWindow():
             return True
         # new settings of LOCAL_WHISPER should be True, or we can skip reloading
         if self.editable_settings_entries[SettingsKeys.LOCAL_WHISPER.value].get() and (
-                old_model != self.editable_settings_entries[SettingsKeys.WHISPER_MODEL.value].get() or
+                old_model != new_model or
                 old_whisper_architecture != self.editable_settings_entries[SettingsKeys.WHISPER_ARCHITECTURE.value].get() or
                 old_cpu_count != self.editable_settings_entries[SettingsKeys.WHISPER_CPU_COUNT.value].get() or
                 old_compute_type != self.editable_settings_entries[SettingsKeys.WHISPER_COMPUTE_TYPE.value].get()
