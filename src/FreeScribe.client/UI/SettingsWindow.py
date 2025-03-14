@@ -644,8 +644,8 @@ class SettingsWindow():
         new_low_mem = self.editable_settings_entries[SettingsKeys.USE_LOW_MEM_MODE.value].get()
 
         # IF unchecked then we need to load the model
-        if not new_low_mem:
-            return True
+        if bool(new_low_mem):
+            return False
 
         # loading the model after the window is closed to prevent the window from freezing
         # if Local Whisper is selected, compare the old model with the new model and reload the model if it has changed
