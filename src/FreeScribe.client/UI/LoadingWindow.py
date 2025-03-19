@@ -77,7 +77,7 @@ class LoadingWindow:
             else:
                 size = LoadingWindow.WINDOWS_SIZE
                 if note_text:
-                    size = (size[0], size[1] + 20)
+                    size = (size[0] + LoadingWindow.NOTE_OFFSET[0], size[1] + LoadingWindow.NOTE_OFFSET[1])
                 self.popup.geometry(f"{size[0]}x{size[1]}")
 
             
