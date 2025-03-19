@@ -9,6 +9,7 @@ import os
 import platform
 import subprocess
 import time
+import utils.system
 
 
 logger = logging.getLogger(__name__)
@@ -160,13 +161,14 @@ class OneInstance:
         # check again if they are really killed
         pids = self.get_running_instance_pids()
         logger.info(f"not killed {pids=}")
-        if not pids:
+        if not pids and dialog:
             dialog.destroy()
             dialog.return_status = False
         else:
-            messagebox.showerror("Error", "Failed to terminate existing instance")
-            dialog.destroy()
-            dialog.return_status = True
+            if dialog:
+                messagebox.showerror("Error", "Failed to terminate existing instance")
+                dialog.destroy()
+                dialog.return_status = True
     
     def _handle_cancel(self, dialog):
         """Handles clicking 'Cancel' button"""
@@ -213,6 +215,10 @@ class OneInstance:
             bool: True if existing instance continues, False if none exists or terminated
         """
         if self.get_running_instance_pids():
-            return self.show_instance_dialog()
+            if utils.system.is_macos():
+                self._handle_cancel(None)
+                return True
+            else:
+                return self.show_instance_dialog()
         else:
             return False
