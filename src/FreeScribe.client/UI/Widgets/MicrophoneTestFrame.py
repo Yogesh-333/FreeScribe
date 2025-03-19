@@ -65,9 +65,10 @@ class MicrophoneTestFrame:
             self.default_input_index = None
 
         device_count = self.p.get_device_count()
+        defaultHostApi = self.p.get_default_host_api_info()
         for i in range(device_count):
             device_info = self.p.get_device_info_by_index(i)
-            if device_info['maxInputChannels'] > 0 and device_info['hostApi'] == 0:
+            if device_info['maxInputChannels'] > 0 and device_info['hostApi'] == defaultHostApi['index']:
                 device_name = device_info['name']
                 if device_name not in [name for _, name in self.mic_list]:
                     self.mic_list.append((i, device_name))
