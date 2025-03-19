@@ -19,7 +19,8 @@ Classes:
     SettingsWindowUI: Manages the settings window UI.
 """
 
-import json
+import threading
+import time
 import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -31,6 +32,9 @@ from UI.MarkdownWindow import MarkdownWindow
 from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle
 from UI.Widgets.PopupBox import PopupBox
+import requests
+from urllib.parse import urlparse
+from UI.LoadingWindow import LoadingWindow
 
 
 LONG_ENTRY_WIDTH = 30
@@ -467,6 +471,7 @@ class SettingsWindowUI:
                 self.widgets[setting_name] = self._create_entry(frame, setting_name, setting_name, row)
             row += 1
         return row
+    
 
     def create_advanced_settings(self):
         """Creates the advanced settings UI elements with a structured layout."""
@@ -636,6 +641,93 @@ class SettingsWindowUI:
         Uses our markdown window class to display a markdown with help
         """
         MarkdownWindow(self.settings_window, "Help", get_file_path('markdown','help','settings.md'))
+    
+
+
+    def check_whisper_endpoint(self, endpoint_url):
+        """
+        Checks if the Whisper endpoint is reachable by making a minimal POST request
+        and verifying the response structure. Shows a loading window during the check.
+
+        Args:
+            endpoint_url (str): The URL of the Whisper endpoint to check.
+
+        Returns:
+            bool: True if the endpoint is reachable, False otherwise.
+        """
+        # Create a result container
+        result_container = {"result": False, "done": False}
+        
+        # Define the worker function to run in a separate thread
+        def worker_thread():
+            try:
+                print("Checking if Whisper URL is valid")
+
+                parsed_url = urlparse(endpoint_url)
+                if not parsed_url.scheme or not parsed_url.netloc:
+                    print(f"Invalid URL structure: scheme='{parsed_url.scheme}', netloc='{parsed_url.netloc}'")
+                    result_container["result"] = False
+                    result_container["done"] = True
+                    return
+
+                print("Checking Whisper URL connection")
+
+                verify_ssl = not self.settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
+
+                headers = {
+                    "Authorization": "Bearer " + self.settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value],
+                    "Content-Type": "application/json"
+                }
+
+                body = {}
+
+                try:
+                    response = requests.post(endpoint_url, headers=headers, json=body, verify=verify_ssl)
+                    print(f"POST Response: {response.status_code}")
+
+                    if response.status_code in [400, 422]:
+                        json_response = response.json()
+                        if "detail" in json_response:
+                            print("Server is reachable and returning expected error (missing file) – This is OK.")
+                            result_container["result"] = True
+                    else:
+                        result_container["result"] = response.status_code < 400
+
+                except requests.exceptions.RequestException as e:
+                    print(f"Request failed: {str(e)}")
+                    result_container["result"] = False
+
+            except Exception as e:
+                logging.debug(f"Error checking Whisper endpoint: {str(e)}")
+                print(f"Error: {str(e)}")
+                result_container["result"] = False
+            finally:
+                result_container["done"] = True
+        
+        # Create loading window
+        loading = LoadingWindow(
+            parent=self.settings_window,
+            title="Checking Connection",
+            initial_text="Checking Whisper endpoint connection...",
+            note_text="This may take a few seconds."
+        )
+        
+        # Start the worker thread
+        thread = threading.Thread(target=worker_thread)
+        thread.daemon = True
+        thread.start()
+        
+        # Keep updating the UI while the thread is working
+        while not result_container["done"]:
+            if hasattr(self, 'settings_window') and self.settings_window:
+                self.settings_window.update()
+            time.sleep(0.1)  # Small delay to prevent UI freezing
+        
+        # Close the loading window
+        loading.destroy()
+        
+        # Return the result
+        return result_container["result"]
 
     def save_settings(self, close_window=True):
         """
@@ -644,6 +736,27 @@ class SettingsWindowUI:
         This method retrieves the values from the UI elements and calls the
         `save_settings` method of the `settings` object to save the settings.
         """
+        # Check if using remote whisper and if so, check the endpoint
+        if not self.settings.editable_settings_entries[SettingsKeys.LOCAL_WHISPER.value].get() and \
+        SettingsKeys.WHISPER_ENDPOINT.value in self.settings.editable_settings_entries:
+            
+            whisper_endpoint = self.settings.editable_settings_entries[SettingsKeys.WHISPER_ENDPOINT.value].get()
+            if whisper_endpoint:
+                is_reachable = self.check_whisper_endpoint(whisper_endpoint)
+                
+                if not is_reachable:
+                    # Show error popup
+                    popup  = PopupBox(
+                        parent=self.settings_window,
+                        message=f"Unable to connect to the Whisper endpoint at: {whisper_endpoint}.\n Would you like to proceed with saving anyway?",
+                        title="Connection Error",
+                        button_text_1="Continue",
+                        button_text_2="Cancel"
+                    )
+                    if popup.response == "button_2":
+                        return
+                    
+        print("goes after")        
         # delay actual unload/reload till settings are actually saved
         local_model_unload_flag, local_model_reload_flag = self.settings.load_or_unload_model(
             self.settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value],
