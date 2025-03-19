@@ -219,5 +219,5 @@ class OneInstance:
                 return True
             else:
                 return self.show_instance_dialog()
-        else:
-            return False
+        
+        return False
