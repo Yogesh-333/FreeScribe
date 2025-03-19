@@ -495,10 +495,6 @@ class SettingsWindow():
             models = response.json().get("data", [])  # Extract the 'data' field
             if not models:
                 return ["No models available", "Custom"]
-            # Extract the 'data' field
-            models = response.json().get("data", [])  
-            if not models:
-                return ["No models available", "Custom"]
 
             unwanted_model = ["gemma2:2b-instruct-q8_0"]            
             # Filter models, checking if 'id' exists and isn't in the unwanted_model list
