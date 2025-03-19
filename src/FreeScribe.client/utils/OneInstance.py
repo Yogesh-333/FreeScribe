@@ -164,10 +164,9 @@ class OneInstance:
         if not pids and dialog:
             dialog.destroy()
             dialog.return_status = False
-        else:
-            if dialog:
+        elif dialog:
                 messagebox.showerror("Error", "Failed to terminate existing instance")
-                dialog.destroy()
+                dialog.destroy() 
                 dialog.return_status = True
     
     def _handle_cancel(self, dialog):
