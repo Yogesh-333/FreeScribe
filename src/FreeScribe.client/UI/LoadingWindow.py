@@ -69,18 +69,13 @@ class LoadingWindow:
             self.popup = tk.Toplevel(parent)
             self.popup.title(title)
             
-            if utils.system.is_macos():
-                size = LoadingWindow.MACOS_SIZE
-                if note_text:
-                    size = (size[0] + LoadingWindow.NOTE_OFFSET[0], size[1] + LoadingWindow.NOTE_OFFSET[1])
-                self.popup.geometry(f"{size[0]}x{size[1]}")
-            else:
-                size = LoadingWindow.WINDOWS_SIZE
-                if note_text:
-                    size = (size[0] + LoadingWindow.NOTE_OFFSET[0], size[1] + LoadingWindow.NOTE_OFFSET[1])
-                self.popup.geometry(f"{size[0]}x{size[1]}")
+            # Default windows size
+            size = LoadingWindow.MACOS_SIZE if utils.system.is_macos() else LoadingWindow.WINDOWS_SIZE
 
+            if note_text:
+                size = (size[0] + LoadingWindow.NOTE_OFFSET[0], size[1] + LoadingWindow.NOTE_OFFSET[1])
             
+            self.popup.geometry(f"{size[0]}x{size[1]}")
 
             self.popup.iconbitmap(get_file_path('assets','logo.ico'))
 
