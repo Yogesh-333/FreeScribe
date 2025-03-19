@@ -104,7 +104,8 @@ class LoadingWindow:
 
             # Add note text if provided
             if note_text:
-                self.note_label = tk.Label(self.popup, text=note_text, wraplength=350, justify='center', font=("TkDefaultFont",9),fg="#262525")
+                font_size = 11 if utils.system.is_macos() else 9
+                self.note_label = tk.Label(self.popup, text=note_text, wraplength=350, justify='center', font=("TkDefaultFont", font_size),fg="#262525")
                 self.note_label.pack(pady=(0,10))
 
             # Add cancel button
