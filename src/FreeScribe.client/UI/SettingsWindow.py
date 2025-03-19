@@ -493,11 +493,17 @@ class SettingsWindow():
             response = requests.get(endpoint + "/models", headers=headers, timeout=1.0, verify=verify)
             response.raise_for_status()  # Raise an error for bad responses
             models = response.json().get("data", [])  # Extract the 'data' field
-            
+            if not models:
+                return ["No models available", "Custom"]
+            # Extract the 'data' field
+            models = response.json().get("data", [])  
             if not models:
                 return ["No models available", "Custom"]
 
-            available_models = [model["id"] for model in models]
+            unwanted_model = ["gemma2:2b-instruct-q8_0"]            
+            # Filter models, checking if 'id' exists and isn't in the unwanted_model list
+            available_models = [model["id"] for model in models if model.get("id", "") not in unwanted_model]
+            # Add "Custom" to the available models list
             available_models.append("Custom")
             return available_models
         except requests.RequestException as e:
