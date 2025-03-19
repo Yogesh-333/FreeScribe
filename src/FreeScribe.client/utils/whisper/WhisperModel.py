@@ -186,7 +186,7 @@ def _load_stt_model_windows(app_settings):
             print("Closing STT loading window.")
 
 
-def unload_stt_model():
+def unload_stt_model(event=None):
     """
     Unload the speech-to-text model from memory.
 
