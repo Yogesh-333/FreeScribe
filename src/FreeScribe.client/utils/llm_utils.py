@@ -67,6 +67,7 @@ def validate_llm_endpoint(settings, parent_window, endpoint_url, verify_ssl, api
                 result_container["result"] = False
 
         except Exception:
+            logging.exception("Error while validating LLM endpoint")
             result_container["result"] = False
         finally:
             result_container["done"] = True

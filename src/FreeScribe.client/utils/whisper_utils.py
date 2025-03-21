@@ -1,4 +1,5 @@
 # utils/whisper_utils.py
+import logging
 import threading
 import time
 from urllib.parse import urlparse
@@ -59,6 +60,7 @@ def validate_whisper_endpoint(settings, parent_window, endpoint_url, verify_ssl,
                 result_container["result"] = False
 
         except Exception:
+            logging.exception("Error while validating Whisper endpoint")
             result_container["result"] = False
         finally:
             result_container["done"] = True
