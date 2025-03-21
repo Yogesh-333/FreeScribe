@@ -50,7 +50,7 @@ def validate_whisper_endpoint(settings, parent_window, endpoint_url, verify_ssl,
 
                 # Check for expected response codes
                 # 400/422 indicate server is up but rejecting empty request (expected behavior)
-                if response.status_code in [400, 422]:
+                if response.status_code in {400, 422}:
                     json_response = response.json()
                     result_container["result"] = "detail" in json_response
                 else:
