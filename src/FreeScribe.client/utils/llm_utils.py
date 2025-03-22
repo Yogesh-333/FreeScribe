@@ -28,14 +28,22 @@ def validate_llm_endpoint(settings, parent_window, endpoint_url, verify_ssl, api
             False if the endpoint is not reachable and user cancels.
     """
     # Create a result container to share data between threads
-    result_container = {"result": False, "done": False}
+    result_container = {"result": False, "done": False, "error_message": ""}
     
     # Define the worker function to run in a separate thread
     def worker_thread():
         try:
+            # Check if API key is provided
+            if not api_key:
+                result_container["result"] = False
+                result_container["error_message"] = "API key is missing or empty. Please provide a valid API key."
+                result_container["done"] = True
+                return
+
             parsed_url = urlparse(endpoint_url)
             if not parsed_url.scheme or not parsed_url.netloc:
                 result_container["result"] = False
+                result_container["error_message"] = "Invalid URL format. Please provide a complete URL."
                 result_container["done"] = True
                 return
 
@@ -58,17 +66,35 @@ def validate_llm_endpoint(settings, parent_window, endpoint_url, verify_ssl, api
                             json_response["object"] == "list" and 
                             "data" in json_response
                         )
+                        if not result_container["result"]:
+                            result_container["error_message"] = "Server response does not match expected OpenAI API format."
                     except json.JSONDecodeError:
                         result_container["result"] = False
+                        result_container["error_message"] = "Server returned invalid JSON response."
+                elif response.status_code == 401 or response.status_code == 403:
+                    result_container["result"] = False
+                    result_container["error_message"] = "Authentication failed. Please check your API key."
                 else:
                     result_container["result"] = False
+                    result_container["error_message"] = f"Server responded with error code: {response.status_code}"
 
-            except requests.exceptions.RequestException:
+            except requests.exceptions.SSLError:
                 result_container["result"] = False
+                result_container["error_message"] = "SSL certificate verification failed. Try Enabling self-signed certificate."
+            except requests.exceptions.ConnectionError:
+                result_container["result"] = False
+                result_container["error_message"] = "Could not connect to server. Please check your network connection and endpoint URL."
+            except requests.exceptions.Timeout:
+                result_container["result"] = False
+                result_container["error_message"] = "Connection timed out. The server may be slow or unreachable."
+            except requests.exceptions.RequestException as e:
+                result_container["result"] = False
+                result_container["error_message"] = f"Request failed: {str(e)}"
 
-        except Exception:
+        except Exception as e:
             logging.exception("Error while validating LLM endpoint")
             result_container["result"] = False
+            result_container["error_message"] = f"Unexpected error: {str(e)}"
         finally:
             result_container["done"] = True
     
@@ -97,10 +123,13 @@ def validate_llm_endpoint(settings, parent_window, endpoint_url, verify_ssl, api
         
         # If endpoint is not reachable, prompt the user
         if not result_container["result"]:
-            # Show error popup
+            # Get the error message or use a default
+            error_details = result_container.get("error_message", "Unknown connection error")
+            
+            # Show error popup with specific error details
             popup = PopupBox(
                 parent=parent_window,
-                message=f"Unable to connect to the LLM endpoint at: {endpoint_url}.\nWould you like to proceed with saving anyway?",
+                message=f"Unable to connect to the LLM endpoint at: {endpoint_url}\n\nError details: {error_details}\n\nWould you like to proceed with saving anyway?",
                 title="Connection Error",
                 button_text_1="Continue",
                 button_text_2="Cancel"
@@ -110,6 +139,7 @@ def validate_llm_endpoint(settings, parent_window, endpoint_url, verify_ssl, api
         # Endpoint is reachable
         return True
     
-    except Exception:
+    except Exception as e:
+        logging.exception("Exception in validate_llm_endpoint UI handling")
         # Return True on exception to allow the process to continue
         return True
