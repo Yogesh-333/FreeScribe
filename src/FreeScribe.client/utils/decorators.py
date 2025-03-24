@@ -13,6 +13,8 @@ Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 
 import platform
 import utils.system
+import functools
+from collections.abc import Collection
 
 
 def windows_only(func):
@@ -46,4 +48,16 @@ def macos_only(func):
             print("This feature is only supported on MacOS.")
             return
         return func(*args, **kwargs)
+    return wrapper
+
+
+def some_os_only(list_of_os: Collection[str]):
+    def wrapper(func):
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            if utils.system.get_system_name() not in list_of_os:
+                print(f"This feature is only supported on {' '.join(list_of_os)}.")
+                return
+            return func(*args, **kwargs)
+        return wrapped
     return wrapper

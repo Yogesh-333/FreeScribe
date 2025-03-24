@@ -10,12 +10,11 @@ Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner),
 and Research Students (Software Developers) -
 Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 """
-
-
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
 import utils.system
+import platform
 
 
 @dataclass
@@ -67,14 +66,23 @@ class WhisperModels(Enum):
         """
         return self.value.macos_value
 
+    @property
+    def linux_value(self) -> str:
+        """
+        Get the value of the model for Linux
+        """
+        return self.value.windows_value
+
     def get_platform_value(self) -> str:
         """Get the appropriate value for the specified platform"""
         if utils.system.is_windows():
             return self.windows_value
         elif utils.system.is_macos():
             return self.macos_value
+        elif utils.system.is_linux():
+            return self.linux_value
         else:
-            raise ValueError(f"Unsupported platform: {platform}")
+            raise ValueError(f"Unsupported platform: {platform.system()}")
 
     @classmethod
     def get_all_labels(cls) -> list[str]:

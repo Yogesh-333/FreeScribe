@@ -30,6 +30,8 @@ stt_local_model = None
 
 stt_model_loading_thread_lock = threading.Lock()
 
+WINDOWS_LINUX = ["Windows", "Linux"]
+
 
 class TranscribeError(Exception):
     pass
@@ -84,7 +86,7 @@ def load_stt_model(event=None, app_settings=None):
         event: Optional event parameter for binding to tkinter events.
     """
 
-    if utils.system.is_windows():
+    if utils.system.is_windows() or utils.system.is_linux():
         load_func = _load_stt_model_windows
     elif utils.system.is_macos():
         load_func = _load_stt_model_macos
@@ -136,7 +138,7 @@ def _load_stt_model_macos(app_settings):
     stt_local_model = pipe
 
 
-@utils.decorators.windows_only
+@utils.decorators.some_os_only(WINDOWS_LINUX)
 def _load_stt_model_windows(app_settings):
     """
     Internal function to load the Whisper speech-to-text model.
@@ -219,7 +221,7 @@ def faster_whisper_transcribe(audio, app_settings):
     Returns:
         str: Transcribed text or error message if transcription fails.
     """
-    if utils.system.is_windows():
+    if utils.system.is_windows() or utils.system.is_linux():
         return _faster_whisper_transcribe_windows(audio, app_settings)
     elif utils.system.is_macos():
         return _faster_whisper_transcribe_macos(audio, app_settings)
@@ -243,7 +245,7 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     return result["text"]
 
 
-@utils.decorators.windows_only
+@utils.decorators.some_os_only(WINDOWS_LINUX)
 def _faster_whisper_transcribe_windows(audio, app_settings):
     """
     Transcribe audio using the Faster Whisper model.

@@ -69,7 +69,7 @@ class LoadingWindow:
                 self.popup.geometry("360x180")  # Increased height for note text
             else:
                 self.popup.geometry("280x105")  # Default height
-            self.popup.iconbitmap(get_file_path('assets','logo.ico'))
+            UI.Helpers.set_window_icon(self.popup)
 
             if parent:
                 # Center the popup window on the parent window

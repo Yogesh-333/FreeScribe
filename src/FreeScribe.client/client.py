@@ -201,7 +201,10 @@ is_audio_processing_whole_canceled = threading.Event()
 cancel_await_thread = threading.Event()
 
 # Constants
-DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
+if utils.system.is_linux():
+    DEFAULT_BUTTON_COLOUR = "grey85"
+else:
+    DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
 
 # Thread tracking variables
 REALTIME_TRANSCRIBE_THREAD_ID = None
@@ -553,7 +556,9 @@ def realtime_text():
                         break
                     try:
                         result = faster_whisper_transcribe(audio_buffer, app_settings=app_settings)
+                        logger.debug(f"transcribe {result=}")
                     except Exception as e:
+                        logger.exception(str(e))
                         update_gui(f"\nError: {e}\n")
 
                     if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
