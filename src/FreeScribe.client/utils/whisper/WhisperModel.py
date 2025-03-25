@@ -30,7 +30,7 @@ stt_local_model = None
 
 stt_model_loading_thread_lock = threading.Lock()
 
-WINDOWS_LINUX = ["Windows", "Linux"]
+WINDOWS_LINUX = ("Windows", "Linux")
 
 
 class TranscribeError(Exception):
