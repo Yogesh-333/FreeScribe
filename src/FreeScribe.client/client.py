@@ -38,6 +38,7 @@ import numpy as np
 import tkinter as tk
 from tkinter import scrolledtext, ttk, filedialog
 import tkinter.messagebox as messagebox
+import librosa
 from faster_whisper import WhisperModel
 from UI.MainWindowUI import MainWindowUI
 from UI.SettingsWindow import SettingsWindow
@@ -937,16 +938,17 @@ def send_audio_to_server():
         # Display a message indicating that audio to text processing is in progress
         user_input.scrolled_text.insert(tk.END, "Audio to Text Processing...Please Wait")
         try:
-            if utils.system.is_windows():
+            if utils.system.is_macos():
+                # Load the audio file to send for transcription
+                file_to_send, sr = librosa.load(uploaded_file_path, sr=RATE, mono=True)
+                delete_file = False
+                uploaded_file_path = None
+            else:
                 # Determine the file to send for transcription
                 file_to_send = uploaded_file_path or get_resource_path('recording.wav')
                 delete_file = False if uploaded_file_path else True
                 uploaded_file_path = None
-            else:
-                # Determine the file to send for transcription
-                file_to_send = uploaded_file_path
-                delete_file = False
-                uploaded_file_path = None
+
 
             # load stt model for transcription
             if not is_whisper_valid() and app_settings.is_low_mem_mode():
@@ -1519,18 +1521,11 @@ def generate_note_thread(text: str):
 
     root.after(500, lambda: check_thread_status(thread, loading_window))
 
-import librosa
 def upload_file():
     global uploaded_file_path
     file_path = filedialog.askopenfilename(filetypes=(("Audio files", "*.wav *.mp3 *.m4a"),))
     if file_path:
         uploaded_file_path = file_path
-        
-        # convert to np,ndarray
-        y, sr = librosa.load(uploaded_file_path, sr=RATE, mono=True)
-
-        uploaded_file_path = y
-
         threaded_send_audio_to_server()  # Add this line to process the file immediately
     start_flashing()
 
