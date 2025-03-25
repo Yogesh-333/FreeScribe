@@ -64,6 +64,9 @@ def bring_to_front(app_name: str):
         U32DLL = ctypes.WinDLL('user32')
         SW_SHOW = 5
         hwnd = U32DLL.FindWindowW(None, app_name)
+        if not hwnd:
+            logger.warning(f'Could not find window {app_name}')
+            return
         U32DLL.ShowWindow(hwnd, SW_SHOW)
         U32DLL.SetForegroundWindow(hwnd)
 
