@@ -11,9 +11,6 @@ import sys
 from datetime import datetime
 from collections import deque
 from utils.utils import bring_to_front
-import logging
-
-logger = logging.getLogger(__name__)
 
 class DualOutput:
     buffer = None
@@ -43,11 +40,9 @@ class DualOutput:
                     if line.strip():
                         formatted_message = f"{timestamp} - {line}\n"
                         DualOutput.buffer.append(formatted_message)
-                        logger.debug(formatted_message)
             else:
                 formatted_message = f"{timestamp} - {message}"
                 DualOutput.buffer.append(formatted_message)
-                logger.debug(formatted_message)
         else:
             DualOutput.buffer.append("\n")
         if self.original_stdout is not None:

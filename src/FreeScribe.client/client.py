@@ -65,17 +65,15 @@ from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner
 from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 
-
-LOG_LEVEL = logging.DEBUG
-
-search_path = ['/usr/local/bin']
-for path in search_path:
-    os.environ['PATH'] += f':{path}'
+if os.environ.get("FREESCRIBE_DEBUG"):
+    LOG_LEVEL = logging.DEBUG
+else:
+    LOG_LEVEL = logging.INFO
 
 logging.basicConfig(
     level=LOG_LEVEL,
     format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler(get_resource_path('freescribe.log'))]
+    handlers=[logging.StreamHandler()]
 )
 
 logger = logging.getLogger(__name__)
@@ -83,9 +81,6 @@ logger = logging.getLogger(__name__)
 dual = DualOutput()
 sys.stdout = dual
 sys.stderr = dual
-
-print(f"PATH: {os.environ['PATH']}")
-print(f"LOGGING FILE: {get_resource_path('freescribe.log')}")
 
 APP_NAME = 'AI Medical Scribe'  # Application name
 if utils.system.is_windows():
