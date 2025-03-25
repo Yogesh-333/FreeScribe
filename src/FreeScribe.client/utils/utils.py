@@ -53,9 +53,12 @@ def bring_to_front(app_name: str):
         app_name (str): The name of the application window to bring to the front
     """
     if utils.system.is_linux():
-        xdo = XDoToolPython()
-        windows = xdo.search_window(app_name)
-        xdo.activate_window(windows[0][0])
+        try:
+            xdo = XDoToolPython()
+            windows = xdo.search_window(app_name)
+            xdo.activate_window(windows[0][0])
+        except Exception as e:
+            logger.exception(str(e))
     elif utils.system.is_windows():
         # TODO - Check platform and handle for different platform
         U32DLL = ctypes.WinDLL('user32')
