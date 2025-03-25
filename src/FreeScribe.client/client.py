@@ -962,7 +962,7 @@ def send_audio_to_server():
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
             except Exception as e:
-                result = f"An error occurred ({type(e).__name__}): {e}"
+                result = f"An error occurred ({type(e).__name__}): {e}\n \n {traceback.format_exc()}"
             finally:
                 if app_settings.is_low_mem_mode():
                     unload_stt_model()
@@ -986,6 +986,7 @@ def send_audio_to_server():
             # Log the error message
             # TODO: Add system eventlogger
             print(f"An error occurred: {e}")
+            print(traceback.format_exc())
 
             # log error to input window
             user_input.scrolled_text.configure(state='normal')
