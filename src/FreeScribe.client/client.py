@@ -970,7 +970,7 @@ def send_audio_to_server():
             transcribed_text = result
 
             # done with file clean up
-            if os.path.exists(file_to_send) and delete_file is True:
+            if delete_file is True and os.path.exists(file_to_send) :
                 os.remove(file_to_send)
 
             # check if canceled, if so do not update the UI
