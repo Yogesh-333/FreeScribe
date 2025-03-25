@@ -138,7 +138,7 @@ def _load_stt_model_macos(app_settings):
     stt_local_model = pipe
 
 
-@utils.decorators.some_os_only(WINDOWS_LINUX)
+@utils.decorators.os_only(WINDOWS_LINUX)
 def _load_stt_model_windows(app_settings):
     """
     Internal function to load the Whisper speech-to-text model.
@@ -245,7 +245,7 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     return result["text"]
 
 
-@utils.decorators.some_os_only(WINDOWS_LINUX)
+@utils.decorators.os_only(WINDOWS_LINUX)
 def _faster_whisper_transcribe_windows(audio, app_settings):
     """
     Transcribe audio using the Faster Whisper model.

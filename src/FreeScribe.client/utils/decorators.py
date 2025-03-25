@@ -51,7 +51,7 @@ def macos_only(func):
     return wrapper
 
 
-def some_os_only(list_of_os: Collection[str]):
+def os_only(list_of_os: Collection[str]):
     def wrapper(func):
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
