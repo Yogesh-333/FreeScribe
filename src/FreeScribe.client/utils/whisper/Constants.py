@@ -44,6 +44,7 @@ class WhisperModels(Enum):
     BASE = ModelInfo(label="Base", windows_value="base", macos_value="openai/whisper-base")
     BASE_EN = ModelInfo(label="Base (English Only)", windows_value="base.en", macos_value="openai/whisper-base.en")
     LARGE = ModelInfo(label="Large", windows_value="large", macos_value="openai/whisper-large")
+    TURBO = ModelInfo(label="Turbo", windows_value="turbo", macos_value="openai/whisper-large-v3-turbo")
 
     @property
     def label(self) -> str:
@@ -71,6 +72,7 @@ class WhisperModels(Enum):
         """
         Get the value of the model for Linux
         """
+        # Linux will be sharing the values that windows use
         return self.value.windows_value
 
     def get_platform_value(self) -> str:
