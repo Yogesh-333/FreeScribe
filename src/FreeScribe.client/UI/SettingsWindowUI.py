@@ -131,6 +131,10 @@ class SettingsWindowUI:
         
         self.create_buttons()
 
+        # Ensures correct UI states for Whisper and AI settings when the settings window is first opened. based on the SettingsKeys.LOCAL_WHISPER.value and SettingsKeys.LOCAL_LLM.value checkbox once all widgets are created
+        self.toggle_remote_whisper_settings()
+        self.toggle_remote_llm_settings()
+
     def _display_center_to_parent(self):
         # Get parent window dimensions and position
         parent_x = self.root.winfo_x()
@@ -239,8 +243,6 @@ class SettingsWindowUI:
 
         left_row += 1
 
-        # set the state of the whisper settings based on the SettingsKeys.LOCAL_WHISPER.value checkbox once all widgets are created
-        self.toggle_remote_whisper_settings()
 
     def toggle_remote_whisper_settings(self):
         current_state = self.settings.editable_settings_entries[SettingsKeys.LOCAL_WHISPER.value].get()
@@ -253,7 +255,7 @@ class SettingsWindowUI:
             self.widgets[setting].config(state=state)
         
         for setting in self.settings.adv_whisper_settings:            
-            if setting in self.widgets:
+            if setting in self.widgets and self.widgets[setting].winfo_exists():
                 self.widgets[setting].config(state=inverted_state)
         
         # set the local option to disabled on switch to remote
@@ -357,8 +359,7 @@ class SettingsWindowUI:
 
         # set the state of the llm settings based on the local llm checkbox once all widgets are created
         self.settings_opened = True
-        self.toggle_remote_llm_settings()
- 
+        
     def toggle_remote_llm_settings(self):
         current_state = self.settings.editable_settings_entries[SettingsKeys.LOCAL_LLM.value].get()
         
@@ -376,10 +377,12 @@ class SettingsWindowUI:
             self.widgets[setting].config(state=state)
         
         ai_context_settings = [SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value]
-        for setting in ai_context_settings:
-            
-            if setting in self.widgets:
-                self.widgets[setting].config(state=inverted_state)
+        for setting in ai_context_settings:            
+            if setting in self.widgets and self.widgets[setting].winfo_exists():
+                try:
+                    self.widgets[setting].config(state=inverted_state)
+                except KeyError:
+                    print(f"Warning: Setting '{setting}' not found in widgets.")
 
 
         self.architecture_dropdown.config(state=inverted_state)
