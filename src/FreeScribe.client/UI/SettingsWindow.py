@@ -139,6 +139,7 @@ class SettingsWindow():
             SettingsKeys.Enable_Word_Count_Validation.value : True,  # Default to enabled
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
             SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
+            SettingsKeys.WHISPER_INITIAL_PROMPT.value: "This is the initial prompt for Whisper. Modify with caution.",
         }
 
     def __init__(self):
@@ -241,6 +242,7 @@ class SettingsWindow():
         self.load_settings_from_file()
         self.AISCRIBE = self.load_aiscribe_from_file() or "AI, please transform the following conversation into a concise SOAP note. Do not assume any medical data, vital signs, or lab values. Base the note strictly on the information provided in the conversation. Ensure that the SOAP note is structured appropriately with Subjective, Objective, Assessment, and Plan sections. Strictly extract facts from the conversation. Here's the conversation:"
         self.AISCRIBE2 = self.load_aiscribe2_from_file() or "Remember, the Subjective section should reflect the patient's perspective and complaints as mentioned in the conversation. The Objective section should only include observable or measurable data from the conversation. The Assessment should be a summary of your understanding and potential diagnoses, considering the conversation's content. The Plan should outline the proposed management, strictly based on the dialogue provided. Do not add any information that did not occur and do not make assumptions. Strictly extract facts from the conversation."
+        self.WHISPER_INITIAL_PROMPT = self.load_whisper_initial_prompt_from_file() or "This is the initial prompt for Whisper. Modify with caution." #TODO: YOG Proper Prompt has to be added
         self.get_dropdown_values_and_mapping()
         self._create_settings_and_aiscribe_if_not_exist()    
         
@@ -330,8 +332,8 @@ class SettingsWindow():
         with open(get_resource_path('settings.txt'), 'w') as file:
             json.dump(settings, file)
 
-    def save_settings(self, openai_api_key, aiscribe_text, aiscribe2_text, settings_window,
-                    silence_cutoff):
+    def save_settings(self, openai_api_key, aiscribe_text, aiscribe2_text, whisper_initial_prompt_text, settings_window,
+                    silence_cutoff ):
         """
         Save the current settings, including IP addresses, API keys, and user-defined parameters.
 
@@ -358,11 +360,15 @@ class SettingsWindow():
 
         self.AISCRIBE = aiscribe_text
         self.AISCRIBE2 = aiscribe2_text
+        self.WHISPER_INITIAL_PROMPT = whisper_initial_prompt_text
+
 
         with open(get_resource_path('aiscribe.txt'), 'w') as f:
             f.write(self.AISCRIBE)
         with open(get_resource_path('aiscribe2.txt'), 'w') as f:
             f.write(self.AISCRIBE2)
+        with open(get_resource_path('whisper_initial.txt'), 'w') as f:
+            f.write(self.WHISPER_INITIAL_PROMPT)
 
     def load_aiscribe_from_file(self):
         """
@@ -386,6 +392,19 @@ class SettingsWindow():
         """
         try:
             with open(get_resource_path('aiscribe2.txt'), 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            return None
+    
+    def load_whisper_initial_prompt_from_file(self):
+        """
+        Load the Whisper initial prompt text from a file.
+
+        :returns: The Whisper initial prompt text, or None if the file does not exist or is empty.
+        :rtype: str or None
+        """
+        try:
+            with open(get_resource_path('whisper_initial.txt'), 'r') as f:
                 return f.read()
         except FileNotFoundError:
             return None
@@ -611,6 +630,10 @@ class SettingsWindow():
             print("AIScribe2 file not found. Creating default AIScribe2 file.")
             with open(get_resource_path('aiscribe2.txt'), 'w') as f:
                 f.write(self.AISCRIBE2)
+        if not os.path.exists(get_resource_path('whisper_initial.txt')):
+            print("Whisper Initial Prompt file not found. Creating default Whisper Initial Prompt file.")
+            with open(get_resource_path('whisper_initial.txt'), 'w') as f:
+                f.write(self.WHISPER_INITIAL_PROMPT)
 
     def get_available_architectures(self):
         """

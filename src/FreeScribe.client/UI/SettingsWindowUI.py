@@ -509,6 +509,29 @@ class SettingsWindowUI:
         # self.cutoff_slider = AudioMeter(left_frame, width=150, height=50, 
         #                             threshold=self.settings.editable_settings["Silence cut-off"] * 32768)
         # self.cutoff_slider.grid(row=1, column=1, padx=0, pady=0, sticky="w")
+
+        # Whisper Initial Prompt
+        self.whisper_initial_prompt_text, label_row, text_row, row = self._create_text_area(
+            "Whisper Initial Prompt", self.settings.WHISPER_INITIAL_PROMPT, row
+        )
+
+        # Explanation for Whisper Initial Prompt
+        whisper_initial_prompt_explanation = (
+            "This is the initial prompt for Whisper:\n\n"
+            "• Acts as the opening instruction to Whisper\n"
+            "• Sets up how to interpret the audio\n"
+            "• Defines any specific requirements\n"
+            "• Audio will be processed after this\n\n"
+            "⚠️ Modify with caution as it affects Whisper output quality"
+        )
+        tk.Label(
+            self.advanced_settings_frame,
+            text=whisper_initial_prompt_explanation,
+            justify="left",
+            font=("Arial", 9),
+            fg="#272927"
+        ).grid(row=text_row, column=1, padx=(10, 0), pady=5, sticky="nw")
+
         row += 1
 
         # AI Settings
@@ -675,6 +698,7 @@ class SettingsWindowUI:
             self.openai_api_key_entry.get(),
             self.aiscribe_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
             self.aiscribe2_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
+            self.whisper_initial_prompt_text.get("1.0", "end-1c"), # Save the new initial prompt
             self.settings_window,
             # self.api_dropdown.get(),
             self.settings.editable_settings["Silence cut-off"], # Save the old one for whisper audio cutoff, will be removed in future, left in incase we go back to old cut off

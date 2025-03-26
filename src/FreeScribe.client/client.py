@@ -956,7 +956,9 @@ def send_audio_to_server():
             }
 
             if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
-                body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
+                body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]                
+            
+            body["initial_prompt"] = app_settings.WHISPER_INITIAL_PROMPT
 
             try:
                 verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
@@ -1807,12 +1809,16 @@ def faster_whisper_transcribe(audio):
         # Validate vad_filter
         vad_filter = bool(app_settings.editable_settings[SettingsKeys.WHISPER_VAD_FILTER.value])
 
+        # Initial Whisper Prompt
+        initial_whisper_prompt = app_settings.WHISPER_INITIAL_PROMPT
+        print(initial_whisper_prompt)
         start_time = time.monotonic()
         segments, info = stt_local_model.transcribe(
             audio,
             beam_size=beam_size,
             vad_filter=vad_filter,
-            **additional_kwargs
+            **additional_kwargs,
+            initial_prompt= initial_whisper_prompt
         )
         if type(audio) in [str, np.ndarray]:
             print(f"took {time.monotonic() - start_time:.3f} seconds to process {len(audio)=} {type(audio)=} audio.")
