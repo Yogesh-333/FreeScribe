@@ -57,6 +57,5 @@ def _get_user_data_dir(shared: bool) -> str:
     else: # Linux
         path = os.environ.get("XDG_DATA_HOME", "")
         if not path.strip():
-            path = os.path.expanduser("~/.local/share") 
-        return self._append_app_name_and_version(path)
-
+            path = os.path.expanduser("~/.local/share")
+        return path
