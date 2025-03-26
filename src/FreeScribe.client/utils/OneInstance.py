@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import messagebox
 import psutil  # For process management
 import os
-import sys
 
 from utils.system import is_windows, is_linux, is_macos
 from utils.windows_utils import bring_to_front as windows_bring_to_front, kill_with_admin_privilege
@@ -38,11 +37,26 @@ class OneInstance:
         """
         current_pid = os.getpid()
         possible_ids = []
-        for proc in psutil.process_iter(['pid', 'name', 'status']):
+        
+        # Get the absolute path to client.py
+        client_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'client.py'))
+        
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'status']):
             try:
                 info = proc.info
-                # more criteria, they may remain in proc list in different states right after killing
-                if (info['name'] == f"{self.app_task_manager_name}"
+                # Check for both the compiled executable and python script
+                is_target_process = (
+                    # Check for the compiled executable
+                    (info['name'] == f"{self.app_task_manager_name}")
+                    or
+                    # Check for python process running client.py
+                    (info['name'] == 'python' and 
+                     info['cmdline'] and 
+                     len(info['cmdline']) > 1 and 
+                     os.path.abspath(info['cmdline'][1]) == client_script)
+                )
+                
+                if (is_target_process
                         and info['pid'] != current_pid
                         and info['status'] != psutil.STATUS_ZOMBIE
                         and proc.is_running()):
@@ -76,7 +90,8 @@ class OneInstance:
             return False
         return False
 
-    def bring_to_front(self, app_name: str):
+    @classmethod
+    def bring_to_front(cls, app_name: str):
         """
         Bring the window with the given handle to the front.
         
@@ -152,12 +167,12 @@ class OneInstance:
         dialog.mainloop()
         return dialog.return_status
         
-    def run(self):
+    def is_running(self):
         """
         Main entry point to check for existing instances.
         
         Returns:
-            bool: True if existing instance continues, False if none exists or terminated
+            bool: True if another instance is running and we back off, False if this instance should continue
         """
         # Check for running instances using platform-specific methods
         if is_windows():

@@ -10,7 +10,7 @@ import io
 import sys
 from datetime import datetime
 from collections import deque
-from utils.utils import bring_to_front
+from utils.OneInstance import OneInstance
 
 class DualOutput:
     buffer = None
@@ -82,7 +82,7 @@ class DebugPrintWindow:
         """
         self.parent = parent
         if self.parent.debug_window_open:
-            bring_to_front("Debug Output")
+            OneInstance.bring_to_front("Debug Output")
             return
         self.parent.debug_window_open = True
         self.window = tk.Toplevel(parent.root)

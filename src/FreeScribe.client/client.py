@@ -54,8 +54,7 @@ import utils.audio
 import utils.system
 from UI.DebugWindow import DualOutput
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
-from utils.utils import window_has_running_instance, bring_to_front, close_mutex
-from utils.window_utils import remove_min_max, add_min_max
+from utils.windows_utils import remove_min_max, add_min_max
 from WhisperModel import TranscribeError
 from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
@@ -93,9 +92,11 @@ else:
 # if true, exit the current instance
 app_manager = OneInstance(APP_NAME, APP_TASK_MANAGER_NAME)
 
-if app_manager.run():
+if app_manager.is_running():
+    # Another instance is running
     sys.exit(1)
 else:
+    # No other instance is running, or we successfully terminated the other instance
     root = tk.Tk()
     root.title(APP_NAME)
 
@@ -122,10 +123,10 @@ def delete_temp_file(filename):
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
-    close_mutex()
+    app_manager.cleanup()
 
 
-# Register the close_mutex function to be called on exit
+# Register the cleanup function to be called on exit
 atexit.register(on_closing)
 
 
