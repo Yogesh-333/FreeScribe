@@ -247,6 +247,7 @@ class SettingsWindowUI:
     def toggle_remote_whisper_settings(self):
         current_state = self.settings.editable_settings_entries[SettingsKeys.LOCAL_WHISPER.value].get()
         inverted_state = "disabled" if current_state == 0 else "normal"
+        
         for setting in self.settings.whisper_settings:
             if setting in [SettingsKeys.WHISPER_REAL_TIME.value, "BlankSpace"]:
                 continue
@@ -256,6 +257,10 @@ class SettingsWindowUI:
         
         for setting in self.settings.adv_whisper_settings:            
             if setting in self.widgets and self.widgets[setting].winfo_exists():
+                # Skip disabling Whisper Language Code
+                if setting == SettingsKeys.WHISPER_LANGUAGE_CODE.value:
+                    continue
+                
                 self.widgets[setting].config(state=inverted_state)
         
         # set the local option to disabled on switch to remote
