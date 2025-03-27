@@ -963,6 +963,7 @@ def send_audio_to_server():
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
             except Exception as e:
                 result = f"An error occurred ({type(e).__name__}): {e}"
+                print(traceback.format_exc())
             finally:
                 if app_settings.is_low_mem_mode():
                     unload_stt_model()
