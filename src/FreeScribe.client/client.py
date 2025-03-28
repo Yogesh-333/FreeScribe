@@ -38,6 +38,7 @@ import numpy as np
 import tkinter as tk
 from tkinter import scrolledtext, ttk, filedialog
 import tkinter.messagebox as messagebox
+import librosa
 from faster_whisper import WhisperModel
 from UI.MainWindowUI import MainWindowUI
 from UI.SettingsWindow import SettingsWindow
@@ -64,12 +65,10 @@ from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner
 from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 
-
-LOG_LEVEL = logging.DEBUG
-
-search_path = ['/usr/local/bin']
-for path in search_path:
-    os.environ['PATH'] += f':{path}'
+if os.environ.get("FREESCRIBE_DEBUG"):
+    LOG_LEVEL = logging.DEBUG
+else:
+    LOG_LEVEL = logging.INFO
 
 logging.basicConfig(
     level=LOG_LEVEL,
@@ -935,16 +934,17 @@ def send_audio_to_server():
         # Display a message indicating that audio to text processing is in progress
         user_input.scrolled_text.insert(tk.END, "Audio to Text Processing...Please Wait")
         try:
-            if utils.system.is_windows():
+            if utils.system.is_macos():
+                # Load the audio file to send for transcription
+                file_to_send, sr = librosa.load(uploaded_file_path, sr=RATE, mono=True)
+                delete_file = False
+                uploaded_file_path = None
+            else:
                 # Determine the file to send for transcription
                 file_to_send = uploaded_file_path or get_resource_path('recording.wav')
                 delete_file = False if uploaded_file_path else True
                 uploaded_file_path = None
-            else:
-                # Determine the file to send for transcription
-                file_to_send = uploaded_file_path
-                delete_file = False
-                uploaded_file_path = None
+
 
             # load stt model for transcription
             if not is_whisper_valid() and app_settings.is_low_mem_mode():
@@ -960,8 +960,8 @@ def send_audio_to_server():
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
             except Exception as e:
-                result = f"An error occurred ({type(e).__name__}): {e}"
                 logger.error(traceback.format_exc())
+                result = f"An error occurred ({type(e).__name__}): {e}\n \n {traceback.format_exc()}"
             finally:
                 if app_settings.is_low_mem_mode():
                     unload_stt_model()
@@ -969,7 +969,7 @@ def send_audio_to_server():
             transcribed_text = result
 
             # done with file clean up
-            if os.path.exists(file_to_send) and delete_file is True:
+            if delete_file is True and os.path.exists(file_to_send) :
                 os.remove(file_to_send)
 
             # check if canceled, if so do not update the UI
@@ -985,6 +985,7 @@ def send_audio_to_server():
             # Log the error message
             # TODO: Add system eventlogger
             print(f"An error occurred: {e}")
+            print(traceback.format_exc())
 
             # log error to input window
             user_input.scrolled_text.configure(state='normal')
@@ -1517,18 +1518,11 @@ def generate_note_thread(text: str):
 
     root.after(500, lambda: check_thread_status(thread, loading_window))
 
-import librosa
 def upload_file():
     global uploaded_file_path
     file_path = filedialog.askopenfilename(filetypes=(("Audio files", "*.wav *.mp3 *.m4a"),))
     if file_path:
         uploaded_file_path = file_path
-        
-        # convert to np,ndarray
-        y, sr = librosa.load(uploaded_file_path, sr=RATE, mono=True)
-
-        uploaded_file_path = y
-
         threaded_send_audio_to_server()  # Add this line to process the file immediately
     start_flashing()
 
