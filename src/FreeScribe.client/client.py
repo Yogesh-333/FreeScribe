@@ -2009,7 +2009,7 @@ def await_models(timeout_length=60):
 root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", lambda event: load_model_with_loading_screen(root=root, app_settings=app_settings))
-root.bind("<<UnloadSttModel>>", unload_stt_model)
+root.bind("<<UnloadSttModel>>", lambda e: unload_stt_model())
 
 root.mainloop()
 
