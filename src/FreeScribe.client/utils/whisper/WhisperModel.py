@@ -286,6 +286,9 @@ def _remove_silent_chunks(audio: np.ndarray):
     # collect audio chunks
     audio_chunks, meta_data = collect_chunks(audio, clip_timestamps)
 
+    if audio_chunks is None:
+        return audio
+
     # merge all audio_chuncks into one np.ndarray
     audio = np.concatenate(audio_chunks)
 
