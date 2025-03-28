@@ -74,7 +74,7 @@ for path in search_path:
 logging.basicConfig(
     level=LOG_LEVEL,
     format='%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler(get_resource_path('freescribe.log'))]
+    handlers=[logging.StreamHandler()]
 )
 
 logger = logging.getLogger(__name__)
@@ -83,8 +83,6 @@ dual = DualOutput()
 sys.stdout = dual
 sys.stderr = dual
 
-print(f"PATH: {os.environ['PATH']}")
-print(f"LOGGING FILE: {get_resource_path('freescribe.log')}")
 
 APP_NAME = 'AI Medical Scribe'  # Application name
 if utils.system.is_windows():
