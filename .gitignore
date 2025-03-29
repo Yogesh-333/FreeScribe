@@ -1,3 +1,9 @@
+.cursorignore
+.flatpak-builder/
+.python-version
+build-dir/
+
+
 .idea/
 __version__
 

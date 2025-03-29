@@ -51,6 +51,9 @@ def is_linux():
     
     return platform.system() == "Linux"
 
+def is_flatpak():
+    return is_linux() and os.environ.get('container') == 'flatpak'
+
 def install_macos_ssl_certificates():
     """
     Install the SSL certificates for macOS.
