@@ -4,7 +4,7 @@
 set -e
 
 # Ensure we're in the project root directory
-if [ ! -f "client_requirements.txt" ]; then
+if [ ! -f ".gitignore" ] || [ ! -d "flatpak"  ]; then
     echo "Error: This script must be run from the project root directory"
     echo "Please run it as: ./flatpak/build-flatpak.sh"
     exit 1
