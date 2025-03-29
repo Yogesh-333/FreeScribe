@@ -1138,7 +1138,11 @@ def update_gui_with_response(response_text):
         timestamp_listbox.insert(tk.END, time)
 
     display_text(response_text)
-    pyperclip.copy(response_text)
+    try:
+        # copy/paste may be disabled in sandbox environment
+        pyperclip.copy(response_text)
+    except Exception as e:
+        logging.warning(str(e))
     stop_flashing()
 
 
@@ -1160,7 +1164,10 @@ def show_response(event):
         response_display.scrolled_text.delete('1.0', tk.END)
         response_display.scrolled_text.insert('1.0', response_text)
         response_display.scrolled_text.configure(state='disabled')
-        pyperclip.copy(response_text)
+        try:
+            pyperclip.copy(response_text)
+        except Exception as e:
+            logging.warning(str(e))
 
 
 def send_text_to_api(edited_text):
@@ -1745,7 +1752,10 @@ def copy_text(widget):
         widget: A tkinter Text widget containing the text to be copied.
     """
     text = widget.get("1.0", tk.END)
-    pyperclip.copy(text)
+    try:
+        pyperclip.copy(text)
+    except Exception as e:
+        logging.warning(str(e))
 
 
 def add_placeholder(event, text_widget, placeholder_text="Text box"):
