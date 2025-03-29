@@ -40,7 +40,7 @@ modules:
   - name: freescribe
     buildsystem: simple
     build-commands:
-      - pip3 install --index-url http://localhost:8080/simple/ --prefix=/app -r flatpak/requirements_cpu.txt
+      - pip3 install --extra-index-url https://download.pytorch.org/whl/cpu --prefix=/app -r flatpak/requirements_cpu.txt
       - mkdir -p /app/bin
       - echo '#!/usr/bin/env python3' > /app/bin/freescribe
       - echo 'import sys; sys.path.append("/app/lib/python3.10/site-packages/FreeScribe_client")' >> /app/bin/freescribe
