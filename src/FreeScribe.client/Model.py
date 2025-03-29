@@ -9,7 +9,7 @@ from UI.SettingsConstant import SettingsKeys, DEFAULT_CONTEXT_WINDOW_SIZE
 from enum import Enum
 import torch
 import utils.system
-from utils.file_utils import get_resource_path
+from utils.file_utils import get_resource_path, is_flatpak
 
 
 class ModelStatus(Enum):
@@ -226,7 +226,7 @@ class ModelManager:
 
             model_to_use = "gemma-2-2b-it-Q8_0.gguf"
 
-            if utils.system.is_macos():
+            if utils.system.is_macos() or is_flatpak():
                 model_path = get_resource_path(filename=f"models/{model_to_use}", shared=True)
             else:
                 model_path = f"./models/{model_to_use}"

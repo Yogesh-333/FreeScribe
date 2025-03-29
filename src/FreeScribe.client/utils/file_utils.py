@@ -16,8 +16,11 @@ def _flatpak_init():
         os.makedirs(config_path, exist_ok=True)
     # soft link data {assets, markdown, models} so app can visit them
     for fname in ['assets', 'markdown', 'models', 'whisper-assets', '__version__']:
+        target = os.path.join(config_path, fname)
+        if os.path.islink(target):
+            continue
         # source, link_name
-        os.symlink(os.path.join('/app/lib/python3.10/site-packages/FreeScribe_client/', fname), os.path.join(config_path, fname))
+        os.symlink(os.path.join('/app/lib/python3.10/site-packages/FreeScribe_client/', fname), target)
     
 
 def get_file_path(*file_names: str) -> str:
