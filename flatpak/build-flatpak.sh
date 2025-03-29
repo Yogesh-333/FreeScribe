@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Exit on error
 set -e
@@ -44,12 +44,17 @@ echo "Installing required runtime and SDK..."
 flatpak install flathub org.gnome.Platform//48 org.gnome.Sdk//48
 
 # Build the flatpak
-# echo "Building FreeScribe Flatpak..."
-# flatpak-builder --force-clean build-dir flatpak/io.github.clinicianfocus.FreeScribe.yaml
+echo "Building FreeScribe Flatpak..."
+flatpak-builder --force-clean --user --repo=repo build-dir flatpak/io.github.clinicianfocus.FreeScribe.yaml
 
 # Install the flatpak locally
-echo "Installing FreeScribe Flatpak locally..."
-flatpak-builder --force-clean --user --install build-dir flatpak/io.github.clinicianfocus.FreeScribe.yaml
+# echo "Installing FreeScribe Flatpak locally..."
+# flatpak-builder --force-clean --user --repo=repo --install build-dir flatpak/io.github.clinicianfocus.FreeScribe.yaml
 
-echo "Build complete! You can now run FreeScribe using:"
-echo "flatpak run io.github.clinicianfocus.FreeScribe" 
+# Create a bundle
+echo "Creating Flatpak bundle..."
+flatpak build-bundle repo freescribe.flatpak io.github.clinicianfocus.FreeScribe
+
+echo "Build complete! You can now:"
+echo "1. Run FreeScribe locally using: flatpak run io.github.clinicianfocus.FreeScribe"
+echo "2. Install the bundle on another system using: flatpak install freescribe.flatpak" 

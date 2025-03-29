@@ -2,6 +2,7 @@
 .flatpak-builder/
 .python-version
 build-dir/
+repo/
 
 
 .idea/
