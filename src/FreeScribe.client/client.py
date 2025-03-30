@@ -14,6 +14,7 @@ and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and N
 import ctypes
 import io
 import logging
+import multiprocessing
 import sys
 import gc
 import os
@@ -61,7 +62,7 @@ from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner
-
+from  api.client_api import run_api
 
 if os.environ.get("FREESCRIBE_DEBUG"):
     LOG_LEVEL = logging.DEBUG
@@ -93,7 +94,7 @@ if app_manager.run():
 else:
     root = tk.Tk()
     root.title(APP_NAME)
-    
+
 def delete_temp_file(filename):
     """
     Deletes a temporary file if it exists.
@@ -956,7 +957,9 @@ def send_audio_to_server():
             }
 
             if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
-                body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
+                body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]                
+            
+            body["initial_prompt"] = app_settings.WHISPER_INITIAL_PROMPT
 
             try:
                 verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
@@ -1807,12 +1810,16 @@ def faster_whisper_transcribe(audio):
         # Validate vad_filter
         vad_filter = bool(app_settings.editable_settings[SettingsKeys.WHISPER_VAD_FILTER.value])
 
+        # Initial Whisper Prompt
+        initial_whisper_prompt = app_settings.WHISPER_INITIAL_PROMPT
+        print(initial_whisper_prompt)
         start_time = time.monotonic()
         segments, info = stt_local_model.transcribe(
             audio,
             beam_size=beam_size,
             vad_filter=vad_filter,
-            **additional_kwargs
+            **additional_kwargs,
+            initial_prompt= initial_whisper_prompt
         )
         if type(audio) in [str, np.ndarray]:
             print(f"took {time.monotonic() - start_time:.3f} seconds to process {len(audio)=} {type(audio)=} audio.")
@@ -2051,6 +2058,11 @@ root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", load_stt_model)
 root.bind("<<UnloadSttModel>>", unload_stt_model)
+
+# Start the API server in a separate thread
+api_thread = threading.Thread(target=run_api)
+api_thread.daemon = True  # Allow the main thread to exit even if the API thread is running
+api_thread.start()
 
 root.mainloop()
 
