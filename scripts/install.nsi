@@ -411,16 +411,27 @@ Function CleanUninstall
     RMDir "$SMPROGRAMS\FreeScribe"
 FunctionEnd
 
+!include nsDialogs.nsh
+!include LogicLib.nsh
+
 Function CheckForOldConfig
     ; Check if old config exists
     IfFileExists "$APPDATA\FreeScribe\settings.txt" old_config_exists
     Goto end
     
     old_config_exists:
-    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION \
+    MessageBox MB_YESNO|MB_ICONQUESTION \
         "An old configuration file has been detected. Would you like to remove it to prevent conflict with new versions?" \
-        IDYES remove_old_config \
-        IDNO keep_network_config
+        IDYES process_old_config \
+        IDNO end
+    
+    Goto end
+    
+    process_old_config:
+    MessageBox MB_YESNO|MB_ICONQUESTION \
+        "Would you like to keep the network-related settings and remove other configuration?" \
+        IDYES keep_network_config_only \
+        IDNO remove_old_config
     
     Goto end
     
@@ -432,12 +443,6 @@ Function CheckForOldConfig
                 "Unable to remove old configuration. Please close any applications using these files and try again." \
                 IDRETRY remove_old_config
             Goto config_files_failed
-        Goto end
-    
-    keep_network_config:
-        MessageBox MB_YESNO|MB_ICONQUESTION \
-            "Keep network config? This will preserve only network-related settings and remove other configuration files." \
-            IDYES keep_network_config_only
         Goto end
     
     keep_network_config_only:
