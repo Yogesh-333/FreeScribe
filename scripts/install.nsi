@@ -412,18 +412,156 @@ FunctionEnd
 Function CheckForOldConfig
     ; Check if the old version exists in AppData
     IfFileExists "$APPDATA\FreeScribe\settings.txt" 0 End
-        ; Open Dialog to ask user if they want to uninstall the old version
-        MessageBox MB_YESNO|MB_ICONQUESTION "An old configuration file has been detected. We recommend removing it to prevent conflict with new versions. Would you like to remove it?" IDYES RemoveOldConfig IDNO End
+        ; Define MessageBox options with three buttons
+        MessageBox MB_YESNOCANCEL|MB_ICONQUESTION|MB_DEFBUTTON3 "An old configuration file has been detected. Would you like to remove it to prevent conflict with new versions?" /SD IDCANCEL IDYES RemoveOldConfig IDNO KeepNetworkConfig
+        ; IDCANCEL falls through to End (keep all)
+        Goto End
+        
         RemoveOldConfig:
             ClearErrors
-            ; Remove the old version executable
+            ; Remove all old configuration files
             RMDir /r "$APPDATA\FreeScribe"
             ${If} ${Errors}
                 MessageBox MB_RETRYCANCEL "Unable to remove old configuration. Please close any applications using these files and try again." IDRETRY RemoveOldConfig IDCANCEL ConfigFilesFailed
             ${EndIf}
             Goto End
+            
+        KeepNetworkConfig:
+            MessageBox MB_YESNO|MB_ICONQUESTION "Keep network config? This will preserve only network-related settings and remove other configuration files." IDYES KeepNetworkConfigOnly IDNO End
+            
+        KeepNetworkConfigOnly:
+            ClearErrors
+            ; Create a backup of the settings.txt file
+            CopyFiles "$APPDATA\FreeScribe\settings.txt" "$APPDATA\FreeScribe\settings.txt.bak"
+            
+            ; Read the network configuration from settings.txt
+            FileOpen $0 "$APPDATA\FreeScribe\settings.txt.bak" r
+            ${If} ${Errors}
+                MessageBox MB_OK|MB_ICONEXCLAMATION "Could not read settings file. Keeping all configuration files."
+                Delete "$APPDATA\FreeScribe\settings.txt.bak"
+                Goto End
+            ${EndIf}
+            
+            ; Create a new settings file with only the requested configuration
+            FileOpen $1 "$APPDATA\FreeScribe\settings.txt.new" w
+            ${If} ${Errors}
+                FileClose $0
+                MessageBox MB_OK|MB_ICONEXCLAMATION "Could not create new settings file. Keeping all configuration files."
+                Delete "$APPDATA\FreeScribe\settings.txt.bak"
+                Goto End
+            ${EndIf}
+            
+            ; Start with the opening bracket for JSON
+            FileWrite $1 "{$\r$\n"
+            FileWrite $1 '"openai_api_key": "None",$\r$\n'
+            FileWrite $1 '"editable_settings": {$\r$\n'
+            
+            ; Variables to store extracted settings
+            Var /GLOBAL AI_Server_Endpoint
+            Var /GLOBAL AI_Self_Signed
+            Var /GLOBAL Built_In_AI_Processing
+            Var /GLOBAL Built_In_Speech2Text
+            Var /GLOBAL S2T_Endpoint
+            Var /GLOBAL S2T_API_Key
+            Var /GLOBAL S2T_Self_Signed
+            
+            ; Default values in case not found
+            StrCpy $AI_Server_Endpoint '"AI Server Endpoint": "https://localhost:3334/v1"'
+            StrCpy $AI_Self_Signed '"AI Server Self-Signed Certificates": 0'
+            StrCpy $Built_In_AI_Processing '"Built-in AI Processing": 1'
+            StrCpy $Built_In_Speech2Text '"Built-in Speech2Text": 1'
+            StrCpy $S2T_Endpoint '"Speech2Text (Whisper) Endpoint": "https://localhost:2224/whisperaudio"'
+            StrCpy $S2T_API_Key '"Speech2Text (Whisper) API Key": ""'
+            StrCpy $S2T_Self_Signed '"S2T Server Self-Signed Certificates": 0'
+            
+            ; Read settings file line by line to extract the values we want to keep
+            Loop:
+                FileRead $0 $2
+                ${If} ${Errors}
+                    Goto EndLoop
+                ${EndIf}
+                
+                ; Check if line contains settings we want to keep
+                ${If} $2 =~ '"AI Server Endpoint"'
+                    StrCpy $AI_Server_Endpoint $2
+                ${ElseIf} $2 =~ '"AI Server Self-Signed Certificates"'
+                    StrCpy $AI_Self_Signed $2
+                ${ElseIf} $2 =~ '"Built-in AI Processing"'
+                    StrCpy $Built_In_AI_Processing $2
+                ${ElseIf} $2 =~ '"Built-in Speech2Text"'
+                    StrCpy $Built_In_Speech2Text $2
+                ${ElseIf} $2 =~ '"Speech2Text \(Whisper\) Endpoint"'
+                    StrCpy $S2T_Endpoint $2
+                ${ElseIf} $2 =~ '"Speech2Text \(Whisper\) API Key"'
+                    StrCpy $S2T_API_Key $2
+                ${ElseIf} $2 =~ '"S2T Server Self-Signed Certificates"'
+                    StrCpy $S2T_Self_Signed $2
+                ${EndIf}
+                
+                Goto Loop
+            EndLoop:
+            
+            ; Write the extracted settings to the new file
+            ; Remove trailing commas if present in the extracted settings
+            ${WordReplace} $AI_Server_Endpoint ",$" "" "+" $AI_Server_Endpoint
+            ${WordReplace} $AI_Self_Signed ",$" "" "+" $AI_Self_Signed
+            ${WordReplace} $Built_In_AI_Processing ",$" "" "+" $Built_In_AI_Processing
+            ${WordReplace} $Built_In_Speech2Text ",$" "" "+" $Built_In_Speech2Text
+            ${WordReplace} $S2T_Endpoint ",$" "" "+" $S2T_Endpoint
+            ${WordReplace} $S2T_API_Key ",$" "" "+" $S2T_API_Key
+            ${WordReplace} $S2T_Self_Signed ",$" "" "+" $S2T_Self_Signed
+            
+            ; Write each setting with comma
+            FileWrite $1 "$AI_Server_Endpoint,$\r$\n"
+            FileWrite $1 "$AI_Self_Signed,$\r$\n"
+            FileWrite $1 "$Built_In_AI_Processing,$\r$\n"
+            FileWrite $1 "$Built_In_Speech2Text,$\r$\n"
+            FileWrite $1 "$S2T_Endpoint,$\r$\n"
+            FileWrite $1 "$S2T_API_Key,$\r$\n"
+            
+            ; Last setting without comma
+            FileWrite $1 "$S2T_Self_Signed$\r$\n"
+            
+            ; Close the JSON object
+            FileWrite $1 "},$\r$\n"
+            FileWrite $1 '"app_version": "aplha123"$\r$\n'
+            FileWrite $1 "}"
+            
+            ; Close both files
+            FileClose $0
+            FileClose $1
+            
+            ; Remove all other configuration files except the new settings
+            FindFirst $0 $1 "$APPDATA\FreeScribe\*.*"
+            DeleteLoop:
+                StrCmp $1 "" DeleteLoopEnd
+                StrCmp $1 "." NextFile
+                StrCmp $1 ".." NextFile
+                StrCmp $1 "settings.txt.new" NextFile
+                Delete "$APPDATA\FreeScribe\$1"
+                NextFile:
+                FindNext $0 $1
+                Goto DeleteLoop
+            DeleteLoopEnd:
+            FindClose $0
+            
+            ; Remove directories
+            RMDir /r "$APPDATA\FreeScribe\logs"
+            RMDir /r "$APPDATA\FreeScribe\temp"
+            RMDir /r "$APPDATA\FreeScribe\cache"
+            
+            ; Replace the old settings file with the new one
+            Delete "$APPDATA\FreeScribe\settings.txt"
+            Rename "$APPDATA\FreeScribe\settings.txt.new" "$APPDATA\FreeScribe\settings.txt"
+            
+            ; Clean up backup
+            Delete "$APPDATA\FreeScribe\settings.txt.bak"
+            
+            MessageBox MB_OK "Network configuration preserved. All other settings were reset."
+            Goto End
+            
     ConfigFilesFailed:
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Old configuration files could not be removed. Proceeding with installation."
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Old configuration files could not be fully processed. Proceeding with installation."
     End:
 FunctionEnd
 
