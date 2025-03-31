@@ -557,7 +557,8 @@ def realtime_text():
                         break
                     try:
                         result = faster_whisper_transcribe(audio_buffer, app_settings=app_settings)
-                        logger.debug(f"transcribe {result=}")
+                        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                            result = hallucination_cleaner.clean_text(result)
                     except Exception as e:
                         logger.exception(str(e))
                         update_gui(f"\nError: {e}\n")
@@ -602,6 +603,8 @@ def realtime_text():
 
                         if response.status_code == 200:
                             text = response.json()['text']
+                            if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                                text = hallucination_cleaner.clean_text(text)
                             if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                                 update_gui(text)
                         else:
@@ -957,6 +960,8 @@ def send_audio_to_server():
             # Transcribe the audio file using the loaded model
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
+                if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                    result = hallucination_cleaner.clean_text(result)
             except Exception as e:
                 result = f"An error occurred ({type(e).__name__}): {e}"
             finally:
@@ -1047,6 +1052,8 @@ def send_audio_to_server():
                 if not is_audio_processing_whole_canceled.is_set():
                     # Update the UI with the transcribed text
                     transcribed_text = response.json()['text']
+                    if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                        transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
                     user_input.scrolled_text.configure(state='normal')
                     user_input.scrolled_text.delete("1.0", tk.END)
                     user_input.scrolled_text.insert(tk.END, transcribed_text)
