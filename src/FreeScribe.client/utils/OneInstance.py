@@ -177,8 +177,7 @@ class OneInstance:
         """
         # Check for running instances using platform-specific methods
         if is_windows():
-            pids = self.get_running_instance_pids()
-            if pids:
+            if self.get_running_instance_pids():
                 return self.show_instance_dialog()
         elif is_linux():
             self.lock_file, already_running = linux_check_instance()
