@@ -50,20 +50,19 @@ def get_resource_path(filename: str, shared: bool = False) -> str:
     """
     if is_flatpak():
         return os.path.join(_get_flatpak_data_dir(), filename)
-    if hasattr(sys, '_MEIPASS'):
-        base = _get_user_data_dir(shared)
-        freescribe_dir = os.path.join(base, 'FreeScribe')
-        
-        # Check if the FreeScribe directory exists, if not, create it
-        try:
-            if not os.path.exists(freescribe_dir):
-                os.makedirs(freescribe_dir)
-        except OSError as e:
-            raise RuntimeError(f"Failed to create FreeScribe directory: {e}")
-        
-        return os.path.join(freescribe_dir, filename)
-    else:
+    if not hasattr(sys, '_MEIPASS'):
         return os.path.abspath(filename)
+    base = _get_user_data_dir(shared)
+    freescribe_dir = os.path.join(base, 'FreeScribe')
+
+    # Check if the FreeScribe directory exists, if not, create it
+    try:
+        if not os.path.exists(freescribe_dir):
+            os.makedirs(freescribe_dir)
+    except OSError as e:
+        raise RuntimeError(f"Failed to create FreeScribe directory: {e}") from e
+
+    return os.path.join(freescribe_dir, filename)
 
 
 def _get_user_data_dir(shared: bool = False) -> str:
