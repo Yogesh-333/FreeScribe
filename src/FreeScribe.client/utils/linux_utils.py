@@ -98,7 +98,7 @@ class XDoToolPython:
     def get_window_name(self, window) -> Optional[str]:
         """Get window name using multiple property methods"""
         try:
-            if net_wm_name:= window.get_full_property(self.NET_WM_NAME, 0)
+            if net_wm_name:= window.get_full_property(self.NET_WM_NAME, 0):
                 return net_wm_name.value.decode('utf-8')
 
             if wm_name:= window.get_full_property(self.WM_NAME, 0):
