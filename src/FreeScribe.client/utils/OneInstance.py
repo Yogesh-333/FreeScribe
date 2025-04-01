@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 import psutil  # For process management
 import os
+import sys
 
 from utils.system import is_windows, is_linux, is_macos
 from utils.windows_utils import bring_to_front as windows_bring_to_front, kill_with_admin_privilege
@@ -50,10 +51,10 @@ class OneInstance:
                     (info['name'] == f"{self.app_task_manager_name}")
                     or
                     # Check for python process running client.py
-                    (info['name'] == 'python' and 
-                     info['cmdline'] and 
-                     len(info['cmdline']) > 1 and 
-                     os.path.abspath(info['cmdline'][1]) == client_script)
+                    (info['cmdline'] and
+                     ((info['name'] is not None and info['name'].startswith('python')) or
+                      (os.path.basename(info['cmdline'][0]) == os.path.basename(sys.executable))) and
+                      client_script in info['cmdline'])
                 )
                 
                 if (is_target_process
