@@ -238,8 +238,13 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     Returns
         str: Transcribed text or error message if transcription fails.
     """
+
+    generate_kwargs = {}
+    if app_settings.editable_settings[SettingsKeys.USE_TRANSLATE_TASK.value]:
+        generate_kwargs['task'] = 'translate'
+
     # Perform transcription
-    result = stt_local_model(audio)
+    result = stt_local_model(audio, generate_kwargs=generate_kwargs)
     return result["text"]
 
 
