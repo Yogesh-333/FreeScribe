@@ -411,9 +411,6 @@ Function CleanUninstall
     RMDir "$SMPROGRAMS\FreeScribe"
 FunctionEnd
 
-!include nsDialogs.nsh
-!include LogicLib.nsh
-
 Function CheckForOldConfig
     ; Check if old config exists
     IfFileExists "$APPDATA\FreeScribe\settings.txt" old_config_exists
@@ -446,112 +443,134 @@ Function CheckForOldConfig
         Goto end
     
     keep_network_config_only:
+        ; Create temporary working directory
+        CreateDirectory "$APPDATA\FreeScribe\~temp"
+        
+        ; Initialize network settings with defaults
+        StrCpy $0 '"AI_Server_Endpoint": "https://localhost:3334/v1"'
+        StrCpy $1 '"AI_Self_Signed": false'
+        StrCpy $2 '"Built_In_AI_Processing": true'
+        StrCpy $3 '"Built_In_Speech2Text": true'
+        StrCpy $4 '"S2T_Endpoint": "https://localhost:2224/whisperaudio"'
+        StrCpy $5 '"S2T_API_Key": ""'
+        StrCpy $6 '"Speech2Text_API_Key": ""'
+        StrCpy $7 '"S2T_Self_Signed": false'
+        
+        ; Try to read existing settings
         ClearErrors
-        CopyFiles "$APPDATA\FreeScribe\settings.txt" "$APPDATA\FreeScribe\settings.txt.bak"
+        FileOpen $8 "$APPDATA\FreeScribe\settings.txt" r
+        IfErrors create_new_config
         
-        FileOpen $0 "$APPDATA\FreeScribe\settings.txt.bak" r
-        IfErrors 0 +3
-            MessageBox MB_OK|MB_ICONEXCLAMATION "Could not read settings file. Keeping all configuration files."
-            Delete "$APPDATA\FreeScribe\settings.txt.bak"
-            Goto end
-        
-        FileOpen $1 "$APPDATA\FreeScribe\settings.txt.new" w
-        IfErrors 0 +3
-            FileClose $0
-            MessageBox MB_OK|MB_ICONEXCLAMATION "Could not create new settings file. Keeping all configuration files."
-            Delete "$APPDATA\FreeScribe\settings.txt.bak"
-            Goto end
-        
-        ; Write basic JSON structure
-        FileWrite $1 "{$\r$\n"
-        FileWrite $1 '"openai_api_key": "None",$\r$\n'
-        FileWrite $1 '"editable_settings": {$\r$\n'
-        
-        ; Variables for network settings
-        Var /GLOBAL AI_Server_Endpoint
-        Var /GLOBAL AI_Self_Signed
-        Var /GLOBAL Built_In_AI_Processing
-        Var /GLOBAL Built_In_Speech2Text
-        Var /GLOBAL S2T_Endpoint
-        Var /GLOBAL S2T_API_Key
-        Var /GLOBAL S2T_Self_Signed
-        
-        ; Set default values
-        StrCpy $AI_Server_Endpoint '"AI Server Endpoint": "https://localhost:3334/v1"'
-        StrCpy $AI_Self_Signed '"AI Server Self-Signed Certificates": 0'
-        StrCpy $Built_In_AI_Processing '"Built-in AI Processing": 1'
-        StrCpy $Built_In_Speech2Text '"Built-in Speech2Text": 1'
-        StrCpy $S2T_Endpoint '"Speech2Text (Whisper) Endpoint": "https://localhost:2224/whisperaudio"'
-        StrCpy $S2T_API_Key '"Speech2Text (Whisper) API Key": ""'
-        StrCpy $S2T_Self_Signed '"S2T Server Self-Signed Certificates": 0'
-        
-        ; Read and process config file
-        ${Do}
-            FileRead $0 $2
+        ; Parse existing settings
+        read_loop:
+            FileRead $8 $9
             IfErrors done_reading
             
-            ; Check for each setting using string operations
-            ${If} $2 == '"AI Server Endpoint"'
-                StrCpy $AI_Server_Endpoint $2
-            ${ElseIf} $2 == '"AI Server Self-Signed Certificates"'
-                StrCpy $AI_Self_Signed $2
-            ${ElseIf} $2 == '"Built-in AI Processing"'
-                StrCpy $Built_In_AI_Processing $2
-            ${ElseIf} $2 == '"Built-in Speech2Text"'
-                StrCpy $Built_In_Speech2Text $2
-            ${ElseIf} $2 == '"Speech2Text (Whisper) Endpoint"'
-                StrCpy $S2T_Endpoint $2
-            ${ElseIf} $2 == '"Speech2Text (Whisper) API Key"'
-                StrCpy $S2T_API_Key $2
-            ${ElseIf} $2 == '"S2T Server Self-Signed Certificates"'
-                StrCpy $S2T_Self_Signed $2
+            ${If} $9 == '"AI Server Endpoint"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $0 '"AI_Server_Endpoint": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"AI Server Self-Signed Certificates"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $1 '"AI_Self_Signed": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"Built-in AI Processing"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $2 '"Built_In_AI_Processing": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"Built-in Speech2Text"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $3 '"Built_In_Speech2Text": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"Speech2Text (Whisper) Endpoint"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $4 '"S2T_Endpoint": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"Speech2Text (Whisper) API Key"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $6 '"Speech2Text_API_Key": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"S2T API Key"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $5 '"S2T_API_Key": $9'
+                ${EndIf}
+            ${ElseIf} $9 == '"S2T Server Self-Signed Certificates"$\r$\n'
+                FileRead $8 $9
+                ${IfNot} ${Errors}
+                    StrCpy $7 '"S2T_Self_Signed": $9'
+                ${EndIf}
             ${EndIf}
-        ${Loop}
+            Goto read_loop
+        
         done_reading:
+        FileClose $8
         
-        ; Write network settings to new file
-        FileWrite $1 "$AI_Server_Endpoint,$\r$\n"
-        FileWrite $1 "$AI_Self_Signed,$\r$\n"
-        FileWrite $1 "$Built_In_AI_Processing,$\r$\n"
-        FileWrite $1 "$Built_In_Speech2Text,$\r$\n"
-        FileWrite $1 "$S2T_Endpoint,$\r$\n"
-        FileWrite $1 "$S2T_API_Key,$\r$\n"
-        FileWrite $1 "$S2T_Self_Signed$\r$\n"
+        create_new_config:
+        ; Create new settings file in temp location
+        ClearErrors
+        FileOpen $8 "$APPDATA\FreeScribe\~temp\settings.txt" w
+        IfErrors cleanup_temp
         
-        ; Close JSON structure
-        FileWrite $1 "},$\r$\n"
-        FileWrite $1 '"app_version": "1.0.0"$\r$\n'
-        FileWrite $1 "}"
+        FileWrite $8 "{$\r$\n"
+        FileWrite $8 '"editable_settings": {$\r$\n'
+        FileWrite $8 "  $0,$\r$\n"
+        FileWrite $8 "  $1,$\r$\n"
+        FileWrite $8 "  $2,$\r$\n"
+        FileWrite $8 "  $3,$\r$\n"
+        FileWrite $8 "  $4,$\r$\n"
+        FileWrite $8 "  $5,$\r$\n"
+        FileWrite $8 "  $6,$\r$\n"
+        FileWrite $8 "  $7$\r$\n"
+        FileWrite $8 "}$\r$\n"
+        FileWrite $8 "}$\r$\n"
+        FileClose $8
+        IfErrors cleanup_temp
         
-        ; Close files
-        FileClose $0
-        FileClose $1
+        ; Delete original directory contents
+        ClearErrors
+        FindFirst $R0 $R1 "$APPDATA\FreeScribe\*"
+        loop:
+            StrCmp $R1 "" done_cleanup
+            StrCmp $R1 "." next
+            StrCmp $R1 ".." next
+            StrCmp $R1 "~temp" next
+            
+            Delete "$APPDATA\FreeScribe\$R1"
+            IfErrors cleanup_failed
+            
+            next:
+            FindNext $R0 $R1
+            Goto loop
         
-        ; Clean up old files
-        FindFirst $0 $1 "$APPDATA\FreeScribe\*"
-        ${Do}
-            ${If} $1 == ""
-                ${Break}
-            ${EndIf}
-            ${If} $1 != "." 
-            ${AndIf} $1 != ".."
-            ${AndIf} $1 != "settings.txt.new"
-                Delete "$APPDATA\FreeScribe\$1"
-            ${EndIf}
-            FindNext $0 $1
-        ${Loop}
-        FindClose $0
+        cleanup_failed:
+            FindClose $R0
+            Goto cleanup_temp
         
-        ; Replace old settings with new
-        Delete "$APPDATA\FreeScribe\settings.txt"
-        Rename "$APPDATA\FreeScribe\settings.txt.new" "$APPDATA\FreeScribe\settings.txt"
-        Delete "$APPDATA\FreeScribe\settings.txt.bak"
+        done_cleanup:
+        FindClose $R0
         
-        MessageBox MB_OK "Network configuration preserved. All other settings were reset."
+        ; Move new settings into place
+        ClearErrors
+        Rename "$APPDATA\FreeScribe\~temp\settings.txt" "$APPDATA\FreeScribe\settings.txt"
+        IfErrors cleanup_temp
+        
+        ; Cleanup temp directory
+        RMDir "$APPDATA\FreeScribe\~temp"
         Goto end
+        
+        cleanup_temp:
+            RMDir /r "$APPDATA\FreeScribe\~temp"
+            Goto config_files_failed
     
     config_files_failed:
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Old configuration files could not be fully processed. Proceeding with installation."
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Configuration update failed. Original settings preserved."
     
     end:
 FunctionEnd
