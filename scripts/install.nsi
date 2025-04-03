@@ -443,131 +443,61 @@ Function CheckForOldConfig
         Goto end
     
     keep_network_config_only:
-        ; Create temporary working directory
-        CreateDirectory "$APPDATA\FreeScribe\~temp"
-        
-        ; Initialize network settings with defaults
-        StrCpy $0 '"AI_Server_Endpoint": "https://localhost:3334/v1"'
-        StrCpy $1 '"AI_Self_Signed": false'
-        StrCpy $2 '"Built_In_AI_Processing": true'
-        StrCpy $3 '"Built_In_Speech2Text": true'
-        StrCpy $4 '"S2T_Endpoint": "https://localhost:2224/whisperaudio"'
-        StrCpy $5 '"S2T_API_Key": ""'
-        StrCpy $6 '"Speech2Text_API_Key": ""'
-        StrCpy $7 '"S2T_Self_Signed": false'
-        
-        ; Try to read existing settings
+        ; First create a preserved_network_config.txt file with the original settings
         ClearErrors
-        FileOpen $8 "$APPDATA\FreeScribe\settings.txt" r
-        IfErrors create_new_config
+        CopyFiles "$APPDATA\FreeScribe\settings.txt" "$APPDATA\FreeScribe\preserved_network_config.txt"
+        IfErrors 0 +3
+            MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \
+                "Unable to preserve network configuration. Please close any applications using these files and try again." \
+                IDRETRY keep_network_config_only
+            Goto config_files_failed
         
-        ; Parse existing settings
-        read_loop:
-            FileRead $8 $9
-            IfErrors done_reading
-            
-            ${If} $9 == '"AI Server Endpoint"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $0 '"AI_Server_Endpoint": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"AI Server Self-Signed Certificates"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $1 '"AI_Self_Signed": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"Built-in AI Processing"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $2 '"Built_In_AI_Processing": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"Built-in Speech2Text"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $3 '"Built_In_Speech2Text": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"Speech2Text (Whisper) Endpoint"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $4 '"S2T_Endpoint": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"Speech2Text (Whisper) API Key"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $6 '"Speech2Text_API_Key": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"S2T API Key"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $5 '"S2T_API_Key": $9'
-                ${EndIf}
-            ${ElseIf} $9 == '"S2T Server Self-Signed Certificates"$\r$\n'
-                FileRead $8 $9
-                ${IfNot} ${Errors}
-                    StrCpy $7 '"S2T_Self_Signed": $9'
-                ${EndIf}
-            ${EndIf}
-            Goto read_loop
+        ; Create a list of files to keep
+        StrCpy $R2 "$APPDATA\FreeScribe\preserved_network_config.txt" ; File to keep
         
-        done_reading:
-        FileClose $8
-        
-        create_new_config:
-        ; Create new settings file in temp location
-        ClearErrors
-        FileOpen $8 "$APPDATA\FreeScribe\~temp\settings.txt" w
-        IfErrors cleanup_temp
-        
-        FileWrite $8 "{$\r$\n"
-        FileWrite $8 '"editable_settings": {$\r$\n'
-        FileWrite $8 "  $0,$\r$\n"
-        FileWrite $8 "  $1,$\r$\n"
-        FileWrite $8 "  $2,$\r$\n"
-        FileWrite $8 "  $3,$\r$\n"
-        FileWrite $8 "  $4,$\r$\n"
-        FileWrite $8 "  $5,$\r$\n"
-        FileWrite $8 "  $6,$\r$\n"
-        FileWrite $8 "  $7$\r$\n"
-        FileWrite $8 "}$\r$\n"
-        FileWrite $8 "}$\r$\n"
-        FileClose $8
-        IfErrors cleanup_temp
-        
-        ; Delete original directory contents
-        ClearErrors
+        ; Delete all files except preserved_network_config.txt
         FindFirst $R0 $R1 "$APPDATA\FreeScribe\*"
-        loop:
-            StrCmp $R1 "" done_cleanup
-            StrCmp $R1 "." next
-            StrCmp $R1 ".." next
-            StrCmp $R1 "~temp" next
+        delete_loop:
+            StrCmp $R1 "" done_deleting
+            StrCmp $R1 "." next_file
+            StrCmp $R1 ".." next_file
             
+            ; Don't delete our preserved config file
+            StrCmp $R1 "preserved_network_config.txt" next_file
+            
+            ; Delete other files
             Delete "$APPDATA\FreeScribe\$R1"
-            IfErrors cleanup_failed
             
-            next:
+            next_file:
             FindNext $R0 $R1
-            Goto loop
+            Goto delete_loop
         
-        cleanup_failed:
-            FindClose $R0
-            Goto cleanup_temp
-        
-        done_cleanup:
+        done_deleting:
         FindClose $R0
         
-        ; Move new settings into place
-        ClearErrors
-        Rename "$APPDATA\FreeScribe\~temp\settings.txt" "$APPDATA\FreeScribe\settings.txt"
-        IfErrors cleanup_temp
+        ; Remove subdirectories if any
+        FindFirst $R0 $R1 "$APPDATA\FreeScribe\*.*"
+        delete_dir_loop:
+            StrCmp $R1 "" done_deleting_dirs
+            StrCmp $R1 "." next_dir
+            StrCmp $R1 ".." next_dir
+            
+            ; Check if it's a directory
+            IfFileExists "$APPDATA\FreeScribe\$R1\*.*" 0 next_dir
+            
+            ; Delete directory
+            RMDir /r "$APPDATA\FreeScribe\$R1"
+            
+            next_dir:
+            FindNext $R0 $R1
+            Goto delete_dir_loop
         
-        ; Cleanup temp directory
-        RMDir "$APPDATA\FreeScribe\~temp"
+        done_deleting_dirs:
+        FindClose $R0
+        
+        ; Confirm to user
+        MessageBox MB_OK "Network configuration has been preserved in the file 'preserved_network_config.txt'. All other configuration files have been removed."
         Goto end
-        
-        cleanup_temp:
-            RMDir /r "$APPDATA\FreeScribe\~temp"
-            Goto config_files_failed
     
     config_files_failed:
         MessageBox MB_OK|MB_ICONEXCLAMATION "Configuration update failed. Original settings preserved."
