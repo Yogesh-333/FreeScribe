@@ -411,9 +411,6 @@ Function CleanUninstall
     RMDir "$SMPROGRAMS\FreeScribe"
 FunctionEnd
 
-!include nsDialogs.nsh
-!include LogicLib.nsh
-
 Function CheckForOldConfig
     ; Check if old config exists
     IfFileExists "$APPDATA\FreeScribe\settings.txt" old_config_exists
@@ -446,112 +443,64 @@ Function CheckForOldConfig
         Goto end
     
     keep_network_config_only:
+        ; First create a preserved_network_config.txt file with the original settings
         ClearErrors
-        CopyFiles "$APPDATA\FreeScribe\settings.txt" "$APPDATA\FreeScribe\settings.txt.bak"
-        
-        FileOpen $0 "$APPDATA\FreeScribe\settings.txt.bak" r
+        CopyFiles "$APPDATA\FreeScribe\settings.txt" "$APPDATA\FreeScribe\preserved_network_config.txt"
         IfErrors 0 +3
-            MessageBox MB_OK|MB_ICONEXCLAMATION "Could not read settings file. Keeping all configuration files."
-            Delete "$APPDATA\FreeScribe\settings.txt.bak"
-            Goto end
+            MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \
+                "Unable to preserve network configuration. Please close any applications using these files and try again." \
+                IDRETRY keep_network_config_only
+            Goto config_files_failed
         
-        FileOpen $1 "$APPDATA\FreeScribe\settings.txt.new" w
-        IfErrors 0 +3
-            FileClose $0
-            MessageBox MB_OK|MB_ICONEXCLAMATION "Could not create new settings file. Keeping all configuration files."
-            Delete "$APPDATA\FreeScribe\settings.txt.bak"
-            Goto end
+        ; Create a list of files to keep
+        StrCpy $R2 "$APPDATA\FreeScribe\preserved_network_config.txt" ; File to keep
         
-        ; Write basic JSON structure
-        FileWrite $1 "{$\r$\n"
-        FileWrite $1 '"openai_api_key": "None",$\r$\n'
-        FileWrite $1 '"editable_settings": {$\r$\n'
-        
-        ; Variables for network settings
-        Var /GLOBAL AI_Server_Endpoint
-        Var /GLOBAL AI_Self_Signed
-        Var /GLOBAL Built_In_AI_Processing
-        Var /GLOBAL Built_In_Speech2Text
-        Var /GLOBAL S2T_Endpoint
-        Var /GLOBAL S2T_API_Key
-        Var /GLOBAL S2T_Self_Signed
-        
-        ; Set default values
-        StrCpy $AI_Server_Endpoint '"AI Server Endpoint": "https://localhost:3334/v1"'
-        StrCpy $AI_Self_Signed '"AI Server Self-Signed Certificates": 0'
-        StrCpy $Built_In_AI_Processing '"Built-in AI Processing": 1'
-        StrCpy $Built_In_Speech2Text '"Built-in Speech2Text": 1'
-        StrCpy $S2T_Endpoint '"Speech2Text (Whisper) Endpoint": "https://localhost:2224/whisperaudio"'
-        StrCpy $S2T_API_Key '"Speech2Text (Whisper) API Key": ""'
-        StrCpy $S2T_Self_Signed '"S2T Server Self-Signed Certificates": 0'
-        
-        ; Read and process config file
-        ${Do}
-            FileRead $0 $2
-            IfErrors done_reading
+        ; Delete all files except preserved_network_config.txt
+        FindFirst $R0 $R1 "$APPDATA\FreeScribe\*"
+        delete_loop:
+            StrCmp $R1 "" done_deleting
+            StrCmp $R1 "." next_file
+            StrCmp $R1 ".." next_file
             
-            ; Check for each setting using string operations
-            ${If} $2 == '"AI Server Endpoint"'
-                StrCpy $AI_Server_Endpoint $2
-            ${ElseIf} $2 == '"AI Server Self-Signed Certificates"'
-                StrCpy $AI_Self_Signed $2
-            ${ElseIf} $2 == '"Built-in AI Processing"'
-                StrCpy $Built_In_AI_Processing $2
-            ${ElseIf} $2 == '"Built-in Speech2Text"'
-                StrCpy $Built_In_Speech2Text $2
-            ${ElseIf} $2 == '"Speech2Text (Whisper) Endpoint"'
-                StrCpy $S2T_Endpoint $2
-            ${ElseIf} $2 == '"Speech2Text (Whisper) API Key"'
-                StrCpy $S2T_API_Key $2
-            ${ElseIf} $2 == '"S2T Server Self-Signed Certificates"'
-                StrCpy $S2T_Self_Signed $2
-            ${EndIf}
-        ${Loop}
-        done_reading:
+            ; Don't delete our preserved config file
+            StrCmp $R1 "preserved_network_config.txt" next_file
+            
+            ; Delete other files
+            Delete "$APPDATA\FreeScribe\$R1"
+            
+            next_file:
+            FindNext $R0 $R1
+            Goto delete_loop
         
-        ; Write network settings to new file
-        FileWrite $1 "$AI_Server_Endpoint,$\r$\n"
-        FileWrite $1 "$AI_Self_Signed,$\r$\n"
-        FileWrite $1 "$Built_In_AI_Processing,$\r$\n"
-        FileWrite $1 "$Built_In_Speech2Text,$\r$\n"
-        FileWrite $1 "$S2T_Endpoint,$\r$\n"
-        FileWrite $1 "$S2T_API_Key,$\r$\n"
-        FileWrite $1 "$S2T_Self_Signed$\r$\n"
+        done_deleting:
+        FindClose $R0
         
-        ; Close JSON structure
-        FileWrite $1 "},$\r$\n"
-        FileWrite $1 '"app_version": "1.0.0"$\r$\n'
-        FileWrite $1 "}"
+        ; Remove subdirectories if any
+        FindFirst $R0 $R1 "$APPDATA\FreeScribe\*.*"
+        delete_dir_loop:
+            StrCmp $R1 "" done_deleting_dirs
+            StrCmp $R1 "." next_dir
+            StrCmp $R1 ".." next_dir
+            
+            ; Check if it's a directory
+            IfFileExists "$APPDATA\FreeScribe\$R1\*.*" 0 next_dir
+            
+            ; Delete directory
+            RMDir /r "$APPDATA\FreeScribe\$R1"
+            
+            next_dir:
+            FindNext $R0 $R1
+            Goto delete_dir_loop
         
-        ; Close files
-        FileClose $0
-        FileClose $1
+        done_deleting_dirs:
+        FindClose $R0
         
-        ; Clean up old files
-        FindFirst $0 $1 "$APPDATA\FreeScribe\*"
-        ${Do}
-            ${If} $1 == ""
-                ${Break}
-            ${EndIf}
-            ${If} $1 != "." 
-            ${AndIf} $1 != ".."
-            ${AndIf} $1 != "settings.txt.new"
-                Delete "$APPDATA\FreeScribe\$1"
-            ${EndIf}
-            FindNext $0 $1
-        ${Loop}
-        FindClose $0
-        
-        ; Replace old settings with new
-        Delete "$APPDATA\FreeScribe\settings.txt"
-        Rename "$APPDATA\FreeScribe\settings.txt.new" "$APPDATA\FreeScribe\settings.txt"
-        Delete "$APPDATA\FreeScribe\settings.txt.bak"
-        
-        MessageBox MB_OK "Network configuration preserved. All other settings were reset."
+        ; Confirm to user
+        MessageBox MB_OK "Network configuration has been preserved in the file 'preserved_network_config.txt'. All other configuration files have been removed."
         Goto end
     
     config_files_failed:
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Old configuration files could not be fully processed. Proceeding with installation."
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Configuration update failed. Original settings preserved."
     
     end:
 FunctionEnd
@@ -563,23 +512,7 @@ Section "MainSection" SEC01
     ; Set output path to the installation directory
     SetOutPath "$INSTDIR"
 
-    ${If} $SELECTED_OPTION == "CPU"
-        ; Add files to the installer
-        File /r "..\dist\freescribe-client-cpu\freescribe-client-cpu.exe"
-        Rename "$INSTDIR\freescribe-client-cpu.exe" "$INSTDIR\freescribe-client.exe"
-        File /r "..\dist\freescribe-client-cpu\_internal"
-    ${EndIf}
 
-    ${If} $SELECTED_OPTION == "NVIDIA"
-        ; Add files to the installer
-        File /r "..\dist\freescribe-client-nvidia\freescribe-client-nvidia.exe"
-        Rename "$INSTDIR\freescribe-client-nvidia.exe" "$INSTDIR\freescribe-client.exe"
-        File /r "..\dist\freescribe-client-nvidia\_internal"
-    ${EndIf}
-
-    ; Install version file to both nvidia and cpu directories for version checking
-    SetOutPath "$INSTDIR\_internal"
-    File ".\__version__"
 
     SetOutPath "$INSTDIR"
 

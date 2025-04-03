@@ -587,22 +587,63 @@ class SettingsWindow():
         logging.debug(f"load_or_unload_model {unload_flag=}, {reload_flag=}")
         return unload_flag, reload_flag
 
+
     def _create_settings_and_aiscribe_if_not_exist(self):
         """
-        Create the settings and AI Scribe files if they do not exist.
+        Ensure settings and AI Scribe files exist.
+        - If settings.txt is missing, create it with default values.
+        - If preserved_network_config.txt exists, transfer its network-related settings to settings.txt and delete it.
         """
-        if not os.path.exists(get_resource_path('settings.txt')):
-            architectures = self.get_available_architectures()
-            
-            # If CUDA is available, set it as the default architecture to save in settings
-            if Architectures.CUDA.label in architectures:
-                print("Settings file not found. Creating default settings file with CUDA architecture.")
-                self.editable_settings[SettingsKeys.WHISPER_ARCHITECTURE.value] = Architectures.CUDA.label
-                self.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = Architectures.CUDA.label
-            else:
-                print("Settings file not found. Creating default settings file.")
 
-            self.save_settings_to_file()
+        settings_path = get_resource_path('settings.txt')
+        preserved_network_path = get_resource_path('preserved_network_config.txt')
+
+        # Load existing settings or create a default settings structure
+        if os.path.exists(settings_path):
+            with open(settings_path, 'r') as f:
+                settings = json.load(f)
+        else:
+            print("settings.txt not found. Creating with default values.")
+            settings = {"editable_settings": {}}
+
+            # Set default architecture if CUDA is available
+            architectures = self.get_available_architectures()
+            if Architectures.CUDA.label in architectures:
+                settings["editable_settings"][SettingsKeys.WHISPER_ARCHITECTURE.value] = Architectures.CUDA.label
+                settings["editable_settings"][SettingsKeys.LLM_ARCHITECTURE.value] = Architectures.CUDA.label
+
+        # If preserved_network_config.txt exists, move network settings to settings.txt
+        if os.path.exists(preserved_network_path):
+            print("Found preserved_network_config.txt. Moving network settings to settings.txt.")
+
+            # Load preserved network settings
+            with open(preserved_network_path, 'r') as f:
+                preserved_config = json.load(f)
+
+            preserved_network_config = preserved_config.get("editable_settings", {})
+
+            # Extract only the relevant network settings
+            settings_to_keep = {
+                SettingsKeys.LLM_ENDPOINT.value: preserved_network_config.get(SettingsKeys.LLM_ENDPOINT.value),
+                "AI Server Self-Signed Certificates": preserved_network_config.get("AI Server Self-Signed Certificates"),
+                SettingsKeys.LOCAL_LLM.value: preserved_network_config.get(SettingsKeys.LOCAL_LLM.value),
+                SettingsKeys.LOCAL_WHISPER.value: preserved_network_config.get(SettingsKeys.LOCAL_WHISPER.value),
+                SettingsKeys.WHISPER_ENDPOINT.value: preserved_network_config.get(SettingsKeys.WHISPER_ENDPOINT.value),
+                SettingsKeys.WHISPER_SERVER_API_KEY.value: preserved_network_config.get(SettingsKeys.WHISPER_SERVER_API_KEY.value),
+                SettingsKeys.S2T_SELF_SIGNED_CERT.value: preserved_network_config.get(SettingsKeys.S2T_SELF_SIGNED_CERT.value),
+            }
+
+            # Update settings with the extracted network values
+            self.editable_settings.update(settings_to_keep)
+
+            # Remove preserved_network_config.txt after merging network settings
+            os.remove(preserved_network_path)
+            print("Deleted preserved_network_config.txt.")
+
+        # Save updated settings to file
+        self.save_settings_to_file()
+        
+        # Ensure AIScribe files exist, create them if missing
         if not os.path.exists(get_resource_path('aiscribe.txt')):
             print("AIScribe file not found. Creating default AIScribe file.")
             with open(get_resource_path('aiscribe.txt'), 'w') as f:
