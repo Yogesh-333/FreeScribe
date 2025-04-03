@@ -495,8 +495,6 @@ Function CheckForOldConfig
         done_deleting_dirs:
         FindClose $R0
         
-        ; Confirm to user
-        MessageBox MB_OK "Network configuration has been preserved in the file 'preserved_network_config.txt'. All other configuration files have been removed."
         Goto end
     
     config_files_failed:
