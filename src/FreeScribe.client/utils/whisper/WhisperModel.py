@@ -253,6 +253,7 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     # Remove silent chunks
     cleaned_audio = _remove_silent_chunks(audio)
 
+    # passing arguments to translate
     generate_kwargs = {}
     if app_settings.editable_settings[SettingsKeys.USE_TRANSLATE_TASK.value]:
         generate_kwargs['task'] = 'translate'
