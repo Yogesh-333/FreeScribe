@@ -39,6 +39,10 @@ class LoadingWindow:
     >>> processing.destroy()
     """
 
+    MACOS_SIZE = (300, 125)
+    WINDOWS_SIZE = (280, 105)
+    NOTE_OFFSET = (80, 75)
+
     def __init__(self, parent=None, title="Processing", initial_text="Loading", on_cancel=None, note_text=None):
         """
         Initialize the processing popup window.
@@ -64,11 +68,15 @@ class LoadingWindow:
             
             self.popup = tk.Toplevel(parent)
             self.popup.title(title)
-            # Adjust geometry based on whether note_text is provided
+            
+            # Default windows size
+            size = LoadingWindow.MACOS_SIZE if utils.system.is_macos() else LoadingWindow.WINDOWS_SIZE
+
             if note_text:
-                self.popup.geometry("360x180")  # Increased height for note text
-            else:
-                self.popup.geometry("280x105")  # Default height
+                size = (size[0] + LoadingWindow.NOTE_OFFSET[0], size[1] + LoadingWindow.NOTE_OFFSET[1])
+            
+            self.popup.geometry(f"{size[0]}x{size[1]}")
+
             self.popup.iconbitmap(get_file_path('assets','logo.ico'))
 
             if parent:
@@ -91,7 +99,8 @@ class LoadingWindow:
 
             # Add note text if provided
             if note_text:
-                self.note_label = tk.Label(self.popup, text=note_text, wraplength=350, justify='center', font=("TkDefaultFont",9),fg="#262525")
+                font_size = 11 if utils.system.is_macos() else 9
+                self.note_label = tk.Label(self.popup, text=note_text, wraplength=350, justify='center', font=("TkDefaultFont", font_size),fg="#262525")
                 self.note_label.pack(pady=(0,10))
 
             # Add cancel button

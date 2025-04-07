@@ -14,6 +14,13 @@ Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 
 import utils.decorators
 from faster_whisper import WhisperModel
+from faster_whisper.vad import (
+    SpeechTimestampsMap,
+    VadOptions,
+    collect_chunks,
+    get_speech_timestamps,
+    merge_segments
+)
 import torch
 import threading
 from UI.LoadingWindow import LoadingWindow
@@ -25,11 +32,16 @@ import gc
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import utils.whisper.Constants
 import UI.LoadingWindow
+import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 stt_local_model = None
 
 stt_model_loading_thread_lock = threading.Lock()
 
+SAMPLE_RATE = 16000
 
 class TranscribeError(Exception):
     pass
@@ -59,7 +71,7 @@ def load_model_with_loading_screen(root, app_settings):
 
     model_id = get_model_from_settings(app_settings)
 
-    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text model ({model_id}). Please wait.",
+    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text model ({model_id}).\n Please wait.",
                                                     note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!")
 
     load_thread = load_stt_model(app_settings=app_settings)
@@ -186,7 +198,7 @@ def _load_stt_model_windows(app_settings):
             print("Closing STT loading window.")
 
 
-def unload_stt_model():
+def unload_stt_model(event=None):
     """
     Unload the speech-to-text model from memory.
 
@@ -238,15 +250,53 @@ def _faster_whisper_transcribe_macos(audio, app_settings):
     Returns
         str: Transcribed text or error message if transcription fails.
     """
+    # Remove silent chunks
+    cleaned_audio = _remove_silent_chunks(audio)
 
     generate_kwargs = {}
     if app_settings.editable_settings[SettingsKeys.USE_TRANSLATE_TASK.value]:
         generate_kwargs['task'] = 'translate'
 
-    # Perform transcription
-    result = stt_local_model(audio, generate_kwargs=generate_kwargs)
+    # Transcription
+    result = stt_local_model(cleaned_audio, generate_kwargs=generate_kwargs)
     return result["text"]
 
+def _remove_silent_chunks(audio: np.ndarray):
+    """
+    Remove silent chunks from audio using VAD.
+
+    Args:
+        audio: Audio data to process.
+
+    Returns:
+        np.ndarray: Processed audio data with silent chunks removed.
+    """
+    original_audio_duration = audio.shape[0] / SAMPLE_RATE
+
+    # Load VAD parameters
+    vad_params = VadOptions(
+        max_speech_duration_s=30,
+        min_silence_duration_ms=160,
+    )
+
+    # get active speech segments
+    active_segments = get_speech_timestamps(audio, vad_params)
+    clip_timestamps = merge_segments(active_segments, vad_params)
+    # calculate duration after VAD
+    duration_after_vad = sum((segment["end"] - segment["start"]) for segment in clip_timestamps) / SAMPLE_RATE
+
+    logger.info(f"Original audio duration: {original_audio_duration:.2f}s, Duration after VAD: {duration_after_vad:.2f}s, Total segment time removed: {(original_audio_duration - duration_after_vad):.2f}s")
+
+    # collect audio chunks
+    audio_chunks, meta_data = collect_chunks(audio, clip_timestamps)
+
+    if audio_chunks is None:
+        return audio
+
+    # merge all audio_chuncks into one np.ndarray
+    audio = np.concatenate(audio_chunks)
+
+    return audio
 
 @utils.decorators.windows_only
 def _faster_whisper_transcribe_windows(audio, app_settings):
