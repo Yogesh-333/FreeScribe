@@ -59,7 +59,7 @@ def load_model_with_loading_screen(root, app_settings):
 
     model_id = get_model_from_settings(app_settings)
 
-    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text model ({model_id}). Please wait.",
+    loading_screen = UI.LoadingWindow.LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text model ({model_id}).\n Please wait.",
                                                     note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!")
 
     load_thread = load_stt_model(app_settings=app_settings)
@@ -186,7 +186,7 @@ def _load_stt_model_windows(app_settings):
             print("Closing STT loading window.")
 
 
-def unload_stt_model():
+def unload_stt_model(event=None):
     """
     Unload the speech-to-text model from memory.
 
