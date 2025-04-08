@@ -208,8 +208,31 @@ class SettingsWindowUI:
 
         # add a trace to the checkbox on change determine if we need to display disclaimer
         self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add("write", _on_file_logger_click)
-        
 
+        row += 1
+
+        # Intial prompt text field
+        self.intial_prompt, label_row1, text_row1, row = self._create_text_area(
+            self.developer_frame, "Whisper Intial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
+        )
+
+        # Explanation for Pre convo instruction
+        initial_prompt_explanation = (
+            "This is the initial Whisper prompt:\n\n"
+            "• Guides how Whisper interprets and processes audio input\n"
+            "• Defines transcription or translation format requirements\n"
+            "• Can help whisper identify new vocabulary\n\n"
+            "⚠️ Modify with caution as it influences the transcription/translation accuracy and quality"
+        )
+
+        tk.Label(
+            self.developer_frame,
+            text=initial_prompt_explanation,
+            justify="left",
+            font=("Arial", 9),
+            fg="#272927"
+        ).grid(row=text_row1, column=1, padx=(10, 0), pady=5, sticky="nw")
+        
     def _display_center_to_parent(self):
         # Get parent window dimensions and position
         parent_x = self.root.winfo_x()
@@ -564,7 +587,7 @@ class SettingsWindowUI:
             self._create_checkbox(frame, f"Use {label_text}", setting_key, 0)
             row += 1
             
-            text_area, row = self._create_text_area(label_text, text_content, row)
+            text_area, row = self._create_text_area(self.advanced_settings_frame, label_text, text_content, row)
             return text_area, row
 
         row = self._create_section_header("⚠️ Advanced Settings (For Advanced Users Only)", 0, text_colour="red", frame=self.advanced_settings_frame)
@@ -599,7 +622,7 @@ class SettingsWindowUI:
 
         # Pre convo instruction
         self.aiscribe_text, label_row1, text_row1, row = self._create_text_area(
-            "Pre Conversation Instruction", self.settings.AISCRIBE, row
+            self.advanced_settings_frame, "Pre Conversation Instruction", self.settings.AISCRIBE, row
         )
 
         # Explanation for Pre convo instruction
@@ -621,7 +644,7 @@ class SettingsWindowUI:
 
         # Post convo instruction
         self.aiscribe2_text, label_row2, text_row2, row = self._create_text_area(
-            "Post Conversation Instruction", self.settings.AISCRIBE2, row
+            self.advanced_settings_frame, "Post Conversation Instruction", self.settings.AISCRIBE2, row
         )
 
         # Explanation for Post convo instruction
@@ -751,6 +774,9 @@ class SettingsWindowUI:
 
         # save architecture
         self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = self.architecture_dropdown.get()
+
+        # save the intial prompt
+        self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] = self.intial_prompt.get("1.0", "end-1c") # end-1c removes the trailing newline
 
         self.settings.save_settings(
             self.openai_api_key_entry.get(),
@@ -920,7 +946,7 @@ class SettingsWindowUI:
             sticky="w")
         return row + 1
 
-    def _create_text_area(self, label_text, text_content, row):
+    def _create_text_area(self, frame, label_text, text_content, row):
         """
         Creates a labeled text area widget in the advanced settings frame.
         
@@ -933,11 +959,11 @@ class SettingsWindowUI:
             tuple: (Text widget object, label_row, text_row, next_row)
         """
         label_row = row
-        tk.Label(self.advanced_settings_frame, text=label_text).grid(
+        tk.Label(frame, text=label_text).grid(
             row=label_row, column=0, padx=10, pady=5, sticky="w")
         
         text_row = row + 1
-        text_area = tk.Text(self.advanced_settings_frame, height=10, width=50)
+        text_area = tk.Text(frame, height=10, width=50)
         text_area.insert(tk.END, text_content)
         text_area.grid(row=text_row, column=0, padx=10, pady=5, sticky="w")
         
