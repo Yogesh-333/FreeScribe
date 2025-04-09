@@ -24,6 +24,8 @@ import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+
+import UI.Helpers
 from Model import Model, ModelManager
 from utils.file_utils import get_file_path
 from utils.utils import get_application_version
@@ -97,7 +99,7 @@ class SettingsWindowUI:
 
         self.settings_window.resizable(True, True)
         self.settings_window.grab_set()
-        self.settings_window.iconbitmap(get_file_path('assets','logo.ico'))
+        UI.Helpers.set_window_icon(self.settings_window)
 
         self._display_center_to_parent()
 

@@ -55,8 +55,7 @@ import utils.audio
 import utils.system
 from UI.DebugWindow import DualOutput
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
-from utils.utils import window_has_running_instance, bring_to_front, close_mutex
-from utils.window_utils import remove_min_max, add_min_max
+from utils.windows_utils import remove_min_max, add_min_max
 from WhisperModel import TranscribeError
 from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
@@ -94,9 +93,11 @@ else:
 # if true, exit the current instance
 app_manager = OneInstance(APP_NAME, APP_TASK_MANAGER_NAME)
 
-if app_manager.run():
+if app_manager.is_running():
+    # Another instance is running
     sys.exit(1)
 else:
+    # No other instance is running, or we successfully terminated the other instance
     root = tk.Tk()
     root.title(APP_NAME)
 
@@ -123,10 +124,10 @@ def delete_temp_file(filename):
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
-    close_mutex()
+    app_manager.cleanup()
 
 
-# Register the close_mutex function to be called on exit
+# Register the cleanup function to be called on exit
 atexit.register(on_closing)
 
 
@@ -202,7 +203,10 @@ is_audio_processing_whole_canceled = threading.Event()
 cancel_await_thread = threading.Event()
 
 # Constants
-DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
+if utils.system.is_linux():
+    DEFAULT_BUTTON_COLOUR = "grey85"
+else:
+    DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
 
 # Thread tracking variables
 REALTIME_TRANSCRIBE_THREAD_ID = None
@@ -554,7 +558,10 @@ def realtime_text():
                         break
                     try:
                         result = faster_whisper_transcribe(audio_buffer, app_settings=app_settings)
+                        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                            result = hallucination_cleaner.clean_text(result)
                     except Exception as e:
+                        logger.exception(str(e))
                         update_gui(f"\nError: {e}\n")
 
                     if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
@@ -597,6 +604,8 @@ def realtime_text():
 
                         if response.status_code == 200:
                             text = response.json()['text']
+                            if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                                text = hallucination_cleaner.clean_text(text)
                             if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                                 update_gui(text)
                         else:
@@ -959,6 +968,8 @@ def send_audio_to_server():
             # Transcribe the audio file using the loaded model
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
+                if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                    result = hallucination_cleaner.clean_text(result)
             except Exception as e:
                 logger.error(traceback.format_exc())
                 result = f"An error occurred ({type(e).__name__}): {e}\n \n {traceback.format_exc()}"
@@ -1051,6 +1062,8 @@ def send_audio_to_server():
                 if not is_audio_processing_whole_canceled.is_set():
                     # Update the UI with the transcribed text
                     transcribed_text = response.json()['text']
+                    if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                        transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
                     user_input.scrolled_text.configure(state='normal')
                     user_input.scrolled_text.delete("1.0", tk.END)
                     user_input.scrolled_text.insert(tk.END, transcribed_text)
@@ -1142,7 +1155,11 @@ def update_gui_with_response(response_text):
         timestamp_listbox.insert(tk.END, time)
 
     display_text(response_text)
-    pyperclip.copy(response_text)
+    try:
+        # copy/paste may be disabled in sandbox environment
+        pyperclip.copy(response_text)
+    except Exception as e:
+        logging.warning(str(e))
     stop_flashing()
 
 
@@ -1164,7 +1181,10 @@ def show_response(event):
         response_display.scrolled_text.delete('1.0', tk.END)
         response_display.scrolled_text.insert('1.0', response_text)
         response_display.scrolled_text.configure(state='disabled')
-        pyperclip.copy(response_text)
+        try:
+            pyperclip.copy(response_text)
+        except Exception as e:
+            logging.warning(str(e))
 
 
 def send_text_to_api(edited_text):
@@ -1748,7 +1768,10 @@ def copy_text(widget):
         widget: A tkinter Text widget containing the text to be copied.
     """
     text = widget.get("1.0", tk.END)
-    pyperclip.copy(text)
+    try:
+        pyperclip.copy(text)
+    except Exception as e:
+        logging.warning(str(e))
 
 
 def add_placeholder(event, text_widget, placeholder_text="Text box"):
@@ -2012,7 +2035,7 @@ def await_models(timeout_length=60):
 root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", lambda event: load_model_with_loading_screen(root=root, app_settings=app_settings))
-root.bind("<<UnloadSttModel>>", unload_stt_model)
+root.bind("<<UnloadSttModel>>", lambda e: unload_stt_model())
 
 root.mainloop()
 

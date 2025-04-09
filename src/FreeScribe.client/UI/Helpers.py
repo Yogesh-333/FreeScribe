@@ -12,6 +12,9 @@ Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 """
 
 import utils.system
+import utils.file_utils
+import tkinter as tk
+
 
 def enable_parent_window(parent, child_window = None):
     """
@@ -24,12 +27,12 @@ def enable_parent_window(parent, child_window = None):
     """
     if utils.system.is_windows():
         parent.wm_attributes('-disabled', False)
-    elif utils.system.is_macos():
+    elif utils.system.is_macos() or utils.system.is_linux():
         if child_window:
             child_window.grab_release()
         else:
             print("Child window not provided")
-    #TODO: ADD LINUX SUPPORT
+
 
 def disable_parent_window(parent, child_window = None):
     """
@@ -42,11 +45,22 @@ def disable_parent_window(parent, child_window = None):
     """
     if utils.system.is_windows():
         parent.wm_attributes('-disabled', True)
-    elif utils.system.is_macos():
+    elif utils.system.is_macos() or utils.system.is_linux():
         if child_window:
             child_window.transient(parent)
             child_window.grab_set()
             child_window.attributes('-topmost', True)
         else:
             print("Child window not provided")
-    #TODO: ADD LINUX SUPPORT
+
+
+def set_window_icon(window):
+    """
+    Set a window icon on the given window.
+    """
+    if utils.system.is_linux():
+        icon_path = utils.file_utils.get_file_path('assets', 'logo.png')
+        window.iconphoto(True, tk.PhotoImage(file=icon_path))
+    else:
+        icon_path = utils.file_utils.get_file_path('assets', 'logo.ico')
+        window.iconbitmap(icon_path)

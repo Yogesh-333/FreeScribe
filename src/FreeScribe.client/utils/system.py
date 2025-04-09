@@ -23,6 +23,7 @@ import psutil
 # Low memory threshold, Amount of ram that defines it low mem in bytes
 LOW_MEM_THRESHOLD = 12e9  # 12 GB
 
+
 def is_macos():
     """
     Check if the current system is macOS.
@@ -49,6 +50,9 @@ def is_linux():
     """
     
     return platform.system() == "Linux"
+
+def is_flatpak():
+    return is_linux() and os.environ.get('container') == 'flatpak'
 
 def install_macos_ssl_certificates():
     """
@@ -103,3 +107,10 @@ def is_system_low_memory():
     """
     
     return get_total_system_memory() < LOW_MEM_THRESHOLD
+
+
+def get_system_name():
+    """
+    Get the system name.
+    """
+    return platform.system()

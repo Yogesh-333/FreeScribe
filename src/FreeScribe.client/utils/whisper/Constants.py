@@ -10,12 +10,11 @@ Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner),
 and Research Students (Software Developers) -
 Alex Simko, Pemba Sherpa, Naitik Patel, Yogesh Kumar and Xun Zhong.
 """
-
-
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
 import utils.system
+import platform
 
 
 @dataclass
@@ -45,6 +44,7 @@ class WhisperModels(Enum):
     BASE = ModelInfo(label="Base", windows_value="base", macos_value="openai/whisper-base")
     BASE_EN = ModelInfo(label="Base (English Only)", windows_value="base.en", macos_value="openai/whisper-base.en")
     LARGE = ModelInfo(label="Large", windows_value="large", macos_value="openai/whisper-large")
+    TURBO = ModelInfo(label="Turbo", windows_value="turbo", macos_value="openai/whisper-large-v3-turbo")
 
     @property
     def label(self) -> str:
@@ -67,14 +67,24 @@ class WhisperModels(Enum):
         """
         return self.value.macos_value
 
+    @property
+    def linux_value(self) -> str:
+        """
+        Get the value of the model for Linux
+        """
+        # Linux will be sharing the values that windows use
+        return self.value.windows_value
+
     def get_platform_value(self) -> str:
         """Get the appropriate value for the specified platform"""
         if utils.system.is_windows():
             return self.windows_value
         elif utils.system.is_macos():
             return self.macos_value
+        elif utils.system.is_linux():
+            return self.linux_value
         else:
-            raise ValueError(f"Unsupported platform: {platform}")
+            raise ValueError(f"Unsupported platform: {platform.system()}")
 
     @classmethod
     def get_all_labels(cls) -> list[str]:
