@@ -213,7 +213,7 @@ class SettingsWindowUI:
 
         # Intial prompt text field
         self.initial_prompt, label_row1, text_row1, row = self._create_text_area(
-            self.developer_frame, "Whisper Intial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
+            self.developer_frame, "Whisper Initial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
         )
 
         # Explanation for Pre convo instruction
