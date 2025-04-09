@@ -15,6 +15,7 @@ import platform
 import utils.system
 import functools
 from collections.abc import Collection
+from utils.log_config import logger
 
 
 def windows_only(func):
@@ -28,7 +29,7 @@ def windows_only(func):
     """
     def wrapper(*args, **kwargs):
         if not utils.system.is_windows():
-            print("This feature is only supported on Windows.")
+            logger.info("This feature is only supported on Windows.")
             return
         return func(*args, **kwargs)
     return wrapper

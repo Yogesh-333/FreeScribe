@@ -6,10 +6,12 @@ import logging
 from UI.LoadingWindow import LoadingWindow
 import tkinter.messagebox as messagebox
 from UI.SettingsConstant import SettingsKeys, DEFAULT_CONTEXT_WINDOW_SIZE
+from utils.log_config import logger
 from enum import Enum
 import torch
 import utils.system
 from utils.file_utils import get_resource_path, is_flatpak
+
 
 
 class ModelStatus(Enum):
@@ -133,7 +135,7 @@ class Model:
             return response["choices"][0]["message"]["content"]
 
         except Exception as e:
-            print(f"GPU inference error ({e.__class__.__name__}): {str(e)}")
+            logger.error(f"GPU inference error ({e.__class__.__name__}): {str(e)}")
             return f"({e.__class__.__name__}): {str(e)}"
 
     def get_gpu_info(self) -> Dict[str, Any]:

@@ -2,7 +2,6 @@
 Application lock class to prevent multiple instances of an app from running.
 """
 
-import logging
 import tkinter as tk
 from tkinter import messagebox
 import psutil  # For process management
@@ -33,7 +32,8 @@ from utils.macos_utils import (
     bring_to_front as macos_bring_to_front,
 )
 
-logger = logging.getLogger(__name__)
+from utils.log_config import logger
+
 
 
 class OneInstance:

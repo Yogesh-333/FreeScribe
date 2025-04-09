@@ -27,6 +27,7 @@ class SettingsKeys(Enum):
     Enable_AI_Conversation_Validation = "Enable AI Conversation Validation"
     USE_LOW_MEM_MODE = "Use Low Memory Mode"
     ENABLE_HALLUCINATION_CLEAN = "Enable Hallucination Cleaning (Experimental)"
+    FACTUAL_CONSISTENCY_VERIFICATION = "Factual Consistency Verification (Experimental)"
     BEST_OF = "best_of"
 
 

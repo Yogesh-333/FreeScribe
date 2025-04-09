@@ -89,6 +89,5 @@ def _get_user_data_dir(shared: bool = False) -> str:
 def _get_flatpak_data_dir():
     return os.path.join(_get_user_data_dir(), APP_NAME)
 
-
 if is_flatpak():
     _flatpak_init()
