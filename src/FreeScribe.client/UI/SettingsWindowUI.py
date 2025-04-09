@@ -212,7 +212,7 @@ class SettingsWindowUI:
         row += 1
 
         # Intial prompt text field
-        self.intial_prompt, label_row1, text_row1, row = self._create_text_area(
+        self.initial_prompt, label_row1, text_row1, row = self._create_text_area(
             self.developer_frame, "Whisper Intial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
         )
 
@@ -776,7 +776,7 @@ class SettingsWindowUI:
         self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = self.architecture_dropdown.get()
 
         # save the intial prompt
-        self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] = self.intial_prompt.get("1.0", "end-1c") # end-1c removes the trailing newline
+        self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] = self.initial_prompt.get("1.0", "end-1c") # end-1c removes the trailing newline
 
         self.settings.save_settings(
             self.openai_api_key_entry.get(),
