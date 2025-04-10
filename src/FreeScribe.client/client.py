@@ -63,6 +63,8 @@ from services.whisper_hallucination_cleaner import hallucination_cleaner
 from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 from services.factual_consistency import find_factual_inconsistency
 import utils.arg_parser
+from services.whisper_hallucination_cleaner import hallucination_cleaner, load_hallucination_cleaner_model
+from utils.log_config import logger
 
 # parse command line arguments
 utils.arg_parser.parse_args()
@@ -931,6 +933,9 @@ def send_audio_to_server():
     if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
         # Inform the user that SettingsKeys.LOCAL_WHISPER.value is being used for transcription
         logger.info(f"Using {SettingsKeys.LOCAL_WHISPER.value} for transcription.")
+
+        clear_all_text_fields()
+
         # Configure the user input widget to be editable and clear its content
         user_input.scrolled_text.configure(state='normal')
         user_input.scrolled_text.delete("1.0", tk.END)
@@ -1057,6 +1062,12 @@ def send_audio_to_server():
                     transcribed_text = response.json()['text']
                     if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
                         transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
+                        try:
+                            transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
+                            logger.debug(f"remote Cleaned result: {transcribed_text}")
+                        except Exception as e:
+                            # ignore the error as it should not break the transcription
+                            logger.exception(f"remote Error during hallucination cleaning: {str(e)}")
                     user_input.scrolled_text.configure(state='normal')
                     user_input.scrolled_text.delete("1.0", tk.END)
                     user_input.scrolled_text.insert(tk.END, transcribed_text)
@@ -2009,7 +2020,6 @@ if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
 
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
-    ImageWindow(root, "Help Guide", get_file_path('assets', 'help.png'))
 
 #Wait for the UI root to be intialized then load the model. If using local llm.
 # Do not load the models if low mem is activated.
@@ -2031,6 +2041,15 @@ if not app_settings.is_low_mem_mode():
         print("Using Local Whisper for transcription.")
         root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
 
+if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+    root.after(100, lambda: (
+        load_hallucination_cleaner_model(root, app_settings)))
+
+if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+    root.after(100, lambda: (
+        load_hallucination_cleaner_model(root, app_settings)))
+
+# wait for both whisper and llm to be loaded before unlocking the settings button
 def await_models(timeout_length=60):
     """
     Waits until the necessary models (Whisper and LLM) are fully loaded.

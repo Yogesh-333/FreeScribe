@@ -30,7 +30,7 @@ class SettingsKeys(Enum):
     FACTUAL_CONSISTENCY_VERIFICATION = "Factual Consistency Verification (Experimental)"
     BEST_OF = "best_of"
     GOOGLE_MAPS_API_KEY = "Google Maps API Key"
-
+    ENABLE_FILE_LOGGER = "Enable File Log"
 
 class Architectures(Enum):
     CPU = ("CPU", "cpu")

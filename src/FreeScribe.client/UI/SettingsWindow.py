@@ -146,6 +146,7 @@ class SettingsWindow():
             SettingsKeys.BEST_OF.value: 1,
             # Google Maps API settings
             SettingsKeys.GOOGLE_MAPS_API_KEY.value: "",  # Will be set by user
+            SettingsKeys.ENABLE_FILE_LOGGER.value: False,
         }
 
     def __init__(self):
@@ -240,6 +241,10 @@ class SettingsWindow():
             # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
             SettingsKeys.USE_LOW_MEM_MODE.value,
+        ]
+
+        self.developer_settings = [
+            SettingsKeys.ENABLE_FILE_LOGGER.value,
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
@@ -639,7 +644,7 @@ class SettingsWindow():
         # in case context_window value is invalid
         except (ValueError, TypeError) as e:
             logger.exception(f"Failed to determine reload/unload model: {str(e)}")
-        logger.debug(f"load_or_unload_model {unload_flag=}, {reload_flag=}")
+        logger.info(f"load_or_unload_model {unload_flag=}, {reload_flag=}")
         return unload_flag, reload_flag
 
     def _create_settings_and_aiscribe_if_not_exist(self):
