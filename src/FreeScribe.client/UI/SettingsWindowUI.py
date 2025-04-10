@@ -496,6 +496,26 @@ class SettingsWindowUI:
             row = self._create_section_header("General Settings", row, text_colour="black")
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
+        # Google Maps Integration
+        row = self._create_section_header("Google Maps Integration", row, text_colour="black")
+        maps_frame = ttk.LabelFrame(self.advanced_settings_frame, text="API Configuration")
+        maps_frame.grid(row=row, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        
+        ttk.Label(maps_frame, text="API Key:").grid(row=0, column=0, padx=5, pady=5)
+        maps_key_entry = ttk.Entry(maps_frame, show="*")  # Hide API key
+        maps_key_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        maps_key_entry.insert(0, self.settings.editable_settings[SettingsKeys.GOOGLE_MAPS_API_KEY.value])
+        
+        def toggle_key_visibility():
+            current = maps_key_entry.cget("show")
+            maps_key_entry.configure(show="" if current == "*" else "*")
+        
+        ttk.Button(maps_frame, text="👁", width=3, command=toggle_key_visibility).grid(row=0, column=2, padx=5, pady=5)
+        
+        maps_frame.grid_columnconfigure(1, weight=1)  # Make the entry expand horizontally
+        self.widgets[SettingsKeys.GOOGLE_MAPS_API_KEY.value] = maps_key_entry
+        row += 1
+
         # Whisper Settings
         row = self._create_section_header("Whisper Settings", row, text_colour="black")
         left_frame = ttk.Frame(self.advanced_settings_frame)
@@ -671,6 +691,9 @@ class SettingsWindowUI:
 
         # save architecture
         self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = self.architecture_dropdown.get()
+
+        # Save Google Maps API key
+        self.settings.editable_settings[SettingsKeys.GOOGLE_MAPS_API_KEY.value] = self.widgets[SettingsKeys.GOOGLE_MAPS_API_KEY.value].get()
 
         self.settings.save_settings(
             self.openai_api_key_entry.get(),
