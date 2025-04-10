@@ -33,6 +33,7 @@ import speech_recognition as sr  # python package is named speechrecognition
 import scrubadub
 import numpy as np
 import tkinter as tk
+import math
 from tkinter import ttk, filedialog
 import tkinter.messagebox as messagebox
 import librosa
@@ -61,6 +62,10 @@ from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner
 from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
 from services.factual_consistency import find_factual_inconsistency
+import utils.arg_parser
+
+# parse command line arguments
+utils.arg_parser.parse_args()
 
 APP_NAME = 'AI Medical Scribe'  # Application name
 if utils.system.is_windows():
@@ -251,7 +256,7 @@ def threaded_check_stt_model():
 
 
 def threaded_toggle_recording():
-    logging.debug(f"*** Toggle Recording - Recording status: {is_recording}, STT local model is {is_whisper_valid()}")
+    logger.debug(f"*** Toggle Recording - Recording status: {is_recording}, STT local model is {is_whisper_valid()}")
     ready_flag = threaded_check_stt_model()
     # there is no point start recording if we are using local STT model and it's not ready
     # if user chooses to cancel the double check process, we need to return and not start recording
@@ -262,7 +267,7 @@ def threaded_toggle_recording():
 
 
 def double_check_stt_model_loading(task_done_var, task_cancel_var):
-    logger.info(f"*** Double Checking STT model - Model Current Status: {stt_local_model}")
+    logger.info(f"*** Double Checking STT model - Model Current Status: {is_whisper_valid()}")
     stt_loading_window = None
     try:
         if is_recording:
@@ -1136,7 +1141,7 @@ def update_gui_with_response(response_text):
         # copy/paste may be disabled in sandbox environment
         pyperclip.copy(response_text)
     except Exception as e:
-        logging.warning(str(e))
+        logger.warning(str(e))
     stop_flashing()
 
 
@@ -1161,7 +1166,7 @@ def show_response(event):
         try:
             pyperclip.copy(response_text)
         except Exception as e:
-            logging.warning(str(e))
+            logger.warning(str(e))
 
 
 def send_text_to_api(edited_text):
@@ -1436,7 +1441,6 @@ def generate_note(formatted_message):
 
         return True
     except Exception as e:
-        #TODO: Implement proper logging to system event logger
         logger.error(f"An error occurred: {e}")
         display_text(f"An error occurred: {e}")
         return False
@@ -1807,7 +1811,7 @@ def copy_text(widget):
     try:
         pyperclip.copy(text)
     except Exception as e:
-        logging.warning(str(e))
+        logger.warning(str(e))
 
 
 def add_placeholder(event, text_widget, placeholder_text="Text box"):
@@ -1979,7 +1983,7 @@ root.minsize(900, 400)
 
 # ram checkj
 if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
-    logging.warning("System has low memory.")
+    logger.warning("System has low memory.")
 
     popup_box = PopupBox(root, 
     title="Low Memory Warning", 
@@ -1991,7 +1995,7 @@ if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
     if popup_box.response == "button_1":
         app_settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value] = True
         app_settings.save_settings_to_file()
-        logging.debug("Low Memory Mode enabled.")
+        logger.debug("Low Memory Mode enabled.")
 
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
@@ -2028,6 +2032,10 @@ def await_models(timeout_length=60):
 
     :return: None
     """
+
+    if not hasattr(await_models, "start_timer"):
+        await_models.start_timer = time.time()
+
     # if we cancel this thread then break out of the loop
     if cancel_await_thread.is_set():
         logger.info("*** Model loading cancelled. Enabling settings bar.")
@@ -2049,14 +2057,16 @@ def await_models(timeout_length=60):
         # Error message is displayed else where
         llm_loaded = True
 
+    elapsed_time = time.time() - await_models.start_timer
     # wait for both models to be loaded
     if (not whisper_loaded or not llm_loaded ) and not app_settings.is_low_mem_mode():
-        logger.info("Waiting for models to load...")
+        if math.floor(elapsed_time) % 5 == 0:
+            logger.info(f"Waiting for models to load. Loading timer: {math.floor(elapsed_time)}, Timeout:{timeout_length}")
 
         # override the lock in case something else tried to edit
         window.disable_settings_menu()
 
-        root.after(100, await_models)
+        root.after(1000, await_models)
     else:
         logger.info("*** Models loaded successfully on startup.")
 
