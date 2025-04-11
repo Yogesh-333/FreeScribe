@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 
 import UI.Helpers
 from utils.file_utils import get_file_path
-import utils.window_utils
+import utils.windows_utils
 
 class ImageWindow:
     """A window to display an image with scrollbars and zoom functionality.
@@ -90,7 +90,7 @@ class ImageWindow:
             height = min(self.image.height, screen_height - 100) + 25
             self.window.geometry(f"{width}x{height}")
             
-            utils.window_utils._display_center_to_parent(self.window, parent, width=width, height=height)  # Center the ImageWindow to MarkdownWindow
+            utils.windows_utils._display_center_to_parent(self.window, parent, width=width, height=height)  # Center the ImageWindow to MarkdownWindow
 
             
             # Bind window close to escape key
