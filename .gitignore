@@ -31,7 +31,7 @@ freescribe-client.spec
 freescribe-client-cpu.spec
 freescribe-client-nvidia.spec
 scripts/FreeScribeInstaller.exe
-
+launch.json
 _build
 /mac/scripts/preinstall
 
