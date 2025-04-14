@@ -161,6 +161,7 @@ class MicrophoneTestFrame:
         # Status label for feedback
         self.status_label = ttk.Label(self.frame, text="Microphone: Ready", foreground="green")
         self.status_label.grid(row=2, column=0, pady=(0, 0), padx=(10, 0), sticky='nsew')
+        self.on_dropdown_click(None)
 
     def initialize_selected_microphone(self):
         """
