@@ -77,7 +77,7 @@ class MarkdownWindow:
             content = self._process_markdown_images(content)
             return md.markdown(content, extensions=["extra", "smarty"])
         except FileNotFoundError:
-            logger.error(f"File not found: {file_path}")
+            logger.error(f"File not found: {self.file_path}")
             messagebox.showerror("Error", "File not found")
             return ""
         except UnicodeDecodeError:
