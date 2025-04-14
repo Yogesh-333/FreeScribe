@@ -143,6 +143,8 @@ class SettingsWindowUI:
         self.create_buttons()
 
         # "Dev" settings tab for developer mode
+        self._enable_developer_mode(None)
+        self._disable_developer_mode(None)
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
         # set the focus to this window
@@ -165,7 +167,7 @@ class SettingsWindowUI:
         """
         remove the developer tab from the notebook
         """
-        self.notebook.forget(self.developer_frame)
+        self.notebook.hide(self.developer_frame)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
@@ -601,7 +603,7 @@ class SettingsWindowUI:
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
         # Google Maps Integration
-        row = self._create_section_header("Google Maps Integration", row, text_colour="black")
+        row = self._create_section_header("Google Maps Integration", row, frame=self.advanced_settings_frame, text_colour="black")
         maps_frame = ttk.LabelFrame(self.advanced_settings_frame, text="API Configuration")
         maps_frame.grid(row=row, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
         
