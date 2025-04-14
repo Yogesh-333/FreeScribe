@@ -34,6 +34,7 @@ import scrubadub
 import numpy as np
 import tkinter as tk
 import math
+import traceback
 from tkinter import ttk, filedialog
 import tkinter.messagebox as messagebox
 import librosa
