@@ -715,9 +715,10 @@ def toggle_recording():
         stop_flashing()
 
         if current_view == "full":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording"))
         elif current_view == "minimal":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤"))
+        logger.debug("the end of toggle_recording")
 
 def disable_recording_ui_elements():
     def _disable_recording_ui_elements():
