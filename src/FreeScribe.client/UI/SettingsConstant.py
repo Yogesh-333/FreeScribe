@@ -27,6 +27,7 @@ class SettingsKeys(Enum):
     Enable_AI_Conversation_Validation = "Enable AI Conversation Validation"
     ENABLE_HALLUCINATION_CLEAN = "Enable Hallucination Cleaning (Experimental)"
     ENABLE_FILE_LOGGER = "Enable File Log"
+    STORE_NOTES_LOCALLY ="Store Notes Locally (Encrypted)"
 
 class Architectures(Enum):
     CPU = ("CPU", "cpu")

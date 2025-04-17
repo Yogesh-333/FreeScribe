@@ -21,7 +21,7 @@ Classes:
 
 import logging
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk , messagebox
 import threading
 from Model import Model, ModelManager
 from services.whisper_hallucination_cleaner import load_hallucination_cleaner_model
@@ -803,6 +803,9 @@ class SettingsWindowUI:
             logging.debug("reloading ai model")
             ModelManager.start_model_threaded(self.settings, self.main_window.root)
 
+        #update the notes and Ui
+        self.main_window.root.event_generate("<<UpdateNoteHistoryUi>>")
+
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
             self.main_window.create_docker_status_bar()
         elif not self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is not None:
@@ -859,8 +862,30 @@ class SettingsWindowUI:
 
         This method creates and places UI elements for general settings.
         """
-        frame, row = self.create_editable_settings(self.general_settings_frame, self.settings.general_settings)
-        
+        # Create frames for a two-column layout
+        left_frame = ttk.Frame(self.general_settings_frame)
+        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nw")
+
+        right_frame = ttk.Frame(self.general_settings_frame)
+        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nw")
+
+        left_row = 0
+        right_row = 0
+
+        # Create the STORE_NOTES_LOCALLY checkbox with custom behavior
+        tk.Label(left_frame, text=f"{SettingsKeys.STORE_NOTES_LOCALLY.value}").grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
+        # Convert boolean to int for tkinter IntVar
+        initial_value = 1 if self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] else 0
+        value = tk.IntVar(value=initial_value)
+        self.store_notes_locally_checkbox = tk.Checkbutton(left_frame, variable=value, command=self.toggle_store_notes_locally)
+        self.store_notes_locally_checkbox.grid(row=left_row, column=1, padx=0, pady=5, sticky="w")
+        self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value] = value
+
+        left_row += 1
+
+        # Create the rest of the general settings
+        left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, left_row, right_row, self.settings.general_settings)
+
         # Add a note at the bottom of the general settings frame
         note_text = (
         "NOTE: To protect personal health information (PHI), we recommend using a local network.\n"
@@ -870,7 +895,7 @@ class SettingsWindowUI:
 
         # Create a frame to hold the note labels
         note_frame = tk.Frame(self.general_settings_frame)
-        note_frame.grid(padx=10, pady=5, sticky="w")
+        note_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="w")
 
         # Add the red * label
         star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 10, "bold"))
@@ -886,6 +911,35 @@ class SettingsWindowUI:
             justify="left"
         )
         note_label.grid(row=0, column=1, sticky="w")
+	
+    def toggle_store_notes_locally(self):
+        """
+        Handle toggling the Store Notes Locally checkbox.
+        Shows a warning popup on the main window when attempting to disable this setting.
+        """
+        # Convert IntVar to boolean
+        current_value = bool(self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get())
+        
+        # If the checkbox was unchecked (value is now False), show the warning popup
+        if not current_value:
+            # Create a popup warning dialog on the main window
+            confirm = messagebox.askokcancel(
+                "Warning",
+                "Disabling Store Notes Locally (Encrypted) will delete the existing saved notes",
+                icon="warning",
+                parent=self.root  # Use the main window as the parent
+            )
+            
+            if confirm:
+                # User clicked Continue, keep the setting disabled
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = False
+            else:
+                # User clicked Cancel, revert the checkbox to checked
+                self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].set(1)
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
+        else:
+            # Checkbox was checked, update the setting to True
+            self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
 
     def _create_checkbox(self, frame, label, setting_name, row_idx, setting_key=None):
         """

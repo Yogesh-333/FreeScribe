@@ -50,6 +50,7 @@ from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
 from utils.utils import get_application_version
+import utils.AESCryptoUtils as AESCryptoUtils
 import utils.audio
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
@@ -100,6 +101,88 @@ def on_closing():
 # Register the close_mutex function to be called on exit
 atexit.register(on_closing)
 
+def update_store_notes_locally_ui(event=None):        
+        """
+        Updates the UI components based on the 'Store Notes Locally' setting.
+        """
+        if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
+            # Loads all existing notes
+            load_notes_history()
+            # Enable the 'Delete All Saved Notes' button and show it
+            delete_all_saved_notes_button.grid(row=3, column=0, padx=5, pady=5, sticky='nsew')
+            warning_label.grid_remove()  # Hide the warning label
+        else:
+            # Clear all existing notes
+            clear_all_notes()
+            # Disable the 'Delete All Saved Notes' button and hide it
+            delete_all_saved_notes_button.grid_remove()
+            warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))  # Show the warning label
+
+def load_notes_history():
+    """
+    Loads the temporary notes from a local .txt file containing encrypted JSON data and populates the response_history list.
+    """
+    notes_file_path = get_resource_path('notes_history.txt')
+    try:
+        with open(notes_file_path, 'r') as file:
+            encrypted_data = file.read()
+        
+        # Decrypt the JSON data
+        json_data = AESCryptoUtils.AESCryptoUtilsClass.decrypt(encrypted_data)
+
+        notes_data = json.loads(json_data)
+        for entry in notes_data:
+            timestamp = entry["timestamp"]
+            user_message = entry["user_message"]
+            response_text = entry["response_text"]
+            response_history.append((timestamp, user_message, response_text))
+        populate_ui_with_notes()
+        logger.info(f"Temporary notes loaded from {notes_file_path}")
+    except FileNotFoundError:
+        logger.info(f"No temporary notes file found at {notes_file_path}")
+    except Exception as e:
+        logger.error(f"Error loading temporary notes: {e}")
+
+def populate_ui_with_notes():
+    """
+    Populates the UI components with the data from response_history.
+    """
+    global IS_FIRST_LOG
+    IS_FIRST_LOG = False
+
+    timestamp_listbox.delete(0, tk.END)
+    for time, user_msg, response in response_history:
+        timestamp_listbox.insert(tk.END, time)
+        response_display.scrolled_text.configure(state='normal')
+        response_display.scrolled_text.delete("1.0", tk.END)
+        response_display.scrolled_text.insert(tk.END, response)
+        response_display.scrolled_text.configure(state='disabled')
+
+def clear_all_notes():
+    """
+    Clears all temporary notes from the UI and the .txt file.
+    """
+    global response_history
+    response_history = []  # Clear the response history list
+
+    # Clear the timestamp listbox
+    timestamp_listbox.delete(0, tk.END)
+
+    # Clear the response display
+    response_display.scrolled_text.configure(state='normal')
+    response_display.scrolled_text.delete("1.0", tk.END)
+    response_display.scrolled_text.insert(tk.END, "Medical Note")
+    response_display.scrolled_text.config(fg='grey')
+    response_display.scrolled_text.configure(state='disabled')
+
+    # Clear the contents of the .txt file
+    notes_file_path = get_resource_path('notes_history.txt')
+    try:
+        with open(notes_file_path, 'w') as file:
+            file.write("")  # Write an empty string to clear the file
+        logger.info(f"Temporary notes file cleared: {notes_file_path}")
+    except Exception as e:
+        logger.error(f"Error clearing temporary notes file: {e}")
 
 # This runs before on_closing, if not confirmed, nothing should be changed
 def confirm_exit_and_destroy():
@@ -171,6 +254,7 @@ silent_warning_duration = 0
 is_audio_processing_realtime_canceled = threading.Event()
 is_audio_processing_whole_canceled = threading.Event()
 cancel_await_thread = threading.Event()
+
 
 # Constants
 DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
@@ -1033,6 +1117,27 @@ def send_and_receive():
     display_text(NOTE_CREATION)
     threaded_handle_message(user_message)
 
+def save_notes_history():
+    """
+    Saves the temporary notes to a local .txt file in encrypted JSON format.
+    """
+    notes_file_path = get_resource_path('notes_history.txt')
+    try:
+        # Convert response_history to a list of dictionaries
+        notes_data = [
+            {"timestamp": timestamp, "user_message": user_message, "response_text": response_text}
+            for timestamp, user_message, response_text in response_history
+        ]
+        json_data = json.dumps(notes_data, indent=4)
+        
+        # Encrypt the JSON data
+        encrypted_data = AESCryptoUtils.AESCryptoUtilsClass.encrypt(json_data)
+        
+        with open(notes_file_path, 'w') as file:
+            file.write(encrypted_data)
+        logger.info(f"Temporary notes saved to {notes_file_path}")
+    except Exception as e:
+        logger.error(f"Error saving temporary notes: {e}")
 
 def display_text(text):
     response_display.scrolled_text.configure(state='normal')
@@ -1052,6 +1157,8 @@ def update_gui_with_response(response_text):
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     response_history.insert(0, (timestamp, user_message, response_text))
+    if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
+        save_notes_history()
 
     # Update the timestamp listbox
     timestamp_listbox.delete(0, tk.END)
@@ -1939,16 +2046,6 @@ history_frame.grid_rowconfigure(3, weight=1)
 system_font = tk.font.nametofont("TkDefaultFont")
 base_size = system_font.cget("size")
 scaled_size = int(base_size * 0.9)  # 90% of system font size
-# Add warning label
-warning_label = tk.Label(history_frame,
-                         text="Temporary Note History will be cleared when app closes",
-                         # fg="red",
-                         # wraplength=200,
-                         justify="left",
-                         font=tk.font.Font(size=scaled_size),
-                         )
-warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
-
 
 # Add the timestamp listbox
 timestamp_listbox = TimestampListbox(history_frame, height=30, exportselection=False, response_history=response_history)
@@ -1957,6 +2054,21 @@ timestamp_listbox.bind('<<ListboxSelect>>', show_response)
 timestamp_listbox.insert(tk.END, "Temporary Note History")
 timestamp_listbox.config(fg='grey')
 
+delete_all_saved_notes_button = tk.Button(history_frame, text="Delete All Saved Notes",justify="left",
+                                font=tk.font.Font(size=scaled_size), command=clear_all_notes, height=2, width=15)
+warning_label = tk.Label(history_frame,
+                            text="Temporary Note History will be cleared when app closes",
+                            # fg="red",
+                            # wraplength=200,
+                            justify="left",
+                            font=tk.font.Font(size=scaled_size),
+                            )
+if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
+    
+    delete_all_saved_notes_button.grid(row=3, column=0, padx=5, pady=5, sticky='nsew')
+else:
+    
+    warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
 
 # Add microphone test frame
 mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_settings, root=root)
@@ -2052,6 +2164,13 @@ root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", load_stt_model)
 root.bind("<<UnloadSttModel>>", unload_stt_model)
+root.bind("<<UpdateNoteHistoryUi>>", update_store_notes_locally_ui)
+
+if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
+    # Load temporary notes from the file
+    load_notes_history()
+    # Populate the UI with the loaded notes
+    populate_ui_with_notes()
 
 root.mainloop()
 
