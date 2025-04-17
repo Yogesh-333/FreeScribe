@@ -125,7 +125,7 @@ class SettingsWindow():
             "Use Docker Status Bar": False,
             "Show Welcome Message": True,
             "Enable Scribe Template": False,
-            SettingsKeys.USE_PRE_PROCESSING.value: FeatureToggle.PRE_PROCESSING,
+            SettingsKeys.USE_PRE_PROCESSING.value: False,
             "Use Post-Processing": FeatureToggle.POST_PROCESSING,
             "AI Server Self-Signed Certificates": False,
             SettingsKeys.S2T_SELF_SIGNED_CERT.value: False,
