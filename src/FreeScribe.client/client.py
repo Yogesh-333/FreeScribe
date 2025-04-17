@@ -240,13 +240,6 @@ def threaded_check_stt_model():
     return True
 
 def threaded_toggle_recording(button):
-    logger.debug(f"====>*** Toggle Recording - Current threads:")
-    if logger.level == logging.DEBUG:
-        for thread in threading.enumerate():
-            logger.debug(f"====>Thread Name: {thread.name}, Thread ID: {thread.ident}")
-    for thread in threading.enumerate():
-        logger.debug(f"====>Thread Name: {thread.name}, Thread ID: {thread.ident}")
-    logger.debug(f"====>*** Toggle Recording - Current threads.")
     # quick fix: prevents the button being clicked repeatedly in short time, avoid UI freeze
     button.config(state="disabled")
     root.after(1000, lambda: button.config(state="normal"))
