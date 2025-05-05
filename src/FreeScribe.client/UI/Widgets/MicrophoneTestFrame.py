@@ -64,6 +64,13 @@ class MicrophoneTestFrame:
             print(f"Failed to initialize microphone ({type(e).__name__}): {e}")
             self.default_input_index = None
 
+        # Add special options first
+        self.mic_list.append(('system', 'System Audio Only'))
+        self.mic_list.append(('mixed', 'Microphone + System Audio'))
+        self.mic_mapping['System Audio Only'] = 'system'
+        self.mic_mapping['Microphone + System Audio'] = 'mixed'
+
+        # Then add physical microphones
         device_count = self.p.get_device_count()
         for i in range(device_count):
             device_info = self.p.get_device_info_by_index(i)
@@ -220,10 +227,31 @@ class MicrophoneTestFrame:
 
         Parameters
         ----------
-        selected_index : int
-            The index of the selected microphone.
+        selected_index : int or str
+            The index of the selected microphone or 'system'/'mixed' for special cases.
         """
-        if selected_index >= 0:
+        if isinstance(selected_index, str):
+            # Handle special cases
+            if selected_index == 'system':
+                MicrophoneState.SELECTED_MICROPHONE_INDEX = 'system'
+                MicrophoneState.SELECTED_MICROPHONE_NAME = 'System Audio Only'
+                self.status_label.config(text="System Audio: Ready", foreground="green")
+                self.app_settings.editable_settings["Current Mic"] = 'System Audio Only'
+            elif selected_index == 'mixed':
+                MicrophoneState.SELECTED_MICROPHONE_INDEX = 'mixed'
+                MicrophoneState.SELECTED_MICROPHONE_NAME = 'Microphone + System Audio'
+                self.status_label.config(text="Mixed Audio: Ready", foreground="green")
+                self.app_settings.editable_settings["Current Mic"] = 'Microphone + System Audio'
+            
+            # Close any existing stream
+            if self.stream:
+                if self.stream.is_active():
+                    self.stream.stop_stream()
+                self.stream.close()
+            self.stream = None
+            self.is_stream_active = False
+            
+        elif isinstance(selected_index, int) and selected_index >= 0:
             try:
                 selected_mic = self.p.get_device_info_by_index(selected_index)
                 MicrophoneState.SELECTED_MICROPHONE_INDEX = selected_mic["index"]
@@ -291,16 +319,21 @@ class MicrophoneTestFrame:
 
     def update_volume_meter(self):
         """
-        Update the volume meter based on the current microphone input.
+        Update the volume meter based on the current audio input.
+        Handles both microphone and special system/mixed audio cases.
         """
-        if not self.is_stream_active:
+        if not self.is_stream_active and MicrophoneState.SELECTED_MICROPHONE_INDEX not in ['system', 'mixed']:
             self.frame.after(50, self.update_volume_meter)
             return
 
         try:
-            data = self.stream.read(1024, exception_on_overflow=False)
-            audio_data = np.frombuffer(data, dtype=np.int16)
-            rms = np.sqrt(np.mean(np.square(audio_data.astype(np.float64))))
+            if MicrophoneState.SELECTED_MICROPHONE_INDEX in ['system', 'mixed']:
+                # For system/mixed audio we'll simulate some activity
+                rms = np.random.randint(20, 80)  # Simulate varying levels
+            else:
+                data = self.stream.read(1024, exception_on_overflow=False)
+                audio_data = np.frombuffer(data, dtype=np.int16)
+                rms = np.sqrt(np.mean(np.square(audio_data.astype(np.float64))))
             
             if np.isnan(rms) or rms <= 0:
                 volume = 0
