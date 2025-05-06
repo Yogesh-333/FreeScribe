@@ -58,6 +58,7 @@ from utils.window_utils import remove_min_max, add_min_max
 from WhisperModel import TranscribeError
 from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
+from UI.RecordingsManager import RecordingsManager
 from UI.ScrubWindow import ScrubWindow
 from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner, load_hallucination_cleaner_model
@@ -2172,6 +2173,36 @@ root.after(100, await_models)
 root.bind("<<LoadSttModel>>", load_stt_model)
 root.bind("<<UnloadSttModel>>", unload_stt_model)
 root.bind("<<UpdateNoteHistoryUi>>", update_store_notes_locally_ui)
+
+def generate_note_bind(event, data: np.ndarray):
+    """
+    Generate a note based on the current user input and update the response display.
+
+    Args:
+        event: Optional event parameter for binding to tkinter events.
+    """
+    loading_window = LoadingWindow(root, "Transcribing Audio", "Transcribing Audio. Please wait.", on_cancel=clear_application_press)
+    
+    def action():
+        clear_application_press()
+
+        wav_data = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768
+
+        result = faster_whisper_transcribe(wav_data)
+
+        root.after(0, update_gui(result))
+
+    wrk_thrd = threading.Thread(target=action)
+    wrk_thrd.start()
+
+    while wrk_thrd.is_alive():
+        time.sleep(0.1)
+
+    loading_window.destroy()
+    send_and_receive()
+
+                           
+root.bind("<<GenerateNote>>", lambda e: threading.Thread(target=lambda: generate_note_bind(e, RecordingsManager.last_selected_data)).start())
 
 if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
     # Load temporary notes from the file
