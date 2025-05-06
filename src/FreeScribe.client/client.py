@@ -27,7 +27,6 @@ import re
 import time
 import queue
 import atexit
-import traceback
 import torch
 import pyaudio
 import requests
@@ -52,6 +51,7 @@ from utils.OneInstance import OneInstance
 from utils.utils import get_application_version
 import utils.AESCryptoUtils as AESCryptoUtils
 import utils.audio
+import utils.AESCryptoUtils as AESCryptoUtils
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
 from utils.utils import window_has_running_instance, bring_to_front, close_mutex
 from utils.window_utils import remove_min_max, add_min_max
@@ -471,6 +471,7 @@ def record_audio():
     global is_paused, frames, audio_queue, silent_warning_duration
 
     try:
+        recording_id = f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         current_chunk = []
         silent_duration = 0        
         record_duration = 0
@@ -518,6 +519,8 @@ def record_audio():
                     if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and current_chunk:
                         padded_audio = utils.audio.pad_audio_chunk(current_chunk, pad_seconds=0.5)
                         audio_queue.put(b''.join(padded_audio))
+                    
+                    utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
 
                     # Carry over the last .1 seconds of audio to the next one so next speech does not start abruptly or in middle of a word
                     carry_over_chunk = current_chunk[-int(0.1 * RATE / CHUNK):]
@@ -535,12 +538,13 @@ def record_audio():
 
         # Send any remaining audio chunk when recording stops
         if current_chunk:
+            utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
             audio_queue.put(b''.join(current_chunk))
     except Exception as e:
         # Log the error message
         # TODO System logger
         # For now general catch on any problems
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
     finally:
         if stream:
             stream.stop_stream()
