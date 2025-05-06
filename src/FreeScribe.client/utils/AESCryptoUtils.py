@@ -4,7 +4,7 @@ import os
 import secrets
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
-
+   
 class AESCryptoUtilsClass:
     """Utility class for AES encryption and decryption using keys stored in Windows Credential Manager"""
     
@@ -112,6 +112,82 @@ class AESCryptoUtilsClass:
             
             # Convert bytes to string
             return plaintext.decode('utf-8')
+            
+        except Exception as e:
+            raise ValueError(f"AES decryption failed: {str(e)}")
+
+    @classmethod
+    def encrypt_bytes(cls, plaintext_bytes):
+        """
+        Encrypt the given bytes using AES-256 with the stored encryption key
+        
+        Args:
+            plaintext_bytes (bytes): Bytes to encrypt
+            
+        Returns:
+            bytes: Encrypted data (IV + ciphertext)
+        """
+        if not plaintext_bytes:
+            return b""
+            
+        try:
+            key = cls._get_aes_key()
+            
+            # Generate a random 16-byte initialization vector
+            iv = secrets.token_bytes(16)
+            
+            # Create a padder to ensure the plaintext length is a multiple of block size
+            padder = padding.PKCS7(algorithms.AES.block_size).padder()
+            padded_data = padder.update(plaintext_bytes) + padder.finalize()
+            
+            # Create an encryptor with AES in CBC mode
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+            encryptor = cipher.encryptor()
+            
+            # Encrypt the padded data
+            ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+            
+            # Combine IV and ciphertext
+            encrypted_data = iv + ciphertext
+            
+            return encrypted_data
+            
+        except Exception as e:
+            raise ValueError(f"AES encryption failed: {str(e)}")    
+    
+    @classmethod
+    def decrpyt_bytes(cls, encrypted_bytes):
+        """
+        Decrypt the given AES-encrypted bytes using the stored encryption key
+        
+        Args:
+            encrypted_bytes (bytes): Encrypted data (IV + ciphertext)
+            
+        Returns:
+            bytes: Decrypted plaintext
+        """
+        if not encrypted_bytes:
+            return b""
+            
+        try:
+            key = cls._get_aes_key()
+            
+            # Extract IV (first 16 bytes) and ciphertext
+            iv = encrypted_bytes[:16]
+            ciphertext = encrypted_bytes[16:]
+            
+            # Create a decryptor with AES in CBC mode
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+            decryptor = cipher.decryptor()
+            
+            # Decrypt the ciphertext
+            padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+            
+            # Remove padding
+            unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+            plaintext = unpadder.update(padded_plaintext) + unpadder.finalize()
+            
+            return plaintext
             
         except Exception as e:
             raise ValueError(f"AES decryption failed: {str(e)}")
