@@ -7,6 +7,8 @@ from UI.SettingsWindowUI import SettingsWindowUI
 from UI.MarkdownWindow import MarkdownWindow
 from utils.file_utils import get_file_path
 from UI.DebugWindow import DebugPrintWindow
+from UI.RecordingsManager import RecordingsManager
+from UI.LogWindow import LogWindow
 
 DOCKER_CONTAINER_CHECK_INTERVAL = 10000  # Interval in milliseconds to check the Docker container status
 DOCKER_DESKTOP_CHECK_INTERVAL = 10000  # Interval in milliseconds to check the Docker Desktop status
@@ -249,6 +251,7 @@ class MainWindowUI:
         self.root.config(menu=self.menu_bar)
         self._create_settings_menu()
         self._create_help_menu()
+        self.__create_data_menu()
 
     def _destroy_menu_bar(self):
         """
@@ -393,6 +396,12 @@ class MainWindowUI:
             self.logic.container_manager.set_status_icon_color(llm_dot, self.logic.check_llm_containers())
             self.logic.container_manager.set_status_icon_color(whisper_dot, self.logic.check_whisper_containers())
             self.current_container_status_check_id = self.root.after(DOCKER_CONTAINER_CHECK_INTERVAL, self._background_check_container_status, llm_dot, whisper_dot)
+    
+    def __create_data_menu(self):
+        manage_app_data_menu = tk.Menu(self.menu_bar, tearoff=0)
+        manage_app_data_menu.add_command(label="Manage Recordings", command=lambda: RecordingsManager(self.root))
+        manage_app_data_menu.add_command(label="Manage Logs", command=lambda: LogWindow(self.root))
 
-
+        # Add the submenu to the main menu bar
+        self.menu_bar.add_cascade(label="Manage App Data", menu=manage_app_data_menu)
 
