@@ -827,7 +827,7 @@ class SettingsWindowUI:
             return
 
         if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
-            utils.log_config.add_file_handler(utils.log_config.logger, utils.log_config.formatter)
+            utils.log_config.add_file_handler(utils.log_config.logger, utils.log_config.AESEncryptedFormatter())
             logger.info("File logging enabled.")
         else:
             utils.log_config.remove_file_handler(utils.log_config.logger)
