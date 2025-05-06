@@ -16,6 +16,7 @@ import io
 import sys
 import gc
 import os
+import logging
 from pathlib import Path
 import wave
 import threading
@@ -172,6 +173,7 @@ botname = "Assistant"
 num_lines_to_keep = 20
 uploaded_file_path = None
 is_recording = False
+recording_thread = None
 is_realtimeactive = False
 audio_data = []
 frames = []
@@ -258,8 +260,11 @@ def threaded_check_stt_model():
     return True
 
 
-def threaded_toggle_recording():
-    logger.debug(f"*** Toggle Recording - Recording status: {is_recording}, STT local model is {is_whisper_valid()}")
+def threaded_toggle_recording(button):
+    # quick fix: prevents the button being clicked repeatedly in short time, avoid UI freeze
+    button.config(state="disabled")
+    root.after(1000, lambda: button.config(state="normal"))
+
     ready_flag = threaded_check_stt_model()
     # there is no point start recording if we are using local STT model and it's not ready
     # if user chooses to cancel the double check process, we need to return and not start recording
@@ -450,7 +455,7 @@ def record_audio():
                 record_duration += CHUNK / RATE
 
                 # Check if we need to warn if silence is long than warn time
-                check_silence_warning(silent_warning_duration)
+                root.after(0, lambda: check_silence_warning(silent_warning_duration))
 
                 # 1 second of silence at the end so we dont cut off speech
                 if silent_duration >= minimum_silent_duration and audio_data_leng > 1.5  and record_duration > minimum_audio_duration:
@@ -488,7 +493,7 @@ def record_audio():
 
         # If the warning bar is displayed, remove it
         if window.warning_bar is not None:
-            window.destroy_warning_bar()
+            root.after(0, lambda: window.destroy_warning_bar())
 
 
 def check_silence_warning(silence_duration):
@@ -625,8 +630,9 @@ def realtime_text():
 
 
 def update_gui(text):
-    user_input.scrolled_text.insert(tk.END, text + '\n')
-    user_input.scrolled_text.see(tk.END)
+    # Tkinter is not thread safe, so we need to use root.after to make sure to update the GUI from main thread
+    root.after(0, lambda: user_input.scrolled_text.insert(tk.END, text + '\n'))
+    root.after(0, lambda: user_input.scrolled_text.see(tk.END))
 
 
 def save_audio():
@@ -668,13 +674,17 @@ def toggle_recording():
             
         disable_recording_ui_elements()
         REALTIME_TRANSCRIBE_THREAD_ID = realtime_thread.ident
-        user_input.scrolled_text.configure(state='normal')
-        user_input.scrolled_text.delete("1.0", tk.END)
-        if not app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value]:
-            user_input.scrolled_text.insert(tk.END, "Recording")
-        response_display.scrolled_text.configure(state='normal')
-        response_display.scrolled_text.delete("1.0", tk.END)
-        response_display.scrolled_text.configure(state='disabled')
+        
+        def _start_recording_ui():
+            user_input.scrolled_text.configure(state='normal')
+            user_input.scrolled_text.delete("1.0", tk.END)
+            if not app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value]:
+                user_input.scrolled_text.insert(tk.END, "Recording")
+            response_display.scrolled_text.configure(state='normal')
+            response_display.scrolled_text.delete("1.0", tk.END)
+            response_display.scrolled_text.configure(fg='black')
+            response_display.scrolled_text.configure(state='disabled')
+        root.after(0, _start_recording_ui)
         is_recording = True
 
         # reset frames before new recording so old data is not used
@@ -684,15 +694,15 @@ def toggle_recording():
         recording_thread.start()
 
         if current_view == "full":
-            mic_button.config(bg="red", text="Stop\nRecording")
+            root.after(0, lambda: mic_button.config(bg="red", text="Stop\nRecording"))
         elif current_view == "minimal":
-            mic_button.config(bg="red", text="⏹️")
+            root.after(0, lambda: mic_button.config(bg="red", text="⏹️"))
 
         start_flashing()
     else:
         enable_recording_ui_elements()
         is_recording = False
-        if recording_thread.is_alive():
+        if recording_thread and recording_thread.is_alive():
             recording_thread.join()  # Ensure the recording thread is terminated
 
         if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and not is_audio_processing_realtime_canceled.is_set(
@@ -759,34 +769,38 @@ def toggle_recording():
         stop_flashing()
 
         if current_view == "full":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording"))
         elif current_view == "minimal":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤"))
+        logger.debug("the end of toggle_recording")
 
 
 def disable_recording_ui_elements():
-    window.disable_settings_menu()
-    user_input.scrolled_text.configure(state='disabled')
-    send_button.config(state='disabled')
-    # hidding the AI Scribe button actions
-    # toggle_button.config(state='disabled')
-    upload_button.config(state='disabled')
-    response_display.scrolled_text.configure(state='disabled')
-    timestamp_listbox.config(state='disabled')
-    clear_button.config(state='disabled')
-    mic_test.set_mic_test_state(False)
-
+    def _disable_recording_ui_elements():
+        window.disable_settings_menu()
+        user_input.scrolled_text.configure(state='disabled')
+        send_button.config(state='disabled')
+        #hidding the AI Scribe button actions
+        #toggle_button.config(state='disabled')
+        upload_button.config(state='disabled')
+        response_display.scrolled_text.configure(state='disabled')
+        timestamp_listbox.config(state='disabled')
+        clear_button.config(state='disabled')
+        mic_test.set_mic_test_state(False)
+    root.after(0, _disable_recording_ui_elements)
 
 def enable_recording_ui_elements():
-    window.enable_settings_menu()
-    user_input.scrolled_text.configure(state='normal')
-    send_button.config(state='normal')
-    # hidding the AI Scribe button actions
-    # toggle_button.config(state='normal')
-    upload_button.config(state='normal')
-    timestamp_listbox.config(state='normal')
-    clear_button.config(state='normal')
-    mic_test.set_mic_test_state(True)
+    def _enable_recording_ui_elements():
+        window.enable_settings_menu()
+        user_input.scrolled_text.configure(state='normal')
+        send_button.config(state='normal')
+        #hidding the AI Scribe button actions
+        #toggle_button.config(state='normal')
+        upload_button.config(state='normal')
+        timestamp_listbox.config(state='normal')
+        clear_button.config(state='normal')
+        mic_test.set_mic_test_state(True)
+    root.after(0, _enable_recording_ui_elements)
 
 
 def cancel_processing():
@@ -1134,10 +1148,13 @@ def send_and_receive():
 
 
 def display_text(text):
-    response_display.scrolled_text.configure(state='normal')
-    response_display.scrolled_text.delete("1.0", tk.END)
-    response_display.scrolled_text.insert(tk.END, f"{text}\n")
-    response_display.scrolled_text.configure(state='disabled')
+    def _display_text():
+        response_display.scrolled_text.configure(state='normal')
+        response_display.scrolled_text.delete("1.0", tk.END)
+        response_display.scrolled_text.insert(tk.END, f"{text}\n")
+        response_display.scrolled_text.configure(fg='black')
+        response_display.scrolled_text.configure(state='disabled')
+    root.after(0, _display_text)
 
 
 IS_FIRST_LOG = True
@@ -1548,6 +1565,7 @@ def generate_note_thread(text: str):
         global GENERATION_THREAD_ID
 
         try:
+            logger.debug(f"*** Cancelling note generation thread with ID: {thread_id}")
             if thread_id:
                 kill_thread(thread_id)
 
@@ -1618,15 +1636,19 @@ def start_flashing():
 def stop_flashing():
     global is_flashing
     is_flashing = False
-    blinking_circle_canvas.itemconfig(circle, fill='white')  # Reset to default color
+    # Reset to default color
+    root.after(0, lambda: blinking_circle_canvas.itemconfig(circle, fill='white'))
 
 
 def flash_circle():
-    if is_flashing:
+    if not is_flashing:
+        return
+    def _flash_circle():
         current_color = blinking_circle_canvas.itemcget(circle, 'fill')
         new_color = 'blue' if current_color != 'blue' else 'black'
         blinking_circle_canvas.itemconfig(circle, fill=new_color)
         root.after(1000, flash_circle)  # Adjust the flashing speed as needed
+    root.after(0, _flash_circle)
 
 
 def send_and_flash():
@@ -1904,7 +1926,8 @@ user_input.scrolled_text.bind(
         user_input.scrolled_text,
         "Transcript of Conversation"))
 
-mic_button = tk.Button(root, text="Start\nRecording", command=lambda: (threaded_toggle_recording()), height=2, width=11)
+mic_button = tk.Button(root, text="Start\nRecording", height=2, width=11)
+mic_button.configure(command=lambda: threaded_toggle_recording(mic_button))
 mic_button.grid(row=1, column=1, pady=5, sticky='nsew')
 
 send_button = tk.Button(root, text="Generate Note", command=send_and_flash, height=2, width=11)
