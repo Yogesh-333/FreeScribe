@@ -28,6 +28,8 @@ class SettingsKeys(Enum):
     ENABLE_HALLUCINATION_CLEAN = "Enable Hallucination Cleaning (Experimental)"
     ENABLE_FILE_LOGGER = "Enable File Log"
     USE_PRE_PROCESSING = "Use Pre-Processing"
+    WHISPER_INITIAL_PROMPT = "Whisper Initial Prompt"
+
 
 class Architectures(Enum):
     CPU = ("CPU", "cpu")
