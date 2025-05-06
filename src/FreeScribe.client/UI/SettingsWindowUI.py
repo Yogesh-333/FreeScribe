@@ -135,8 +135,12 @@ class SettingsWindowUI:
         self.create_buttons()
 
         # "Dev" settings tab for developer mode
+        # Create the menu then disable it so the ui elements have access
+        self._enable_developer_mode(None)
+        self._disable_developer_mode(None)
         self.developer_frame = ttk.Frame(self.notebook)
         self.create_developer_settings(self.developer_frame)
+
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
         # set the focus to this window
