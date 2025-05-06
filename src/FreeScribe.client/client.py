@@ -217,6 +217,9 @@ root.protocol("WM_DELETE_WINDOW", confirm_exit_and_destroy)
 # settings logic
 app_settings = SettingsWindow()
 
+if app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value]:
+    utils.log_config.add_file_handler(utils.log_config.logger, format=utils.log_config.AESEncryptedFormatter())
+
 #  create our ui elements and settings config
 window = MainWindowUI(root, app_settings)
 
