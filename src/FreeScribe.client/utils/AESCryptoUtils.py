@@ -69,11 +69,10 @@ class AESCryptoUtilsClass:
             ciphertext = encryptor.update(padded_data) + encryptor.finalize()
             
             # Combine IV and ciphertext and encode as base64
-            encrypted_data = base64.urlsafe_b64encode(iv + ciphertext).decode('utf-8')
-            return encrypted_data
+            return base64.urlsafe_b64encode(iv + ciphertext).decode('utf-8')
             
         except Exception as e:
-            raise ValueError(f"AES encryption failed: {str(e)}")
+            raise ValueError(f"AES encryption failed: {str(e)}") from e
     
     @classmethod
     def decrypt(cls, encrypted_text):
@@ -114,7 +113,7 @@ class AESCryptoUtilsClass:
             return plaintext.decode('utf-8')
             
         except Exception as e:
-            raise ValueError(f"AES decryption failed: {str(e)}")
+            raise ValueError(f"AES decryption failed: {str(e)}") from e
 
     @classmethod
     def encrypt_bytes(cls, plaintext_bytes):
@@ -148,15 +147,14 @@ class AESCryptoUtilsClass:
             ciphertext = encryptor.update(padded_data) + encryptor.finalize()
             
             # Combine IV and ciphertext
-            encrypted_data = iv + ciphertext
             
-            return encrypted_data
+            return iv + ciphertext
             
         except Exception as e:
-            raise ValueError(f"AES encryption failed: {str(e)}")    
+            raise ValueError(f"AES encryption failed: {str(e)}") from e
     
     @classmethod
-    def decrpyt_bytes(cls, encrypted_bytes):
+    def decrypt_bytes(cls, encrypted_bytes):
         """
         Decrypt the given AES-encrypted bytes using the stored encryption key
         
@@ -190,7 +188,7 @@ class AESCryptoUtilsClass:
             return plaintext
             
         except Exception as e:
-            raise ValueError(f"AES decryption failed: {str(e)}")
+            raise ValueError(f"AES decryption failed: {str(e)}") from e
     
     @classmethod
     def change_encryption_key(cls):

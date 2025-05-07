@@ -85,7 +85,7 @@ def encrypt_audio_chunk(chunk, filepath: str = None):
         try:
             with open(filepath, 'rb') as f:
                 encrypted_data = f.read()
-                existing_data = AESCryptoUtils.decrpyt_bytes(encrypted_data)
+                existing_data = AESCryptoUtils.decrypt_bytes(encrypted_data)
         except Exception as e:
             logger.error(f"Error reading existing file {filepath}: {str(e)}")
             existing_data = None
@@ -145,7 +145,7 @@ def decrypt_whole_audio_file(filename: str):
             return np.array([], dtype=np.int16)
         
         # Decrypt data
-        decrypted_data = AESCryptoUtils.decrpyt_bytes(encrypted_data)
+        decrypted_data = AESCryptoUtils.decrypt_bytes(encrypted_data)
         
         # Validate decrypted WAV data
         if not decrypted_data or len(decrypted_data) < 44:  # Minimum WAV header size

@@ -124,7 +124,7 @@ class RecordingsManager:
             with open(encrypted_path, 'rb') as f:
                 encrypted_data = f.read()
 
-            decrypted_data = AESCryptoUtils.AESCryptoUtilsClass.decrpyt_bytes(encrypted_data)
+            decrypted_data = AESCryptoUtils.AESCryptoUtilsClass.decrypt_bytes(encrypted_data)
 
             self.wf_buffer = io.BytesIO(decrypted_data)
             self.wf = wave.open(self.wf_buffer, 'rb')
