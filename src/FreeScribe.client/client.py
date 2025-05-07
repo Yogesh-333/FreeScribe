@@ -154,10 +154,6 @@ def populate_ui_with_notes():
     timestamp_listbox.delete(0, tk.END)
     for time, user_msg, response in response_history:
         timestamp_listbox.insert(tk.END, time)
-        response_display.scrolled_text.configure(state='normal')
-        response_display.scrolled_text.delete("1.0", tk.END)
-        response_display.scrolled_text.insert(tk.END, response)
-        response_display.scrolled_text.configure(state='disabled')
 
 def clear_all_notes():
     """
