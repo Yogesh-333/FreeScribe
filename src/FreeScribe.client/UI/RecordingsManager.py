@@ -240,13 +240,11 @@ class RecordingsManager:
         utils.audio.decrypt_whole_audio_file(decrypted_file)
         wav_path = get_resource_path(f"recordings/{decrypted_file}.wav")
 
-        save_path = filedialog.asksaveasfilename(
+        if save_path := filedialog.asksaveasfilename(
             defaultextension=".wav",
             filetypes=[("WAV files", "*.wav")],
             initialfile=f"{decrypted_file}.wav"
-        )
-
-        if save_path:
+        ):
             try:
                 with open(wav_path, 'rb') as src, open(save_path, 'wb') as dst:
                     dst.write(src.read())
