@@ -1023,8 +1023,8 @@ class SettingsWindowUI:
         Returns:
             tk.Frame: The scrollable frame.
         """
-        # Guard clause: return frame as is if it's not the advanced frame
-        if frame != self.advanced_frame:
+        # Guard clause: return frame as is if it's not one of the scrollable frames
+        if frame not in [self.advanced_frame, self.developer_frame]:
             return frame
 
         # Create scrollable frame components
