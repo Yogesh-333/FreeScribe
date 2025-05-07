@@ -518,7 +518,9 @@ def record_audio():
                         padded_audio = utils.audio.pad_audio_chunk(current_chunk, pad_seconds=0.5)
                         audio_queue.put(b''.join(padded_audio))
                     
-                    utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
+                    if app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value]:
+                        # Encrypt the audio chunk and save it to a file
+                        utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
 
                     # Carry over the last .1 seconds of audio to the next one so next speech does not start abruptly or in middle of a word
                     carry_over_chunk = current_chunk[-int(0.1 * RATE / CHUNK):]
