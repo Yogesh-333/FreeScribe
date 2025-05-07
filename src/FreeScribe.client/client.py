@@ -97,27 +97,35 @@ def delete_temp_file(filename):
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
+
+    #save all notes
+    save_notes_history()
+
     close_mutex()
 
 # Register the close_mutex function to be called on exit
 atexit.register(on_closing)
 
-def update_store_notes_locally_ui(event=None):        
+def update_store_notes_locally_ui(event=None):
+        global warning_label        
         """
         Updates the UI components based on the 'Store Notes Locally' setting.
         """
         if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
             # Loads all existing notes
             load_notes_history()
-            # Enable the 'Delete All Saved Notes' button and show it
-            delete_all_saved_notes_button.grid(row=3, column=0, padx=5, pady=5, sticky='nsew')
-            warning_label.grid_remove()  # Hide the warning label
+            warning_label.grid_remove()
         else:
             # Clear all existing notes
+            warning_label = tk.Label(history_frame,
+                            text="Temporary Note History will be cleared when app closes",
+                            # fg="red",
+                            # wraplength=200,
+                            justify="left",
+                            font=tk.font.Font(size=scaled_size),
+                            )
+            warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
             clear_all_notes()
-            # Disable the 'Delete All Saved Notes' button and hide it
-            delete_all_saved_notes_button.grid_remove()
-            warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))  # Show the warning label
 
 def load_notes_history():
     """
@@ -2058,8 +2066,6 @@ timestamp_listbox.bind('<<ListboxSelect>>', show_response)
 timestamp_listbox.insert(tk.END, "Temporary Note History")
 timestamp_listbox.config(fg='grey')
 
-delete_all_saved_notes_button = tk.Button(history_frame, text="Delete All Saved Notes",justify="left",
-                                font=tk.font.Font(size=scaled_size), command=clear_all_notes, height=2, width=15)
 warning_label = tk.Label(history_frame,
                             text="Temporary Note History will be cleared when app closes",
                             # fg="red",
@@ -2067,12 +2073,11 @@ warning_label = tk.Label(history_frame,
                             justify="left",
                             font=tk.font.Font(size=scaled_size),
                             )
-if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
-    
-    delete_all_saved_notes_button.grid(row=3, column=0, padx=5, pady=5, sticky='nsew')
-else:
-    
+
+if not app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
     warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+    
+    
 
 # Add microphone test frame
 mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_settings, root=root)
