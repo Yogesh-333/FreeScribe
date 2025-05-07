@@ -117,13 +117,6 @@ def update_store_notes_locally_ui(event=None):
             warning_label.grid_remove()
         else:
             # Clear all existing notes
-            warning_label = tk.Label(history_frame,
-                            text="Temporary Note History will be cleared when app closes",
-                            # fg="red",
-                            # wraplength=200,
-                            justify="left",
-                            font=tk.font.Font(size=scaled_size),
-                            )
             warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
             clear_all_notes()
 

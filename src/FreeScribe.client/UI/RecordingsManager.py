@@ -271,7 +271,8 @@ class RecordingsManager:
             selection = self.recordings_list.curselection()
             if not selection:
                 return
-                
+            
+            # Note: The path is gotten in decrypt_whole_audio_file method
             filename = self.recordings_list.get(selection[0])
             encrypted_path = filename
 
