@@ -158,7 +158,7 @@ class SettingsWindowUI:
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         # select the developer tab automatically
-        self.notebook.select(self.developer_frame)
+        self.notebook.select(self.developer_container)
 
     def _disable_developer_mode(self, event):
         """
