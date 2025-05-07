@@ -64,7 +64,6 @@ class MicrophoneTestFrame:
             print(f"Failed to initialize microphone ({type(e).__name__}): {e}")
             self.default_input_index = None
 
-        # Then add physical microphones
         device_count = self.p.get_device_count()
         for i in range(device_count):
             device_info = self.p.get_device_info_by_index(i)
@@ -222,10 +221,9 @@ class MicrophoneTestFrame:
 
         Parameters
         ----------
-        selected_index : int 
-            The index of the selected microphone
+        selected_index : int
+            The index of the selected microphone.
         """
-           
         if selected_index >= 0:
             try:
                 selected_mic = self.p.get_device_info_by_index(selected_index)
@@ -294,7 +292,7 @@ class MicrophoneTestFrame:
 
     def update_volume_meter(self):
         """
-        Update the volume meter based on the current audio input.
+        Update the volume meter based on the current microphone input.
         """
         if not self.is_stream_active:
             self.frame.after(50, self.update_volume_meter)
