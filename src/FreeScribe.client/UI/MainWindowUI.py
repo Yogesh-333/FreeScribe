@@ -417,7 +417,7 @@ class MainWindowUI:
 
         if settings_enabled > 0:
             # Add the submenu to the main menu bar
-            if self.manage_app_data_menu is not None:
+            if manage_app_data_menu is not None:
                 self.menu_bar.delete("Manage App Data")
             self.menu_bar.add_cascade(label="Manage App Data", menu=manage_app_data_menu)
             logger.debug("Manage App Data menu added to menu bar")
