@@ -109,8 +109,9 @@ class SettingsWindowUI:
         self.whisper_settings_frame = ttk.Frame(self.notebook)
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
-        self.developer_frame = ttk.Frame(self.notebook)
-        self.developer_frame = self.add_scrollbar_to_frame(self.developer_frame)
+        # Create container frame that will hold the scrollable frame
+        self.developer_container = ttk.Frame(self.notebook)
+        self.developer_frame = self.add_scrollbar_to_frame(self.developer_container)
 
         self.notebook.add(self.general_settings_frame, text="General Settings")
         self.notebook.add(self.whisper_settings_frame, text="Speech-to-Text Settings (Whisper)")
@@ -151,8 +152,8 @@ class SettingsWindowUI:
         """
         add a developer tab to the notebook
         """
-        if self.developer_frame not in self.notebook.tabs():
-            self.notebook.add(self.developer_frame, text="Developer Settings")
+        if self.developer_container not in self.notebook.tabs():
+            self.notebook.add(self.developer_container, text="Developer Settings")
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         # select the developer tab automatically
@@ -162,8 +163,8 @@ class SettingsWindowUI:
         """
         remove the developer tab from the notebook
         """
-        if self.developer_frame in self.notebook.tabs():
-            self.notebook.forget(self.developer_frame)
+        if self.developer_container in self.notebook.tabs():
+            self.notebook.forget(self.developer_container)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
