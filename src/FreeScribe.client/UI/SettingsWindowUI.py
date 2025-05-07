@@ -112,12 +112,10 @@ class SettingsWindowUI:
         self.developer_frame = ttk.Frame(self.notebook)
         self.developer_frame = self.add_scrollbar_to_frame(self.developer_frame)
 
-
         self.notebook.add(self.general_settings_frame, text="General Settings")
         self.notebook.add(self.whisper_settings_frame, text="Speech-to-Text Settings (Whisper)")
         self.notebook.add(self.llm_settings_frame, text="AI Settings (LLM)")
         self.notebook.add(self.advanced_frame, text="Advanced Settings")
-        self.notebook.add(self.developer_frame, text="Developer Settings")
 
         self.settings_window.protocol("WM_DELETE_WINDOW", self.close_window)
 
@@ -153,7 +151,8 @@ class SettingsWindowUI:
         """
         add a developer tab to the notebook
         """
-        self.notebook.add(self.developer_frame, text="Developer Settings")
+        if self.developer_frame not in self.notebook.tabs():
+            self.notebook.add(self.developer_frame, text="Developer Settings")
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         # select the developer tab automatically
@@ -163,7 +162,8 @@ class SettingsWindowUI:
         """
         remove the developer tab from the notebook
         """
-        self.notebook.hide(self.developer_frame)
+        if self.developer_frame in self.notebook.tabs():
+            self.notebook.forget(self.developer_frame)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
