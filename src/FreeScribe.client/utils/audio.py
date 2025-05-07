@@ -154,8 +154,8 @@ def decrypt_whole_audio_file(filename: str):
         
         # Write decrypted WAV data to file
         wav_buffer = io.BytesIO()
-        with open(wav_buffer, 'wb') as f:
-            f.write(decrypted_data)
+        wav_buffer.write(decrypted_data)
+        wav_buffer.seek(0)
             
         # Read WAV file to get numpy array
         with wave.open(wav_buffer, 'rb') as wav_file:
