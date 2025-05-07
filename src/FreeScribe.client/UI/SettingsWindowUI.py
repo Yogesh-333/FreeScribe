@@ -805,6 +805,7 @@ class SettingsWindowUI:
 
         #update the notes and Ui
         self.main_window.root.event_generate("<<UpdateNoteHistoryUi>>")
+        self.main_window.root.event_generate("<<ProcessDataTab>>")
 
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
             self.main_window.create_docker_status_bar()

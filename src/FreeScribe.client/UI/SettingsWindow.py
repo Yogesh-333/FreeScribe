@@ -140,7 +140,8 @@ class SettingsWindow():
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
             SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
             SettingsKeys.ENABLE_FILE_LOGGER.value: False,
-            SettingsKeys.STORE_NOTES_LOCALLY.value: False
+            SettingsKeys.STORE_NOTES_LOCALLY.value: False,
+            SettingsKeys.STORE_RECORDINGS_LOCALLY.value: False,
         }
 
     def __init__(self):
@@ -157,7 +158,8 @@ class SettingsWindow():
         self.general_settings = [
             "Show Welcome Message",
             "BlankSpace",
-            "Show Scrub PHI"            
+            "Show Scrub PHI",
+            SettingsKeys.STORE_RECORDINGS_LOCALLY.value,           
         ]
 
         self.whisper_settings = [
