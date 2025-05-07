@@ -48,6 +48,8 @@ class MainWindowUI:
         self.current_container_status_check_id = None  # ID for the current container status check
         self.root.bind("<<ProcessDataTab>>", self.__create_data_menu)  # Bind the destroy event to clean up resources
 
+        self.manage_app_data_menu = None  # Manage App Data menu
+
     def load_main_window(self):
         """
         Load the main window of the application.
@@ -403,23 +405,33 @@ class MainWindowUI:
     
     def __create_data_menu(self, event=None):
         logger.info("Creating Manage App Data menu")
-        manage_app_data_menu = tk.Menu(self.menu_bar, tearoff=0)
+
+        # Add the submenu to the main menu bar
+        if self.manage_app_data_menu is not None:
+            self.manage_app_data_menu.destroy()
+            try:
+                self.menu_bar.delete("Manage App Data")
+            except tk.TclError:
+                logger.debug("Manage App Data menu not found in menu bar")
+
+            self.manage_app_data_menu = None
+
+            logger.debug("Manage App Data menu destroyed")
+
+        self.manage_app_data_menu = tk.Menu(self.menu_bar, tearoff=0)
         settings_enabled = 0
         if self.app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value] == 1:
-            manage_app_data_menu.add_command(label="Manage Recordings", command=lambda: RecordingsManager(self.root))
+            self.manage_app_data_menu.add_command(label="Manage Recordings", command=lambda: RecordingsManager(self.root))
             settings_enabled += 1
             logger.debug("Manage Recordings option added to menu")
         
         if self.app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value] == 1:
-            manage_app_data_menu.add_command(label="Manage Logs", command=lambda: LogWindow(self.root))
+            self.manage_app_data_menu.add_command(label="Manage Logs", command=lambda: LogWindow(self.root))
             settings_enabled += 1
             logger.debug("Manage Logs option added to menu")
 
         if settings_enabled > 0:
-            # Add the submenu to the main menu bar
-            if manage_app_data_menu is not None:
-                self.menu_bar.delete("Manage App Data")
-            self.menu_bar.add_cascade(label="Manage App Data", menu=manage_app_data_menu)
+            self.menu_bar.add_cascade(label="Manage App Data", menu=self.manage_app_data_menu)
             logger.debug("Manage App Data menu added to menu bar")
 
 
