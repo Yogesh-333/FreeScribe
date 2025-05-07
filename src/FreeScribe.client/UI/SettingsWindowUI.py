@@ -110,6 +110,7 @@ class SettingsWindowUI:
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
         self.developer_frame = ttk.Frame(self.notebook)
+        self.developer_frame = self.add_scrollbar_to_frame(self.developer_frame)
 
 
         self.notebook.add(self.general_settings_frame, text="General Settings")
@@ -124,7 +125,6 @@ class SettingsWindowUI:
         self.llm_settings_frame = self.add_scrollbar_to_frame(self.llm_settings_frame)
         self.whisper_settings_frame = self.add_scrollbar_to_frame(self.whisper_settings_frame)
         self.advanced_settings_frame = self.add_scrollbar_to_frame(self.advanced_frame)
-        self.developer_frame = self.add_scrollbar_to_frame(self.developer_frame)
 
         # self.create_basic_settings()
         self._create_general_settings()
@@ -141,8 +141,8 @@ class SettingsWindowUI:
 
         # "Dev" settings tab for developer mode
         # Create the menu then disable it so the ui elements have access
-        # self._enable_developer_mode(None)
-        # self._disable_developer_mode(None)
+        self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
+        self._disable_developer_mode(None)
 
         # set the focus to this window
         self.notebook.select(self.general_settings_frame)
