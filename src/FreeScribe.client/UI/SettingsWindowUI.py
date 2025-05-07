@@ -109,6 +109,7 @@ class SettingsWindowUI:
         self.whisper_settings_frame = ttk.Frame(self.notebook)
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
+        self.developer_frame = ttk.Frame(self.notebook)
 
         self.notebook.add(self.general_settings_frame, text="General Settings")
         self.notebook.add(self.whisper_settings_frame, text="Speech-to-Text Settings (Whisper)")
@@ -138,7 +139,6 @@ class SettingsWindowUI:
         # Create the menu then disable it so the ui elements have access
         self._enable_developer_mode(None)
         self._disable_developer_mode(None)
-        self.developer_frame = ttk.Frame(self.notebook)
         self.create_developer_settings(self.developer_frame)
 
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
