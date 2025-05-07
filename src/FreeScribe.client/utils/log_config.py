@@ -17,11 +17,8 @@ class AESEncryptedFormatter(logging.Formatter):
     def format(self, record):
         # First format the entire line (all metadata)
         plain_line = super().format(record)
-        
-        # Encrypt the full formatted line
-        encrypted_line = AESCryptoUtilsClass.encrypt(plain_line)
-        
-        return encrypted_line
+
+        return AESCryptoUtilsClass.encrypt(plain_line)
 
 class BufferHandler(logging.Handler):
     """Custom handler that maintains an in-memory buffer of log records.
