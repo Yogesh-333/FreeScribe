@@ -109,11 +109,14 @@ class SettingsWindowUI:
         self.whisper_settings_frame = ttk.Frame(self.notebook)
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
+        self.developer_frame = ttk.Frame(self.notebook)
+
 
         self.notebook.add(self.general_settings_frame, text="General Settings")
         self.notebook.add(self.whisper_settings_frame, text="Speech-to-Text Settings (Whisper)")
         self.notebook.add(self.llm_settings_frame, text="AI Settings (LLM)")
         self.notebook.add(self.advanced_frame, text="Advanced Settings")
+        self.notebook.add(self.developer_frame, text="Developer Settings")
 
         self.settings_window.protocol("WM_DELETE_WINDOW", self.close_window)
 
@@ -121,12 +124,14 @@ class SettingsWindowUI:
         self.llm_settings_frame = self.add_scrollbar_to_frame(self.llm_settings_frame)
         self.whisper_settings_frame = self.add_scrollbar_to_frame(self.whisper_settings_frame)
         self.advanced_settings_frame = self.add_scrollbar_to_frame(self.advanced_frame)
+        self.developer_frame = self.add_scrollbar_to_frame(self.developer_frame)
 
         # self.create_basic_settings()
         self._create_general_settings()
         self.create_llm_settings()
         self.create_whisper_settings()
         self.create_advanced_settings()
+        self.create_developer_settings()
 
         if FeatureToggle.DOCKER_SETTINGS_TAB is True:
             self.notebook.add(self.docker_settings_frame, text="Docker Settings")
@@ -136,14 +141,11 @@ class SettingsWindowUI:
 
         # "Dev" settings tab for developer mode
         # Create the menu then disable it so the ui elements have access
-        self._enable_developer_mode(None)
-        self._disable_developer_mode(None)
-        self.developer_frame = ttk.Frame(self.notebook)
-        self.create_developer_settings(self.developer_frame)
-
-        self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
+        # self._enable_developer_mode(None)
+        # self._disable_developer_mode(None)
 
         # set the focus to this window
+        self.notebook.select(self.general_settings_frame)
         self.settings_window.focus_set()
 
 
@@ -165,7 +167,7 @@ class SettingsWindowUI:
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
-    def create_developer_settings(self, frame):
+    def create_developer_settings(self):
         """
         Creates the Developer settings UI elements.
 
@@ -200,6 +202,8 @@ class SettingsWindowUI:
             self.preprocess_text, label_row, text_row, row = self._create_text_area(
                 self.developer_frame, "Pre-Processing", self.settings.editable_settings["Pre-Processing"], row
             )
+
+        row+1
 
         # add custom handler for log file button, additional warning for PHI
         def _on_file_logger_click(*args):
