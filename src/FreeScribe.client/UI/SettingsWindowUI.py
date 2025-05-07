@@ -205,7 +205,6 @@ class SettingsWindowUI:
                 self.developer_frame, "Pre-Processing", self.settings.editable_settings["Pre-Processing"], row
             )
 
-        row+1
 
         # add custom handler for log file button, additional warning for PHI
         def _on_file_logger_click(*args):
