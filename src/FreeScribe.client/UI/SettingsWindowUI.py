@@ -188,27 +188,6 @@ class SettingsWindowUI:
 
         # load all settings from the developer settings        
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, 0, 0, self.settings.developer_settings)
-
-        # add custom handler for log file button, additional warning for PHI
-        def _on_file_logger_click(*args):
-            if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
-                # Give a disclaimer for potential PHI leak
-                result = messagebox.askokcancel(
-                    title="Warning",
-                    message="Enabling file logging may expose sensitive information such as patient PHI. Use with caution. The log file can be located at:\n" + get_resource_path('freescribe.log'),
-                    icon="warning"
-                )
-
-                # Check the result (True if OK was clicked, False if Cancel was clicked)
-                if not result:
-                    # User clicked Cancel - don't enable file logging
-                    logger.info("File logging disclaimer denied.")
-                    #uncheck the checkbox
-                    self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].set(0)
-                    self.widgets[SettingsKeys.ENABLE_FILE_LOGGER.value].config(variable=self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value])  # Disable the checkbox
-
-        # add a trace to the checkbox on change determine if we need to display disclaimer
-        self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add("write", _on_file_logger_click)
         
 
     def _display_center_to_parent(self):
