@@ -135,6 +135,12 @@ class SettingsWindowUI:
         self.create_buttons()
 
         # "Dev" settings tab for developer mode
+        # Create the menu then disable it so the ui elements have access
+        self._enable_developer_mode(None)
+        self._disable_developer_mode(None)
+        self.developer_frame = ttk.Frame(self.notebook)
+        self.create_developer_settings(self.developer_frame)
+
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
         # set the focus to this window
@@ -145,9 +151,7 @@ class SettingsWindowUI:
         """
         add a developer tab to the notebook
         """
-        self.developer_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.developer_frame, text="Developer Settings")
-        self.create_developer_settings(self.developer_frame)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         # select the developer tab automatically
@@ -157,7 +161,7 @@ class SettingsWindowUI:
         """
         remove the developer tab from the notebook
         """
-        self.notebook.forget(self.developer_frame)
+        self.notebook.hide(self.developer_frame)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
@@ -185,11 +189,41 @@ class SettingsWindowUI:
         left_frame.grid(row=row, column=0, padx=10, pady=5, sticky="nw")
         right_frame = ttk.Frame(self.developer_frame)
         right_frame.grid(row=row, column=1, padx=10, pady=5, sticky="nw")
+        
+        row += 1
 
         # load all settings from the developer settings        
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, 0, 0, self.settings.developer_settings)
         
+        if FeatureToggle.PRE_PROCESSING is True:
+            self.preprocess_text, label_row, text_row, row = self._create_text_area(
+                self.developer_frame, "Pre-Processing", self.settings.editable_settings["Pre-Processing"], row
+            )
 
+        row += 1
+
+        # Intial prompt text field
+        self.initial_prompt, label_row1, text_row1, row = self._create_text_area(
+            self.developer_frame, "Whisper Initial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
+        )
+
+        # Explanation for Pre convo instruction
+        initial_prompt_explanation = (
+            "This is the initial Whisper prompt:\n\n"
+            "• Guides how Whisper interprets and processes audio input\n"
+            "• Defines transcription or translation format requirements\n"
+            "• Can help whisper identify new vocabulary\n\n"
+            "⚠️ Modify with caution as it influences the transcription/translation accuracy and quality"
+        )
+
+        tk.Label(
+            self.developer_frame,
+            text=initial_prompt_explanation,
+            justify="left",
+            font=("Arial", 9),
+            fg="#272927"
+        ).grid(row=text_row1, column=1, padx=(10, 0), pady=5, sticky="nw")
+        
     def _display_center_to_parent(self):
         # Get parent window dimensions and position
         parent_x = self.root.winfo_x()
@@ -554,15 +588,6 @@ class SettingsWindowUI:
             self.create_editable_settings_col(left_frame, right_frame, 0, 0, settings)
             return row + 1
 
-        def create_processing_section(label_text, setting_key, text_content, row):
-            frame = tk.Frame(self.advanced_settings_frame, width=800)
-            frame.grid(row=row, column=0, padx=10, pady=0, sticky="nw")
-            self._create_checkbox(frame, f"Use {label_text}", setting_key, 0)
-            row += 1
-            
-            text_area, row = self._create_text_area(label_text, text_content, row)
-            return text_area, row
-
         row = self._create_section_header("⚠️ Advanced Settings (For Advanced Users Only)", 0, text_colour="red", frame=self.advanced_settings_frame)
         
         # General Settings
@@ -599,7 +624,7 @@ class SettingsWindowUI:
 
         # Pre convo instruction
         self.aiscribe_text, label_row1, text_row1, row = self._create_text_area(
-            "Pre Conversation Instruction", self.settings.AISCRIBE, row
+            self.advanced_settings_frame, "Pre Conversation Instruction", self.settings.AISCRIBE, row
         )
 
         # Explanation for Pre convo instruction
@@ -621,7 +646,7 @@ class SettingsWindowUI:
 
         # Post convo instruction
         self.aiscribe2_text, label_row2, text_row2, row = self._create_text_area(
-            "Post Conversation Instruction", self.settings.AISCRIBE2, row
+            self.advanced_settings_frame, "Post Conversation Instruction", self.settings.AISCRIBE2, row
         )
 
         # Explanation for Post convo instruction
@@ -640,24 +665,24 @@ class SettingsWindowUI:
             font=("Arial", 9),
             fg="#272927"
         ).grid(row=text_row2, column=1, padx=(10, 0), pady=5, sticky="nw")
-
-        if FeatureToggle.PRE_PROCESSING is True:
-            # Processing Sections
-            self.preprocess_text, row = create_processing_section(
-                "Pre-Processing", 
-                "Use Pre-Processing",
-                self.settings.editable_settings["Pre-Processing"],
-                row
-            )
         
         if FeatureToggle.POST_PROCESSING is True:
-            self.postprocess_text, _ = create_processing_section(
+            self.postprocess_text, _ = self.__create_processing_section(
+                self.advanced_settings_frame,
                 "Post-Processing (Experimental. Use with caution.)",
                 "Use Post-Processing", 
                 self.settings.editable_settings["Post-Processing"],
                 row
             )
 
+    def __create_processing_section(self, frame, label_text, setting_key, text_content, row):
+        button_frame = tk.Frame(frame, width=800)
+        button_frame.grid(row=row, column=0, padx=10, pady=0, sticky="nw")
+        self._create_checkbox(button_frame, f"Use {label_text}", setting_key, 0)
+        row += 1
+        
+        text_area, label_row, text_row, column_row = self._create_text_area(frame, label_text, text_content, row)
+        return text_area, row
 
     def create_docker_settings(self):
         """
@@ -762,6 +787,9 @@ class SettingsWindowUI:
 
         # save architecture
         self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = self.architecture_dropdown.get()
+
+        # save the intial prompt
+        self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] = self.initial_prompt.get("1.0", "end-1c") # end-1c removes the trailing newline
 
         self.settings.save_settings(
             self.openai_api_key_entry.get(),
@@ -975,7 +1003,7 @@ class SettingsWindowUI:
             sticky="w")
         return row + 1
 
-    def _create_text_area(self, label_text, text_content, row):
+    def _create_text_area(self, frame, label_text, text_content, row):
         """
         Creates a labeled text area widget in the advanced settings frame.
         
@@ -988,11 +1016,11 @@ class SettingsWindowUI:
             tuple: (Text widget object, label_row, text_row, next_row)
         """
         label_row = row
-        tk.Label(self.advanced_settings_frame, text=label_text).grid(
+        tk.Label(frame, text=label_text).grid(
             row=label_row, column=0, padx=10, pady=5, sticky="w")
         
         text_row = row + 1
-        text_area = tk.Text(self.advanced_settings_frame, height=10, width=50)
+        text_area = tk.Text(frame, height=10, width=50)
         text_area.insert(tk.END, text_content)
         text_area.grid(row=text_row, column=0, padx=10, pady=5, sticky="w")
         

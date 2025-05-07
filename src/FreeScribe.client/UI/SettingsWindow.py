@@ -73,7 +73,7 @@ class SettingsWindow():
     STATE_FILES_DIR = "install_state"
     DEFAULT_WHISPER_ARCHITECTURE = Architectures.CPU.architecture_value
     DEFAULT_LLM_ARCHITECTURE = Architectures.CPU.architecture_value
-    AUTO_DETECT_LANGUAGE_CODES = ["", "auto", "Auto Detect", "None", "None (Auto Detect)"]
+    AUTO_DETECT_LANGUAGE_CODES = ["", " ","auto", "Auto Detect", "None", "None (Auto Detect)"]
 
     DEFAULT_SETTINGS_TABLE = {
             SettingsKeys.LOCAL_LLM_MODEL.value: "gemma2:2b-instruct-q8_0",
@@ -114,7 +114,7 @@ class SettingsWindow():
             "Current Mic": "None",
             SettingsKeys.WHISPER_REAL_TIME.value: True,
             "Real Time Audio Length": 3,
-            "Real Time Silence Length": 1,
+            "Real Time Silence Length": 1.1,
             "Silence cut-off": 0.035,
             "LLM Container Name": "ollama",
             "LLM Caddy Container Name": "caddy-ollama",
@@ -125,7 +125,7 @@ class SettingsWindow():
             "Use Docker Status Bar": False,
             "Show Welcome Message": True,
             "Enable Scribe Template": False,
-            "Use Pre-Processing": FeatureToggle.PRE_PROCESSING,
+            SettingsKeys.USE_PRE_PROCESSING.value: False,
             "Use Post-Processing": FeatureToggle.POST_PROCESSING,
             "AI Server Self-Signed Certificates": False,
             SettingsKeys.S2T_SELF_SIGNED_CERT.value: False,
@@ -142,6 +142,7 @@ class SettingsWindow():
             SettingsKeys.ENABLE_FILE_LOGGER.value: False,
             SettingsKeys.STORE_NOTES_LOCALLY.value: False,
             SettingsKeys.STORE_RECORDINGS_LOCALLY.value: False,
+            SettingsKeys.WHISPER_INITIAL_PROMPT.value: "None",
         }
 
     def __init__(self):
@@ -206,7 +207,8 @@ class SettingsWindow():
             # "frmtrmblln",
             SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value,
             SettingsKeys.Enable_Word_Count_Validation.value,
-            SettingsKeys.Enable_AI_Conversation_Validation.value
+            SettingsKeys.Enable_AI_Conversation_Validation.value,
+            SettingsKeys.USE_PRE_PROCESSING.value,
         ]
 
         self.adv_whisper_settings = [
@@ -216,6 +218,7 @@ class SettingsWindow():
             SettingsKeys.WHISPER_CPU_COUNT.value,
             # SettingsKeys.WHISPER_VAD_FILTER.value,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value,
+            "Real Time Audio Length",
             # left out for now, dont need users tinkering and default is good and tested.
             # SettingsKeys.SILERO_SPEECH_THRESHOLD.value, 
             SettingsKeys.USE_TRANSLATE_TASK.value,
@@ -233,6 +236,8 @@ class SettingsWindow():
         ]
 
         self.developer_settings = [
+            "Real Time Silence Length",
+            "BlankSpace", # Represents the Whisper Initial Prompt
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE

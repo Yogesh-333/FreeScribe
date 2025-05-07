@@ -639,6 +639,9 @@ def realtime_text():
                     if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
                         body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
 
+                    if app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value].strip() not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
+                        body['initial_prompt'] = app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value].strip()
+
                     try:
                         verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
 
@@ -1036,6 +1039,9 @@ def send_audio_to_server():
             if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
                 body["language_code"] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
 
+            if app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
+                body['initial_prompt'] = app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value]
+
             try:
                 verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
 
@@ -1406,7 +1412,7 @@ def generate_note(formatted_message):
             try:
                 if use_aiscribe:
                     # If pre-processing is enabled
-                    if app_settings.editable_settings["Use Pre-Processing"]:
+                    if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
                         #Generate Facts List
                         list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}")
                         
@@ -1912,6 +1918,9 @@ def faster_whisper_transcribe(audio):
             additional_kwargs['task'] = 'translate'
         if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
             additional_kwargs['language'] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
+
+        if app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
+            additional_kwargs['initial_prompt'] = app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value]
 
         # Validate vad_filter
         vad_filter = bool(app_settings.editable_settings[SettingsKeys.WHISPER_VAD_FILTER.value])

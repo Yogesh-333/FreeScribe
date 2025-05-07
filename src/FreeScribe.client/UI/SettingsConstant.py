@@ -29,6 +29,8 @@ class SettingsKeys(Enum):
     ENABLE_FILE_LOGGER = "Enable File Log (Encrypted)"
     STORE_NOTES_LOCALLY ="Store Notes Locally (Encrypted)"
     STORE_RECORDINGS_LOCALLY = "Store Recordings Locally (Encrypted)"
+    USE_PRE_PROCESSING = "Use Pre-Processing"
+    WHISPER_INITIAL_PROMPT = "Whisper Initial Prompt"
 
 class Architectures(Enum):
     CPU = ("CPU", "cpu")
@@ -47,7 +49,7 @@ class FeatureToggle:
     DOCKER_SETTINGS_TAB = False
     DOCKER_STATUS_BAR = False
     POST_PROCESSING = False
-    PRE_PROCESSING = False
+    PRE_PROCESSING = True
 
 
 DEFAULT_CONTEXT_WINDOW_SIZE = 4096
