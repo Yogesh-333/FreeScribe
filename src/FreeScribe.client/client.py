@@ -538,7 +538,8 @@ def record_audio():
 
         # Send any remaining audio chunk when recording stops
         if current_chunk:
-            utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
+            if app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value]:
+                utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
             audio_queue.put(b''.join(current_chunk))
     except Exception as e:
         # Log the error message
