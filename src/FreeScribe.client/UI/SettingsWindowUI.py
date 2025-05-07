@@ -78,6 +78,7 @@ class SettingsWindowUI:
         self.docker_settings_frame = None
         self.basic_settings_frame = None
         self.advanced_settings_frame = None
+        self.developer_frame = None
         self.widgets = {}
         
 
