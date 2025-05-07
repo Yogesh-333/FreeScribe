@@ -2189,11 +2189,14 @@ def generate_note_bind(event, data: np.ndarray):
     wrk_thrd = threading.Thread(target=action)
     wrk_thrd.start()
 
-    while wrk_thrd.is_alive():
-        time.sleep(0.1)
+    def check_thread():
+        if wrk_thrd.is_alive():
+            root.after(100, check_thread)
+        else:
+            loading_window.destroy()
+            send_and_receive()
 
-    loading_window.destroy()
-    send_and_receive()
+    check_thread()
 
                            
 root.bind("<<GenerateNote>>", lambda e: threading.Thread(target=lambda: generate_note_bind(e, RecordingsManager.last_selected_data)).start())
