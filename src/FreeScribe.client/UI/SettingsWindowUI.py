@@ -570,6 +570,10 @@ class SettingsWindowUI:
             row = self._create_section_header("General Settings", row, text_colour="black", frame=self.advanced_settings_frame)
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
+            # custom handler for enable /disable of the local notes
+            self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].trace("w", lambda *args: self.toggle_store_notes_locally())
+
+
         # Whisper Settings
         row = self._create_section_header("Whisper Settings", row, text_colour="black", frame=self.advanced_settings_frame)
         left_frame = ttk.Frame(self.advanced_settings_frame)
@@ -851,17 +855,6 @@ class SettingsWindowUI:
 
         left_row = 0
         right_row = 0
-
-        # Create the STORE_NOTES_LOCALLY checkbox with custom behavior
-        tk.Label(left_frame, text=f"{SettingsKeys.STORE_NOTES_LOCALLY.value}").grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
-        # Convert boolean to int for tkinter IntVar
-        initial_value = 1 if self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] else 0
-        value = tk.IntVar(value=initial_value)
-        self.store_notes_locally_checkbox = tk.Checkbutton(left_frame, variable=value, command=self.toggle_store_notes_locally)
-        self.store_notes_locally_checkbox.grid(row=left_row, column=1, padx=0, pady=5, sticky="w")
-        self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value] = value
-
-        left_row += 1
 
         # Create the rest of the general settings
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, left_row, right_row, self.settings.general_settings)

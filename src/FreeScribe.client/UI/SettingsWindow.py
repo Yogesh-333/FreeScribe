@@ -158,8 +158,7 @@ class SettingsWindow():
         self.general_settings = [
             "Show Welcome Message",
             "BlankSpace",
-            "Show Scrub PHI",
-            SettingsKeys.STORE_RECORDINGS_LOCALLY.value,           
+            "Show Scrub PHI",      
         ]
 
         self.whisper_settings = [
@@ -228,10 +227,12 @@ class SettingsWindow():
         self.adv_general_settings = [
             # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
+            SettingsKeys.STORE_RECORDINGS_LOCALLY.value,
+            SettingsKeys.STORE_NOTES_LOCALLY.value,
+            SettingsKeys.ENABLE_FILE_LOGGER.value,
         ]
 
         self.developer_settings = [
-            SettingsKeys.ENABLE_FILE_LOGGER.value,
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
