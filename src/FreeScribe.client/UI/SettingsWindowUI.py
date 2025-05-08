@@ -78,6 +78,7 @@ class SettingsWindowUI:
         self.docker_settings_frame = None
         self.basic_settings_frame = None
         self.advanced_settings_frame = None
+        self.display_notes_warning = True
         self.widgets = {}
         
 
@@ -595,9 +596,6 @@ class SettingsWindowUI:
             row = self._create_section_header("General Settings", row, text_colour="black", frame=self.advanced_settings_frame)
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
-            # custom handler for enable /disable of the local notes
-            self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].trace("w", lambda *args: self.toggle_store_notes_locally())
-
 
         # Whisper Settings
         row = self._create_section_header("Whisper Settings", row, text_colour="black", frame=self.advanced_settings_frame)
@@ -674,6 +672,80 @@ class SettingsWindowUI:
                 self.settings.editable_settings["Post-Processing"],
                 row
             )
+
+        # add watchers for save encrypted files
+        self.settings.editable_settings_entries[SettingsKeys.STORE_RECORDINGS_LOCALLY.value].trace_add(
+            "write",
+            lambda *args: self.__display_encrypted_phi_warning(SettingsKeys.STORE_RECORDINGS_LOCALLY.value)
+        )
+
+        self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add(
+            "write",
+            lambda *args: self.__display_encrypted_phi_warning(SettingsKeys.ENABLE_FILE_LOGGER.value)
+        )
+
+        self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].trace_add(
+            "write",
+            lambda *args: self.toggle_store_notes_locally()
+        )
+
+    def toggle_store_notes_locally(self):
+        """
+        Handle toggling the Store Notes Locally checkbox.
+        Shows a warning popup on the main window when attempting to disable this setting.
+        """
+        # Convert IntVar to boolean
+        current_value = bool(self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get())
+        
+        # If the checkbox was unchecked (value is now False), show the warning popup
+        if not current_value and self.display_notes_warning:
+            # Create a popup warning dialog on the main window
+            confirm = messagebox.askokcancel(
+                "Warning",
+                "Disabling Store Notes Locally (Encrypted) will delete the existing saved notes",
+                icon="warning",
+                parent=self.root  # Use the main window as the parent
+            )
+            
+            if confirm:
+                # User clicked Continue, keep the setting disabled
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = False
+            else:
+                # User clicked Cancel, revert the checkbox to checked
+                self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].set(1)
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
+        else:
+            self.display_notes_warning = False  # Reset the flag to show the warning next time
+            self.__display_encrypted_phi_warning(SettingsKeys.STORE_NOTES_LOCALLY.value)
+
+        self.display_notes_warning = True  # Reset the flag to show the warning next time
+
+
+    def __display_encrypted_phi_warning(self, setting_name):
+        """
+        Displays a warning message for encrypted PHI files.
+        """
+        # Check if the setting is enabled (1)
+        if not self.settings.editable_settings_entries[setting_name].get():
+            return # No need to show the warning if the setting is disabled
+
+        warning_message = (
+            "⚠️ Warning: Encrypted PHI Data Storage",
+            "You are about to save encrypted Protected Health Information (PHI) to disk.",
+            "While this data is securely encrypted,  you should still exercise care in how you manage these files."
+            "Please ensure the file is stored in a secure location and access is appropriately restricted.",
+            "Do you still wish to proceed?",
+        )
+        result = tk.messagebox.askyesno(
+            "Warning",
+            "\n".join(warning_message),
+            icon="warning",
+        )
+
+        if not result:
+            print("User chose not to proceed with saving encrypted PHI data.")
+            self.settings.editable_settings_entries[setting_name].set(0)  # Disable the checkbox
+            self.widgets[setting_name].config(variable=self.settings.editable_settings_entries[setting_name])  # Disable the checkbox
 
     def __create_processing_section(self, frame, label_text, setting_key, text_content, row):
         button_frame = tk.Frame(frame, width=800)
@@ -912,36 +984,6 @@ class SettingsWindowUI:
             justify="left"
         )
         note_label.grid(row=0, column=1, sticky="w")
-	
-    def toggle_store_notes_locally(self):
-        """
-        Handle toggling the Store Notes Locally checkbox.
-        Shows a warning popup on the main window when attempting to disable this setting.
-        """
-        # Convert IntVar to boolean
-        current_value = bool(self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get())
-        
-        # If the checkbox was unchecked (value is now False), show the warning popup
-        if not current_value:
-            # Create a popup warning dialog on the main window
-            confirm = messagebox.askokcancel(
-                "Warning",
-                "Disabling Store Notes Locally (Encrypted) will delete the existing saved notes",
-                icon="warning",
-                parent=self.root  # Use the main window as the parent
-            )
-            
-            if confirm:
-                # User clicked Continue, keep the setting disabled
-                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = False
-            else:
-                # User clicked Cancel, revert the checkbox to checked
-                self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].set(1)
-                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
-        else:
-            # Checkbox was checked, update the setting to True
-            self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
-
     def _create_checkbox(self, frame, label, setting_name, row_idx, setting_key=None):
         """
         Creates a checkbox in the given frame.
