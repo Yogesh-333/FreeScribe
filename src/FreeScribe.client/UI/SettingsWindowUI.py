@@ -79,6 +79,7 @@ class SettingsWindowUI:
         self.basic_settings_frame = None
         self.advanced_settings_frame = None
         self.display_notes_warning = True
+        self.developer_frame = None
         self.widgets = {}
         
 
@@ -110,7 +111,10 @@ class SettingsWindowUI:
         self.whisper_settings_frame = ttk.Frame(self.notebook)
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
-        self.developer_frame = ttk.Frame(self.notebook)
+
+        # Create container frame that will hold the scrollable frame
+        self.developer_container = ttk.Frame(self.notebook)
+        self.developer_frame = self.add_scrollbar_to_frame(self.developer_container)
 
         self.notebook.add(self.general_settings_frame, text="General Settings")
         self.notebook.add(self.whisper_settings_frame, text="Speech-to-Text Settings (Whisper)")
@@ -129,6 +133,7 @@ class SettingsWindowUI:
         self.create_llm_settings()
         self.create_whisper_settings()
         self.create_advanced_settings()
+        self.create_developer_settings()
 
         if FeatureToggle.DOCKER_SETTINGS_TAB is True:
             self.notebook.add(self.docker_settings_frame, text="Docker Settings")
@@ -138,13 +143,11 @@ class SettingsWindowUI:
 
         # "Dev" settings tab for developer mode
         # Create the menu then disable it so the ui elements have access
-        self._enable_developer_mode(None)
+        self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         self._disable_developer_mode(None)
-        self.create_developer_settings(self.developer_frame)
-
-        self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
         # set the focus to this window
+        self.notebook.select(self.general_settings_frame)
         self.settings_window.focus_set()
 
 
@@ -152,21 +155,23 @@ class SettingsWindowUI:
         """
         add a developer tab to the notebook
         """
-        self.notebook.add(self.developer_frame, text="Developer Settings")
+        if self.developer_container not in self.notebook.tabs():
+            self.notebook.add(self.developer_container, text="Developer Settings")
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
         # select the developer tab automatically
-        self.notebook.select(self.developer_frame)
+        self.notebook.select(self.developer_container)
 
     def _disable_developer_mode(self, event):
         """
         remove the developer tab from the notebook
         """
-        self.notebook.hide(self.developer_frame)
+        if self.developer_container in self.notebook.tabs():
+            self.notebook.forget(self.developer_container)
         self.settings_window.unbind("<Control-slash>")
         self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
 
-    def create_developer_settings(self, frame):
+    def create_developer_settings(self):
         """
         Creates the Developer settings UI elements.
 
@@ -1087,10 +1092,6 @@ class SettingsWindowUI:
         Returns:
             tk.Frame: The scrollable frame.
         """
-        # Guard clause: return frame as is if it's not the advanced frame
-        if frame != self.advanced_frame:
-            return frame
-
         # Create scrollable frame components
         canvas = tk.Canvas(frame)
         scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
