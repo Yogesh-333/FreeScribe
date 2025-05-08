@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import UI.MainWindow as mw
+from UI.ImageWindow import ImageWindow
 from UI.SettingsConstant import FeatureToggle
 from UI.SettingsWindowUI import SettingsWindowUI
 from UI.MarkdownWindow import MarkdownWindow
@@ -224,7 +225,7 @@ class MainWindowUI:
             self.root.after_cancel(self.current_container_status_check_id)
             self.current_container_status_check_id = None
 
-    def toggle_menu_bar(self, enable: bool):
+    def toggle_menu_bar(self, enable: bool, is_recording: bool = False):
         """
         Enable or disable the menu bar.
 
@@ -233,6 +234,8 @@ class MainWindowUI:
         """
         if enable:
             self._create_menu_bar()
+            if is_recording:
+                self.disable_settings_menu()
         else:
             self._destroy_menu_bar()
 
@@ -278,6 +281,7 @@ class MainWindowUI:
         # Add Help menu
         help_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.menu_bar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Help Guide", command=lambda: ImageWindow(self.root, "Help Guide", get_file_path('assets', 'help.png'), width=1000, height=686))
         help_menu.add_command(label="Debug Window", command=lambda: DebugPrintWindow(self))
         help_menu.add_command(label="About", command=lambda: self._show_md_content(get_file_path('markdown','help','about.md'), 'About'))
 

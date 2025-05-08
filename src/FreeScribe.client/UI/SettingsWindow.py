@@ -76,7 +76,7 @@ class SettingsWindow():
     STATE_FILES_DIR = "install_state"
     DEFAULT_WHISPER_ARCHITECTURE = Architectures.CPU.architecture_value
     DEFAULT_LLM_ARCHITECTURE = Architectures.CPU.architecture_value
-    AUTO_DETECT_LANGUAGE_CODES = ["", "auto", "Auto Detect", "None", "None (Auto Detect)"]
+    AUTO_DETECT_LANGUAGE_CODES = ["", " ","auto", "Auto Detect", "None", "None (Auto Detect)"]
 
     DEFAULT_SETTINGS_TABLE = {
             SettingsKeys.LOCAL_LLM_MODEL.value: "gemma2:2b-instruct-q8_0",
@@ -109,13 +109,13 @@ class SettingsWindow():
             SettingsKeys.WHISPER_ARCHITECTURE.value: DEFAULT_WHISPER_ARCHITECTURE,
             SettingsKeys.WHISPER_BEAM_SIZE.value: 5,
             SettingsKeys.WHISPER_CPU_COUNT.value: multiprocessing.cpu_count(),
-            SettingsKeys.WHISPER_VAD_FILTER.value: False,
+            SettingsKeys.WHISPER_VAD_FILTER.value: True,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value: "float16",
             SettingsKeys.WHISPER_MODEL.value: "medium",
             "Current Mic": "None",
             SettingsKeys.WHISPER_REAL_TIME.value: True,
-            "Real Time Audio Length": 10,
-            "Real Time Silence Length": 1,
+            "Real Time Audio Length": 3,
+            "Real Time Silence Length": 1.1,
             "Silence cut-off": 0.035,
             "LLM Container Name": "ollama",
             "LLM Caddy Container Name": "caddy-ollama",
@@ -126,7 +126,7 @@ class SettingsWindow():
             "Use Docker Status Bar": False,
             "Show Welcome Message": True,
             "Enable Scribe Template": False,
-            "Use Pre-Processing": FeatureToggle.PRE_PROCESSING,
+            SettingsKeys.USE_PRE_PROCESSING.value: False,
             "Use Post-Processing": FeatureToggle.POST_PROCESSING,
             "AI Server Self-Signed Certificates": False,
             SettingsKeys.S2T_SELF_SIGNED_CERT.value: False,
@@ -134,11 +134,14 @@ class SettingsWindow():
             "Post-Processing": "\n\nUsing the provided list of facts, review the SOAP note for accuracy. Verify that all details align with the information provided in the list of facts and ensure consistency throughout. Update or adjust the SOAP note as necessary to reflect the listed facts without offering opinions or subjective commentary. Ensure that the revised note excludes a \"Notes\" section and does not include a header for the SOAP note. Provide the revised note after making any necessary corrections.",
             "Show Scrub PHI": False,
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value: 180,
-            SettingsKeys.SILERO_SPEECH_THRESHOLD.value: 0.5,
+            SettingsKeys.SILERO_SPEECH_THRESHOLD.value: 0.75,
             SettingsKeys.USE_TRANSLATE_TASK.value: False,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value: "None (Auto Detect)",
             SettingsKeys.Enable_Word_Count_Validation.value : True,  # Default to enabled
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
+            SettingsKeys.ENABLE_FILE_LOGGER.value: False,
+            SettingsKeys.WHISPER_INITIAL_PROMPT.value: "None",
             # Best of N (Experimental), by default we only generate 1 completion of note, if this is set to a number greater than 1, we will generate N completions and pick the best one.
             SettingsKeys.BEST_OF.value: 1,
         }
@@ -212,7 +215,8 @@ class SettingsWindow():
             # "frmtrmblln",
             SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value,
             SettingsKeys.Enable_Word_Count_Validation.value,
-            SettingsKeys.Enable_AI_Conversation_Validation.value
+            SettingsKeys.Enable_AI_Conversation_Validation.value,
+            SettingsKeys.USE_PRE_PROCESSING.value,
         ]
 
         self.adv_whisper_settings = [
@@ -220,18 +224,26 @@ class SettingsWindow():
             # "BlankSpace", # Represents the whisper cuttoff
             SettingsKeys.WHISPER_BEAM_SIZE.value,
             SettingsKeys.WHISPER_CPU_COUNT.value,
-            SettingsKeys.WHISPER_VAD_FILTER.value,
+            # SettingsKeys.WHISPER_VAD_FILTER.value,
             SettingsKeys.WHISPER_COMPUTE_TYPE.value,
+            "Real Time Audio Length",
             # left out for now, dont need users tinkering and default is good and tested.
             # SettingsKeys.SILERO_SPEECH_THRESHOLD.value, 
             SettingsKeys.USE_TRANSLATE_TASK.value,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
 
 
         self.adv_general_settings = [
             # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
+        ]
+
+        self.developer_settings = [
+            SettingsKeys.ENABLE_FILE_LOGGER.value,
+            "Real Time Silence Length",
+            "BlankSpace", # Represents the Whisper Initial Prompt
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
@@ -615,25 +627,25 @@ class SettingsWindow():
                  - reload_flag: True if new model should be loaded
         :rtype: tuple(bool, bool)
         """
-        # Check if old model and new model are different if they are reload and make sure new model is checked.
-        if old_model != new_model and new_use_local_llm == 1:
-            return True, True
-
-        # Load the model if check box is now selected
-        if old_use_local_llm == 0 and new_use_local_llm == 1:
-            return False, True
-
-        # Check if Local LLM was on and if turned off unload model.abs
-        if old_use_local_llm == 1 and new_use_local_llm == 0:
-            return True, False
-
-        if old_architecture != new_architecture and new_use_local_llm == 1:
-            return True, True
-
-        if int(old_context_window) != int(new_context_window) and new_use_local_llm == 1:
-            return True, True
-
-        return False, False
+        unload_flag = False
+        reload_flag = False
+        try:
+            if new_use_local_llm:
+                if any([
+                    old_use_local_llm != new_use_local_llm,
+                    old_model != new_model,
+                    old_architecture != new_architecture,
+                    int(old_context_window) != int(new_context_window)]
+                ):
+                    reload_flag = True
+            else:
+                unload_flag = True
+        # in case context_window value is invalid
+        except (ValueError, TypeError) as e:
+            logging.error(str(e))
+            logging.exception("Failed to determine reload/unload model")
+        logging.info(f"load_or_unload_model {unload_flag=}, {reload_flag=}")
+        return unload_flag, reload_flag
 
     def _create_settings_and_aiscribe_if_not_exist(self):
         """

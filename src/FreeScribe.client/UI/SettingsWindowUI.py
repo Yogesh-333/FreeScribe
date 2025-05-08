@@ -22,16 +22,20 @@ Classes:
 import json
 import logging
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import threading
 from Model import Model, ModelManager
-from utils.file_utils import get_file_path
+from services.whisper_hallucination_cleaner import load_hallucination_cleaner_model
+from utils.file_utils import get_file_path, get_resource_path
 from utils.utils import get_application_version
 from UI.MarkdownWindow import MarkdownWindow
 from UI.SettingsWindow import SettingsWindow
 from UI.SettingsConstant import SettingsKeys, Architectures, FeatureToggle
 from UI.Widgets.PopupBox import PopupBox
+import utils.log_config
+from utils.log_config import logger
 
+logger = logging.getLogger(__name__)
 
 LONG_ENTRY_WIDTH = 30
 SHORT_ENTRY_WIDTH = 20
@@ -131,6 +135,118 @@ class SettingsWindowUI:
         
         self.create_buttons()
 
+        # "Dev" settings tab for developer mode
+        # Create the menu then disable it so the ui elements have access
+        self._enable_developer_mode(None)
+        self._disable_developer_mode(None)
+        self.developer_frame = ttk.Frame(self.notebook)
+        self.create_developer_settings(self.developer_frame)
+
+        self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
+
+        # set the focus to this window
+        self.settings_window.focus_set()
+
+
+    def _enable_developer_mode(self, event):      
+        """
+        add a developer tab to the notebook
+        """
+        self.notebook.add(self.developer_frame, text="Developer Settings")
+        self.settings_window.unbind("<Control-slash>")
+        self.settings_window.bind("<Control-slash>", self._disable_developer_mode)
+        # select the developer tab automatically
+        self.notebook.select(self.developer_frame)
+
+    def _disable_developer_mode(self, event):
+        """
+        remove the developer tab from the notebook
+        """
+        self.notebook.hide(self.developer_frame)
+        self.settings_window.unbind("<Control-slash>")
+        self.settings_window.bind("<Control-slash>", self._enable_developer_mode)
+
+    def create_developer_settings(self, frame):
+        """
+        Creates the Developer settings UI elements.
+
+        This method creates and places UI elements for Developer settings.
+        """
+        row = 1
+        
+        #warning headers
+        row = self._create_section_header(
+            text="⚠️ Developer Settings - Do Not Modify", 
+            text_colour="red", 
+            frame=self.developer_frame, 
+            row=row)
+        row = self._create_section_header(
+            text="If you have accidentally accessed this menu please do not touch any of the settings below.", 
+            row=row, 
+            text_colour="red", 
+            frame=self.developer_frame) 
+
+        left_frame = ttk.Frame(self.developer_frame)
+        left_frame.grid(row=row, column=0, padx=10, pady=5, sticky="nw")
+        right_frame = ttk.Frame(self.developer_frame)
+        right_frame.grid(row=row, column=1, padx=10, pady=5, sticky="nw")
+        
+        row += 1
+
+        # load all settings from the developer settings        
+        left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, 0, 0, self.settings.developer_settings)
+
+        
+        if FeatureToggle.PRE_PROCESSING is True:
+            self.preprocess_text, label_row, text_row, row = self._create_text_area(
+                self.developer_frame, "Pre-Processing", self.settings.editable_settings["Pre-Processing"], row
+            )
+
+        # add custom handler for log file button, additional warning for PHI
+        def _on_file_logger_click(*args):
+            if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
+                # Give a disclaimer for potential PHI leak
+                result = messagebox.askokcancel(
+                    title="Warning",
+                    message="Enabling file logging may expose sensitive information such as patient PHI. Use with caution. The log file can be located at:\n" + get_resource_path('freescribe.log'),
+                    icon="warning"
+                )
+
+                # Check the result (True if OK was clicked, False if Cancel was clicked)
+                if not result:
+                    # User clicked Cancel - don't enable file logging
+                    logger.info("File logging disclaimer denied.")
+                    #uncheck the checkbox
+                    self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].set(0)
+                    self.widgets[SettingsKeys.ENABLE_FILE_LOGGER.value].config(variable=self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value])  # Disable the checkbox
+
+        # add a trace to the checkbox on change determine if we need to display disclaimer
+        self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add("write", _on_file_logger_click)
+
+        row += 1
+
+        # Intial prompt text field
+        self.initial_prompt, label_row1, text_row1, row = self._create_text_area(
+            self.developer_frame, "Whisper Initial Prompt", self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value], row
+        )
+
+        # Explanation for Pre convo instruction
+        initial_prompt_explanation = (
+            "This is the initial Whisper prompt:\n\n"
+            "• Guides how Whisper interprets and processes audio input\n"
+            "• Defines transcription or translation format requirements\n"
+            "• Can help whisper identify new vocabulary\n\n"
+            "⚠️ Modify with caution as it influences the transcription/translation accuracy and quality"
+        )
+
+        tk.Label(
+            self.developer_frame,
+            text=initial_prompt_explanation,
+            justify="left",
+            font=("Arial", 9),
+            fg="#272927"
+        ).grid(row=text_row1, column=1, padx=(10, 0), pady=5, sticky="nw")
+        
     def _display_center_to_parent(self):
         # Get parent window dimensions and position
         parent_x = self.root.winfo_x()
@@ -182,11 +298,19 @@ class SettingsWindowUI:
         Settings alternate between left and right columns for even distribution.
         """
 
-        left_frame = ttk.Frame(self.whisper_settings_frame)
-        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nw")
+        left_frame = tk.Frame(self.whisper_settings_frame)
+        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
 
-        right_frame = ttk.Frame(self.whisper_settings_frame)
-        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nw")
+        right_frame = tk.Frame(self.whisper_settings_frame)
+        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
+
+        self.whisper_settings_frame.columnconfigure(0, weight=1)
+        self.whisper_settings_frame.columnconfigure(1, weight=1)
+
+        left_frame.columnconfigure(0, weight=3)  # Give weight to the label column
+        left_frame.columnconfigure(1, weight=9)  # Give more weight to the dropdown column
+        right_frame.columnconfigure(0, weight=3)  # Give weight to the label column
+        right_frame.columnconfigure(1, weight=9)  # Give more weight to the dropdown column
 
         left_row = 0
         right_row = 0
@@ -204,8 +328,8 @@ class SettingsWindowUI:
         # create the whisper model dropdown slection
         tk.Label(left_frame, text=SettingsKeys.WHISPER_MODEL.value).grid(row=3, column=0, padx=0, pady=5, sticky="w")
         whisper_models_drop_down_options = ["medium", "small", "tiny", "tiny.en", "base", "base.en", "small.en", "medium.en", "large"]
-        self.whisper_models_drop_down = ttk.Combobox(left_frame, values=whisper_models_drop_down_options, width=SHORT_ENTRY_WIDTH)
-        self.whisper_models_drop_down.grid(row=3, column=1, padx=0, pady=5, sticky="w")
+        self.whisper_models_drop_down = ttk.Combobox(left_frame, values=whisper_models_drop_down_options)
+        self.whisper_models_drop_down.grid(row=3, column=1, padx=0, pady=5, sticky="ew")
 
         try:
             # Try to set the whisper model dropdown to the current model
@@ -222,14 +346,14 @@ class SettingsWindowUI:
         self.whisper_architecture_label = tk.Label(left_frame, text=SettingsKeys.WHISPER_ARCHITECTURE.value)
         self.whisper_architecture_label.grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
         whisper_architecture_options = self.settings.get_available_architectures()
-        self.whisper_architecture_dropdown = ttk.Combobox(left_frame, values=whisper_architecture_options, width=SHORT_ENTRY_WIDTH, state="readonly")
+        self.whisper_architecture_dropdown = ttk.Combobox(left_frame, values=whisper_architecture_options, state="readonly")
         if self.settings.editable_settings[SettingsKeys.WHISPER_ARCHITECTURE.value] in whisper_architecture_options:
             self.whisper_architecture_dropdown.current(whisper_architecture_options.index(self.settings.editable_settings[SettingsKeys.WHISPER_ARCHITECTURE.value]))
         else:
             # Default cpu
             self.whisper_architecture_dropdown.set(SettingsWindow.DEFAULT_WHISPER_ARCHITECTURE)
         
-        self.whisper_architecture_dropdown.grid(row=left_row, column=1, padx=0, pady=5, sticky="w")
+        self.whisper_architecture_dropdown.grid(row=left_row, column=1, padx=0, pady=5, sticky="ew")
         self.settings.editable_settings_entries[SettingsKeys.WHISPER_ARCHITECTURE.value] = self.whisper_architecture_dropdown
 
         # remove architecture dropdown if architecture only has one option
@@ -264,14 +388,20 @@ class SettingsWindowUI:
         Settings alternate between left and right columns for even distribution.
         """
         # Create left and right frames for the two columns
-        left_frame = ttk.Frame(self.llm_settings_frame)
-        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nw")
-        
-        right_frame = ttk.Frame(self.llm_settings_frame)
-        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nw")
+        left_frame = tk.Frame(self.llm_settings_frame)
+        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
+
+        right_frame = tk.Frame(self.llm_settings_frame)
+        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
 
         self.llm_settings_frame.columnconfigure(0, weight=1)
         self.llm_settings_frame.columnconfigure(1, weight=1)
+
+        left_frame.columnconfigure(0, weight=3)  # Give weight to the label column
+        left_frame.columnconfigure(1, weight=9)  # Give more weight to the dropdown column
+
+        right_frame.columnconfigure(0, weight=3)  # Give weight to the label column
+        right_frame.columnconfigure(1, weight=9)  # Give more weight to the dropdown column
 
         left_row = 0
         right_row = 0
@@ -289,14 +419,15 @@ class SettingsWindowUI:
         self.local_architecture_label = tk.Label(left_frame, text=SettingsKeys.LLM_ARCHITECTURE.value)
         self.local_architecture_label.grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
         architecture_options = self.settings.get_available_architectures()
-        self.architecture_dropdown = ttk.Combobox(left_frame, values=architecture_options, width=LONG_ENTRY_WIDTH, state="readonly")
+        self.architecture_dropdown = ttk.Combobox(left_frame, values=architecture_options, state="readonly")
         if self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] in architecture_options:
             self.architecture_dropdown.current(architecture_options.index(self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value]))
         else:
             # Default cpu
             self.architecture_dropdown.set(Architectures.CPU.label)
 
-        self.architecture_dropdown.grid(row=left_row, column=1, padx=0, pady=5, sticky="w")
+        self.architecture_dropdown.grid(row=left_row, column=1, padx=0, pady=5, sticky="ew")
+
 
         # hide architecture dropdown if architecture only has one option
         if len(architecture_options) == 1:
@@ -309,8 +440,8 @@ class SettingsWindowUI:
         # 5. Models (Left Column)
         tk.Label(left_frame, text=SettingsKeys.LOCAL_LLM_MODEL.value).grid(row=left_row, column=0, padx=0, pady=5, sticky="w")
         models_drop_down_options = []
-        self.models_drop_down = ttk.Combobox(left_frame, values=models_drop_down_options, width=LONG_ENTRY_WIDTH, state="readonly")
-        self.models_drop_down.grid(row=left_row, column=1, padx=0, pady=5, sticky="w")
+        self.models_drop_down = ttk.Combobox(left_frame, values=models_drop_down_options, state="readonly")
+        self.models_drop_down.grid(row=left_row, column=1, padx=0, pady=5, sticky="ew")
         self.models_drop_down.bind('<<ComboboxSelected>>', self.on_model_selection_change)
         thread = threading.Thread(target=self.settings.update_models_dropdown, args=(self.models_drop_down,))
         thread.start()
@@ -329,10 +460,11 @@ class SettingsWindowUI:
         right_frame, right_row = self.create_editable_settings(right_frame, self.settings.llm_settings, padx=0, pady=0)
 
         # 2. OpenAI API Key (Right Column)
+        # Then modify your existing code
         tk.Label(right_frame, text=SettingsKeys.LLM_SERVER_API_KEY.value).grid(row=right_row, column=0, padx=0, pady=5, sticky="w")
-        self.openai_api_key_entry = tk.Entry(right_frame, width=LONG_ENTRY_WIDTH)
+        self.openai_api_key_entry = tk.Entry(right_frame)  # Remove fixed width
         self.openai_api_key_entry.insert(0, self.settings.OPENAI_API_KEY)
-        self.openai_api_key_entry.grid(row=right_row, column=1, columnspan=2, padx=0, pady=5, sticky="w")
+        self.openai_api_key_entry.grid(row=right_row, column=1, columnspan=2, padx=0, pady=5, sticky="ew")  # Changed to "ew
         
         right_row += 1
 
@@ -480,24 +612,15 @@ class SettingsWindowUI:
             self.create_editable_settings_col(left_frame, right_frame, 0, 0, settings)
             return row + 1
 
-        def create_processing_section(label_text, setting_key, text_content, row):
-            frame = tk.Frame(self.advanced_settings_frame, width=800)
-            frame.grid(row=row, column=0, padx=10, pady=0, sticky="nw")
-            self._create_checkbox(frame, f"Use {label_text}", setting_key, 0)
-            row += 1
-            
-            text_area, row = self._create_text_area(label_text, text_content, row)
-            return text_area, row
-
-        row = self._create_section_header("⚠️ Advanced Settings (For Advanced Users Only)", 0, text_colour="red")
+        row = self._create_section_header("⚠️ Advanced Settings (For Advanced Users Only)", 0, text_colour="red", frame=self.advanced_settings_frame)
         
         # General Settings
         if len(self.settings.adv_general_settings) > 0:
-            row = self._create_section_header("General Settings", row, text_colour="black")
+            row = self._create_section_header("General Settings", row, text_colour="black", frame=self.advanced_settings_frame)
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
         # Whisper Settings
-        row = self._create_section_header("Whisper Settings", row, text_colour="black")
+        row = self._create_section_header("Whisper Settings", row, text_colour="black", frame=self.advanced_settings_frame)
         left_frame = ttk.Frame(self.advanced_settings_frame)
         left_frame.grid(row=row, column=0, padx=10, pady=5, sticky="nw")
         right_frame = ttk.Frame(self.advanced_settings_frame)
@@ -513,15 +636,15 @@ class SettingsWindowUI:
         row += 1
 
         # AI Settings
-        row = self._create_section_header("AI Settings", row, text_colour="black")
+        row = self._create_section_header("AI Settings", row, text_colour="black", frame=self.advanced_settings_frame)
         row = create_settings_columns(self.settings.adv_ai_settings, row)
         
         # Prompting Settings
-        row = self._create_section_header("Prompting Settings", row, text_colour="black")
+        row = self._create_section_header("Prompting Settings", row, text_colour="black", frame=self.advanced_settings_frame)
 
         # Pre convo instruction
         self.aiscribe_text, label_row1, text_row1, row = self._create_text_area(
-            "Pre Conversation Instruction", self.settings.AISCRIBE, row
+            self.advanced_settings_frame, "Pre Conversation Instruction", self.settings.AISCRIBE, row
         )
 
         # Explanation for Pre convo instruction
@@ -543,7 +666,7 @@ class SettingsWindowUI:
 
         # Post convo instruction
         self.aiscribe2_text, label_row2, text_row2, row = self._create_text_area(
-            "Post Conversation Instruction", self.settings.AISCRIBE2, row
+            self.advanced_settings_frame, "Post Conversation Instruction", self.settings.AISCRIBE2, row
         )
 
         # Explanation for Post convo instruction
@@ -562,24 +685,24 @@ class SettingsWindowUI:
             font=("Arial", 9),
             fg="#272927"
         ).grid(row=text_row2, column=1, padx=(10, 0), pady=5, sticky="nw")
-
-        if FeatureToggle.PRE_PROCESSING is True:
-            # Processing Sections
-            self.preprocess_text, row = create_processing_section(
-                "Pre-Processing", 
-                "Use Pre-Processing",
-                self.settings.editable_settings["Pre-Processing"],
-                row
-            )
         
         if FeatureToggle.POST_PROCESSING is True:
-            self.postprocess_text, _ = create_processing_section(
+            self.postprocess_text, _ = self.__create_processing_section(
+                self.advanced_settings_frame,
                 "Post-Processing (Experimental. Use with caution.)",
                 "Use Post-Processing", 
                 self.settings.editable_settings["Post-Processing"],
                 row
             )
 
+    def __create_processing_section(self, frame, label_text, setting_key, text_content, row):
+        button_frame = tk.Frame(frame, width=800)
+        button_frame.grid(row=row, column=0, padx=10, pady=0, sticky="nw")
+        self._create_checkbox(button_frame, f"Use {label_text}", setting_key, 0)
+        row += 1
+        
+        text_area, label_row, text_row, column_row = self._create_text_area(frame, label_text, text_content, row)
+        return text_area, row
 
     def create_docker_settings(self):
         """
@@ -599,8 +722,17 @@ class SettingsWindowUI:
             start_row (int): The starting row for placing the settings.
         """
         
+        # Configure the parent frame to expand
+        frame.columnconfigure(0, weight=1)
+        
+        # Create inner frame that will expand to fill parent
         i_frame = ttk.Frame(frame)
-        i_frame.grid(row=0, column=0, padx=padx, pady=pady, sticky="nw")
+        i_frame.grid(row=0, column=0, columnspan=2,padx=padx, pady=pady, sticky="ew")
+        
+        # Configure the inner frame's columns
+        i_frame.columnconfigure(0, weight=1)  # Give weight to the label column
+        i_frame.columnconfigure(1, weight=3)  # Give more weight to the dropdown column
+        
         row = self._process_column(i_frame, settings_set, start_row)
         return i_frame, row
 
@@ -656,12 +788,16 @@ class SettingsWindowUI:
             self.settings.editable_settings[SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value],
             self.settings.editable_settings_entries[SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value].get(),
         )
+        
+        self.__initialize_file_logger()
 
         if self.get_selected_model() not in ["Loading models...", "Failed to load models"]:
             self.settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value] = self.get_selected_model()
 
         # delay update, or the update thread might be reading old settings value
         update_whisper_model_flag = self.settings.update_whisper_model()
+
+        load_hallucination_cleaner_model(self.main_window.root, self.settings)
 
         if FeatureToggle.PRE_PROCESSING is True:
             self.settings.editable_settings["Pre-Processing"] = self.preprocess_text.get("1.0", "end-1c") # end-1c removes the trailing newline
@@ -671,6 +807,9 @@ class SettingsWindowUI:
 
         # save architecture
         self.settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] = self.architecture_dropdown.get()
+
+        # save the intial prompt
+        self.settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] = self.initial_prompt.get("1.0", "end-1c") # end-1c removes the trailing newline
 
         self.settings.save_settings(
             self.openai_api_key_entry.get(),
@@ -684,10 +823,15 @@ class SettingsWindowUI:
         # send load event after the settings are saved
         if update_whisper_model_flag:
             self.main_window.root.event_generate("<<LoadSttModel>>")
+        # unload whisper model if switched to remote
+        if not self.settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
+            self.main_window.root.event_generate("<<UnloadSttModel>>")
         # unload / reload model after the settings are saved
         if local_model_unload_flag:
+            logging.debug("unloading ai model")
             ModelManager.unload_model()
         if local_model_reload_flag:
+            logging.debug("reloading ai model")
             ModelManager.start_model_threaded(self.settings, self.main_window.root)
 
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
@@ -703,6 +847,19 @@ class SettingsWindowUI:
         if close_window:
             self.close_window()
 
+    def __initialize_file_logger(self):
+        # if un changed, do nothing
+        logger.info("Checking file logging setting...")
+        if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == self.settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value]:
+            logger.info("File logging setting unchanged.")
+            return
+
+        if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
+            utils.log_config.add_file_handler(utils.log_config.logger, utils.log_config.formatter)
+            logger.info("File logging enabled.")
+        else:
+            utils.log_config.remove_file_handler(utils.log_config.logger)
+            logger.info("File logging disabled.")
 
     def reset_to_default(self, show_confirmation=True):
         """
@@ -803,11 +960,11 @@ class SettingsWindowUI:
         
         entry = tk.Entry(frame, width=LONG_ENTRY_WIDTH)
         entry.insert(0, str(value))
-        entry.grid(row=row_idx, column=1, padx=0, pady=5, sticky="w")
+        entry.grid(row=row_idx, column=1, padx=0, pady=5, sticky="ew")
         self.settings.editable_settings_entries[setting_name] = entry
         return entry
 
-    def _create_section_header(self, text, row, text_colour="black"):
+    def _create_section_header(self, text, row, frame, text_colour="black"):
         """
         Creates a section header label in the advanced settings frame.
         
@@ -820,7 +977,7 @@ class SettingsWindowUI:
             int: Next available grid row number
         """
         ttk.Label(
-            self.advanced_settings_frame, 
+            frame, 
             text=text,
             font=("TkDefaultFont", 10, "bold"),
             foreground=text_colour
@@ -829,7 +986,7 @@ class SettingsWindowUI:
             sticky="w")
         return row + 1
 
-    def _create_text_area(self, label_text, text_content, row):
+    def _create_text_area(self, frame, label_text, text_content, row):
         """
         Creates a labeled text area widget in the advanced settings frame.
         
@@ -842,11 +999,11 @@ class SettingsWindowUI:
             tuple: (Text widget object, label_row, text_row, next_row)
         """
         label_row = row
-        tk.Label(self.advanced_settings_frame, text=label_text).grid(
+        tk.Label(frame, text=label_text).grid(
             row=label_row, column=0, padx=10, pady=5, sticky="w")
         
         text_row = row + 1
-        text_area = tk.Text(self.advanced_settings_frame, height=10, width=50)
+        text_area = tk.Text(frame, height=10, width=50)
         text_area.insert(tk.END, text_content)
         text_area.grid(row=text_row, column=0, padx=10, pady=5, sticky="w")
         
@@ -901,6 +1058,7 @@ class SettingsWindowUI:
         canvas.bind('<Leave>', lambda e: canvas.unbind_all("<MouseWheel>"))
 
         return scrollable_frame      
+
     def close_window(self):
         """
         Cleans up the settings window.
