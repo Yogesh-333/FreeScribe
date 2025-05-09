@@ -4,6 +4,7 @@ import sys
 import logging
 from collections import deque
 import utils.file_utils
+from utils.AESCryptoUtils import AESCryptoUtilsClass
 
 
 MAX_BUFFER_SIZE = 2500
@@ -13,6 +14,18 @@ if os.environ.get("FREESCRIBE_DEBUG"):
     LOG_LEVEL = logging.DEBUG
 else:
     LOG_LEVEL = logging.INFO
+
+class AESEncryptedFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None):
+        # Define your visible format (not shown, but used for encryption)
+        super().__init__(fmt=fmt or "[%(asctime)s] | %(levelname)s | %(name)s | %(threadName)s | [%(filename)s:%(lineno)d in %(funcName)s] | %(message)s", datefmt=datefmt)
+
+    def format(self, record):
+        # First format the entire line (all metadata)
+        plain_line = super().format(record)
+
+        return AESCryptoUtilsClass.encrypt(plain_line)
+
 
 class BufferHandler(logging.Handler):
     """Custom handler that maintains an in-memory buffer of log records.

@@ -4,6 +4,7 @@ __version__
 aiscribe.txt
 aiscribe2.txt
 settings.txt
+notes_history.txt
 
 .venv
 __pycache__

@@ -141,6 +141,8 @@ class SettingsWindow():
             SettingsKeys.Enable_AI_Conversation_Validation.value : False,  # Default to disabled
             SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value : False,
             SettingsKeys.ENABLE_FILE_LOGGER.value: False,
+            SettingsKeys.STORE_NOTES_LOCALLY.value: False,
+            SettingsKeys.STORE_RECORDINGS_LOCALLY.value: False,
             SettingsKeys.WHISPER_INITIAL_PROMPT.value: "None",
             # Best of N (Experimental), by default we only generate 1 completion of note, if this is set to a number greater than 1, we will generate N completions and pick the best one.
             SettingsKeys.BEST_OF.value: 1,
@@ -168,7 +170,8 @@ class SettingsWindow():
 
         self.general_settings = [
             "Show Welcome Message",
-            "Show Scrub PHI"
+            "BlankSpace",
+            "Show Scrub PHI",      
         ]
 
         self.whisper_settings = [
@@ -238,10 +241,12 @@ class SettingsWindow():
         self.adv_general_settings = [
             # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
+            SettingsKeys.STORE_RECORDINGS_LOCALLY.value,
+            SettingsKeys.STORE_NOTES_LOCALLY.value,
+            SettingsKeys.ENABLE_FILE_LOGGER.value,
         ]
 
         self.developer_settings = [
-            SettingsKeys.ENABLE_FILE_LOGGER.value,
             "Real Time Silence Length",
             "BlankSpace", # Represents the Whisper Initial Prompt
         ]
