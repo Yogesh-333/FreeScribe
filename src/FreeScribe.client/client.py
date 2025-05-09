@@ -702,6 +702,8 @@ def toggle_recording():
 
     if not is_recording:
         disable_recording_ui_elements()
+        # reset generate button state
+        send_button.config(text="Generate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
         REALTIME_TRANSCRIBE_THREAD_ID = realtime_thread.ident
         user_input.scrolled_text.configure(state='normal')
         user_input.scrolled_text.delete("1.0", tk.END)
@@ -833,6 +835,8 @@ def clear_application_press():
     """Resets the application state by clearing text fields and recording status."""
     reset_recording_status()  # Reset recording-related variables
     clear_all_text_fields()  # Clear UI text areas
+    # change re generate button to generate button
+    send_button.config(text="Generate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
 
 def reset_recording_status():
     """Resets all recording-related variables and stops any active recording.
@@ -1192,6 +1196,8 @@ def show_response(event):
     selection = event.widget.curselection()
     if selection:
         index = selection[0]
+        # set the regenerate note button
+        send_button.config(text="Regenerate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
         transcript_text = response_history[index][1]
         response_text = response_history[index][2]
         user_input.scrolled_text.configure(state='normal')
@@ -1535,6 +1541,8 @@ def generate_note_thread(text: str):
         else:
             loading_window.destroy()
             stop_flashing()
+            # switch generate note button to "Regenerate Note"
+            send_button.config(text="Regenerate Note")
 
     root.after(500, lambda: check_thread_status(thread, loading_window))
 
