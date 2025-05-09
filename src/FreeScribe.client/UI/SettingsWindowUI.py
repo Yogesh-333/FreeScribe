@@ -21,7 +21,7 @@ Classes:
 
 import logging
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk , messagebox
 import threading
 from Model import Model, ModelManager
 from services.whisper_hallucination_cleaner import load_hallucination_cleaner_model
@@ -78,6 +78,7 @@ class SettingsWindowUI:
         self.docker_settings_frame = None
         self.basic_settings_frame = None
         self.advanced_settings_frame = None
+        self.display_notes_warning = True
         self.developer_frame = None
         self.widgets = {}
         
@@ -110,6 +111,7 @@ class SettingsWindowUI:
         self.whisper_settings_frame = ttk.Frame(self.notebook)
         self.advanced_frame = ttk.Frame(self.notebook)
         self.docker_settings_frame = ttk.Frame(self.notebook)
+
         # Create container frame that will hold the scrollable frame
         self.developer_container = ttk.Frame(self.notebook)
         self.developer_frame = self.add_scrollbar_to_frame(self.developer_container)
@@ -198,34 +200,11 @@ class SettingsWindowUI:
 
         # load all settings from the developer settings        
         left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, 0, 0, self.settings.developer_settings)
-
         
         if FeatureToggle.PRE_PROCESSING is True:
             self.preprocess_text, label_row, text_row, row = self._create_text_area(
                 self.developer_frame, "Pre-Processing", self.settings.editable_settings["Pre-Processing"], row
             )
-
-
-        # add custom handler for log file button, additional warning for PHI
-        def _on_file_logger_click(*args):
-            if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
-                # Give a disclaimer for potential PHI leak
-                result = messagebox.askokcancel(
-                    title="Warning",
-                    message="Enabling file logging may expose sensitive information such as patient PHI. Use with caution. The log file can be located at:\n" + get_resource_path('freescribe.log'),
-                    icon="warning"
-                )
-
-                # Check the result (True if OK was clicked, False if Cancel was clicked)
-                if not result:
-                    # User clicked Cancel - don't enable file logging
-                    logger.info("File logging disclaimer denied.")
-                    #uncheck the checkbox
-                    self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].set(0)
-                    self.widgets[SettingsKeys.ENABLE_FILE_LOGGER.value].config(variable=self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value])  # Disable the checkbox
-
-        # add a trace to the checkbox on change determine if we need to display disclaimer
-        self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add("write", _on_file_logger_click)
 
         row += 1
 
@@ -622,6 +601,7 @@ class SettingsWindowUI:
             row = self._create_section_header("General Settings", row, text_colour="black", frame=self.advanced_settings_frame)
             row = create_settings_columns(self.settings.adv_general_settings, row)
 
+
         # Whisper Settings
         row = self._create_section_header("Whisper Settings", row, text_colour="black", frame=self.advanced_settings_frame)
         left_frame = ttk.Frame(self.advanced_settings_frame)
@@ -697,6 +677,80 @@ class SettingsWindowUI:
                 self.settings.editable_settings["Post-Processing"],
                 row
             )
+
+        # add watchers for save encrypted files
+        self.settings.editable_settings_entries[SettingsKeys.STORE_RECORDINGS_LOCALLY.value].trace_add(
+            "write",
+            lambda *args: self.__display_encrypted_phi_warning(SettingsKeys.STORE_RECORDINGS_LOCALLY.value)
+        )
+
+        self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].trace_add(
+            "write",
+            lambda *args: self.__display_encrypted_phi_warning(SettingsKeys.ENABLE_FILE_LOGGER.value)
+        )
+
+        self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].trace_add(
+            "write",
+            lambda *args: self.toggle_store_notes_locally()
+        )
+
+    def toggle_store_notes_locally(self):
+        """
+        Handle toggling the Store Notes Locally checkbox.
+        Shows a warning popup on the main window when attempting to disable this setting.
+        """
+        # Convert IntVar to boolean
+        current_value = bool(self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get())
+        
+        # If the checkbox was unchecked (value is now False), show the warning popup
+        if not current_value and self.display_notes_warning:
+            # Create a popup warning dialog on the main window
+            confirm = messagebox.askokcancel(
+                "Warning",
+                "Disabling Store Notes Locally (Encrypted) will delete the existing saved notes",
+                icon="warning",
+                parent=self.root  # Use the main window as the parent
+            )
+            
+            if confirm:
+                # User clicked Continue, keep the setting disabled
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = False
+            else:
+                # User clicked Cancel, revert the checkbox to checked
+                self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].set(1)
+                self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value] = True
+        else:
+            self.display_notes_warning = False  # Reset the flag to show the warning next time
+            self.__display_encrypted_phi_warning(SettingsKeys.STORE_NOTES_LOCALLY.value)
+
+        self.display_notes_warning = True  # Reset the flag to show the warning next time
+
+
+    def __display_encrypted_phi_warning(self, setting_name):
+        """
+        Displays a warning message for encrypted PHI files.
+        """
+        # Check if the setting is enabled (1)
+        if not self.settings.editable_settings_entries[setting_name].get():
+            return # No need to show the warning if the setting is disabled
+
+        warning_message = (
+            "⚠️ Warning: Encrypted PHI Data Storage",
+            "You are about to save encrypted Protected Health Information (PHI) to disk.",
+            "While this data is securely encrypted,  you should still exercise care in how you manage these files."
+            "Please ensure the file is stored in a secure location and access is appropriately restricted.",
+            "Do you still wish to proceed?",
+        )
+        result = tk.messagebox.askyesno(
+            "Warning",
+            "\n".join(warning_message),
+            icon="warning",
+        )
+
+        if not result:
+            print("User chose not to proceed with saving encrypted PHI data.")
+            self.settings.editable_settings_entries[setting_name].set(0)  # Disable the checkbox
+            self.widgets[setting_name].config(variable=self.settings.editable_settings_entries[setting_name])  # Disable the checkbox
 
     def __create_processing_section(self, frame, label_text, setting_key, text_content, row):
         button_frame = tk.Frame(frame, width=800)
@@ -837,6 +891,10 @@ class SettingsWindowUI:
             logging.debug("reloading ai model")
             ModelManager.start_model_threaded(self.settings, self.main_window.root)
 
+        #update the notes and Ui
+        self.main_window.root.event_generate("<<UpdateNoteHistoryUi>>")
+        self.main_window.root.event_generate("<<ProcessDataTab>>")
+
         if self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is None:
             self.main_window.create_docker_status_bar()
         elif not self.settings.editable_settings["Use Docker Status Bar"] and self.main_window.docker_status_bar is not None:
@@ -858,7 +916,7 @@ class SettingsWindowUI:
             return
 
         if self.settings.editable_settings_entries[SettingsKeys.ENABLE_FILE_LOGGER.value].get() == 1:
-            utils.log_config.add_file_handler(utils.log_config.logger, utils.log_config.formatter)
+            utils.log_config.add_file_handler(utils.log_config.logger, utils.log_config.AESEncryptedFormatter())
             logger.info("File logging enabled.")
         else:
             utils.log_config.remove_file_handler(utils.log_config.logger)
@@ -893,8 +951,19 @@ class SettingsWindowUI:
 
         This method creates and places UI elements for general settings.
         """
-        frame, row = self.create_editable_settings(self.general_settings_frame, self.settings.general_settings)
-        
+        # Create frames for a two-column layout
+        left_frame = ttk.Frame(self.general_settings_frame)
+        left_frame.grid(row=0, column=0, padx=10, pady=5, sticky="nw")
+
+        right_frame = ttk.Frame(self.general_settings_frame)
+        right_frame.grid(row=0, column=1, padx=10, pady=5, sticky="nw")
+
+        left_row = 0
+        right_row = 0
+
+        # Create the rest of the general settings
+        left_row, right_row = self.create_editable_settings_col(left_frame, right_frame, left_row, right_row, self.settings.general_settings)
+
         # Add a note at the bottom of the general settings frame
         note_text = (
         "NOTE: To protect personal health information (PHI), we recommend using a local network.\n"
@@ -904,7 +973,7 @@ class SettingsWindowUI:
 
         # Create a frame to hold the note labels
         note_frame = tk.Frame(self.general_settings_frame)
-        note_frame.grid(padx=10, pady=5, sticky="w")
+        note_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="w")
 
         # Add the red * label
         star_label = tk.Label(note_frame, text="*", fg="red", font=("Arial", 10, "bold"))
@@ -920,7 +989,6 @@ class SettingsWindowUI:
             justify="left"
         )
         note_label.grid(row=0, column=1, sticky="w")
-
     def _create_checkbox(self, frame, label, setting_name, row_idx, setting_key=None):
         """
         Creates a checkbox in the given frame.
