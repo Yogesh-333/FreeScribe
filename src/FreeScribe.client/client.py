@@ -2,25 +2,24 @@
 This software is released under the AGPL-3.0 license
 Copyright (c) 2023-2024 Braedon Hendy
 
-Further updates and packaging added in 2024 through the ClinicianFOCUS initiative, 
-a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied 
-Learning and Technology as part of the CNERG+ applied research project, 
-Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform". 
-Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner), 
+Further updates and packaging added in 2024 through the ClinicianFOCUS initiative,
+a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied
+Learning and Technology as part of the CNERG+ applied research project,
+Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform".
+Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner),
 and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and Naitik Patel.
 
 """
 
 import ctypes
 import io
-import logging
 import sys
 import gc
 import os
+import logging
 from pathlib import Path
 import wave
 import threading
-import base64
 import json
 import datetime
 import re
@@ -31,12 +30,15 @@ import torch
 import pyaudio
 import requests
 import pyperclip
-import speech_recognition as sr # python package is named speechrecognition
+import speech_recognition as sr  # python package is named speechrecognition
 import scrubadub
 import numpy as np
 import tkinter as tk
-from tkinter import scrolledtext, ttk, filedialog
+import math
+import traceback
+from tkinter import ttk, filedialog
 import tkinter.messagebox as messagebox
+import librosa
 from faster_whisper import WhisperModel
 from UI.MainWindowUI import MainWindowUI
 from UI.SettingsWindow import SettingsWindow
@@ -44,7 +46,7 @@ from UI.SettingsConstant import SettingsKeys, Architectures
 from UI.Widgets.CustomTextBox import CustomTextBox
 from UI.LoadingWindow import LoadingWindow
 from UI.ImageWindow import ImageWindow
-from Model import  ModelManager
+from Model import ModelManager
 from utils.ip_utils import is_private_ip
 from utils.file_utils import get_file_path, get_resource_path
 from utils.OneInstance import OneInstance
@@ -52,33 +54,51 @@ from utils.utils import get_application_version
 import utils.AESCryptoUtils as AESCryptoUtils
 import utils.audio
 import utils.AESCryptoUtils as AESCryptoUtils
+import utils.system
 from UI.Widgets.MicrophoneTestFrame import MicrophoneTestFrame
-from utils.utils import window_has_running_instance, bring_to_front, close_mutex
-from utils.window_utils import remove_min_max, add_min_max
+from utils.windows_utils import remove_min_max, add_min_max
 from WhisperModel import TranscribeError
 from UI.Widgets.PopupBox import PopupBox
 from UI.Widgets.TimestampListbox import TimestampListbox
 from UI.RecordingsManager import RecordingsManager
 from UI.ScrubWindow import ScrubWindow
+from utils.log_config import logger
 from Model import ModelStatus
+from services.whisper_hallucination_cleaner import hallucination_cleaner
+from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
+from services.factual_consistency import find_factual_inconsistency
+import utils.arg_parser
 from services.whisper_hallucination_cleaner import hallucination_cleaner, load_hallucination_cleaner_model
 from utils.log_config import logger
 
+# parse command line arguments
+utils.arg_parser.parse_args()
 
 APP_NAME = 'AI Medical Scribe'  # Application name
-APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+if utils.system.is_windows():
+    APP_TASK_MANAGER_NAME = 'freescribe-client.exe'
+else:
+    APP_TASK_MANAGER_NAME = 'FreeScribe'
+
+logger.info(f"{APP_NAME=} {APP_TASK_MANAGER_NAME=} {get_application_version()=}")
 
 # check if another instance of the application is already running.
 # if false, create a new instance of the application
 # if true, exit the current instance
 app_manager = OneInstance(APP_NAME, APP_TASK_MANAGER_NAME)
 
-if app_manager.run():
+if app_manager.is_running():
+    # Another instance is running
     sys.exit(1)
 else:
+    # No other instance is running, or we successfully terminated the other instance
     root = tk.Tk()
     root.title(APP_NAME)
-    
+
+if utils.system.is_macos():
+    utils.system.install_macos_ssl_certificates()
+
+
 def delete_temp_file(filename):
     """
     Deletes a temporary file if it exists.
@@ -89,21 +109,18 @@ def delete_temp_file(filename):
     file_path = get_resource_path(filename)
     if os.path.exists(file_path):
         try:
-            print(f"Deleting temporary file: {filename}")
+            logger.info(f"Deleting temporary file: {filename}")
             os.remove(file_path)
         except OSError as e:
-            print(f"Error deleting temporary file {filename}: {e}")
+            logger.error(f"Error deleting temporary file {filename}: {e}")
+
 
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
+    app_manager.cleanup()
 
-    #save all notes
-    save_notes_history()
-
-    close_mutex()
-
-# Register the close_mutex function to be called on exit
+# Register the cleanup function to be called on exit
 atexit.register(on_closing)
 
 def update_store_notes_locally_ui(event=None):
@@ -236,6 +253,7 @@ botname = "Assistant"
 num_lines_to_keep = 20
 uploaded_file_path = None
 is_recording = False
+recording_thread = None
 is_realtimeactive = False
 audio_data = []
 frames = []
@@ -258,16 +276,14 @@ cancel_await_thread = threading.Event()
 
 
 # Constants
-DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
+if utils.system.is_linux():
+    DEFAULT_BUTTON_COLOUR = "grey85"
+else:
+    DEFAULT_BUTTON_COLOUR = "SystemButtonFace"
 
-#Thread tracking variables
+# Thread tracking variables
 REALTIME_TRANSCRIBE_THREAD_ID = None
 GENERATION_THREAD_ID = None
-
-# Global instance of whisper model
-stt_local_model = None
-
-stt_model_loading_thread_lock = threading.Lock()
 
 
 def get_prompt(formatted_message):
@@ -298,10 +314,11 @@ def get_prompt(formatted_message):
         "frmtrmblln": app_settings.editable_settings["frmtrmblln"]
     }
 
+
 def threaded_check_stt_model():
     """
     Starts a new thread to check the status of the speech-to-text (STT) model loading process.
-    
+
     A separate thread is spawned to run the `double_check_stt_model_loading` function,
     which monitors the loading of the STT model. The function waits for the task to be completed and
     handles cancellation if requested.
@@ -309,22 +326,26 @@ def threaded_check_stt_model():
     # Create a Boolean variable to track if the task is done/canceled
     task_done_var = tk.BooleanVar(value=False)
     task_cancel_var = tk.BooleanVar(value=False)
-    
+
     # Start a new thread to run the double_check_stt_model_loading function
     stt_thread = threading.Thread(target=double_check_stt_model_loading, args=(task_done_var, task_cancel_var))
     stt_thread.start()
-    
+
     # Wait for the task_done_var to be set to True (indicating task completion)
     root.wait_variable(task_done_var)
-    
+
     # Check if the task was canceled via task_cancel_var
     if task_cancel_var.get():
-        logging.debug(f"double checking canceled")
+        logger.debug("double checking canceled")
         return False
     return True
 
-def threaded_toggle_recording():
-    logging.debug(f"*** Toggle Recording - Recording status: {is_recording}, STT local model: {stt_local_model}")
+
+def threaded_toggle_recording(button):
+    # quick fix: prevents the button being clicked repeatedly in short time, avoid UI freeze
+    button.config(state="disabled")
+    root.after(1000, lambda: button.config(state="normal"))
+
     ready_flag = threaded_check_stt_model()
     # there is no point start recording if we are using local STT model and it's not ready
     # if user chooses to cancel the double check process, we need to return and not start recording
@@ -335,20 +356,20 @@ def threaded_toggle_recording():
 
 
 def double_check_stt_model_loading(task_done_var, task_cancel_var):
-    print(f"*** Double Checking STT model - Model Current Status: {stt_local_model}")
+    logger.info(f"*** Double Checking STT model - Model Current Status: {is_whisper_valid()}")
     stt_loading_window = None
     try:
         if is_recording:
-            print("*** Recording in progress, skipping double check")
+            logger.info("*** Recording in progress, skipping double check")
             return
         if not app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
-            print("*** Local Whisper is disabled, skipping double check")
+            logger.info("*** Local Whisper is disabled, skipping double check")
             return
-        if stt_local_model:
-            print("*** STT model already loaded, skipping double check")
+        if is_whisper_valid():
+            logger.info("*** STT model already loaded, skipping double check")
             return
         # if using local whisper and model is not loaded, when starting recording
-        if stt_model_loading_thread_lock.locked():
+        if is_whisper_lock():
             model_name = app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value].strip()
             stt_loading_window = LoadingWindow(root, "Loading Speech to Text model",
                                                f"Loading {model_name} model. Please wait.",
@@ -360,29 +381,29 @@ def double_check_stt_model_loading(task_done_var, task_cancel_var):
                 time.sleep(0.1)
                 if task_cancel_var.get():
                     # user cancel
-                    logging.debug(f"user canceled after {time.monotonic() - time_start} seconds")
+                    logger.debug(f"user canceled after {time.monotonic() - time_start} seconds")
                     return
                 if time.monotonic() - time_start > timeout:
                     messagebox.showerror("Error",
                                          f"Timed out while loading local Speech to Text model after {timeout} seconds.")
                     task_cancel_var.set(True)
                     return
-                if not stt_model_loading_thread_lock.locked():
+                if not is_whisper_lock():
                     break
             stt_loading_window.destroy()
             stt_loading_window = None
         # double check
-        if stt_local_model is None:
+        if is_whisper_valid():
             # mandatory loading, synchronous
-            t = load_stt_model()
+            t = load_model_with_loading_screen(root=root, app_settings=app_settings)
             t.join()
 
     except Exception as e:
-        logging.exception(str(e))
+        logger.exception(str(e))
         messagebox.showerror("Error",
                              f"An error occurred while loading Speech to Text model synchronously {type(e).__name__}: {e}")
     finally:
-        print(f"*** Double Checking STT model Complete - Model Current Status: {stt_local_model}")
+        logger.info(f"*** Double Checking STT model Complete - Model Current Status: {is_whisper_valid()}")
         if stt_loading_window:
             stt_loading_window.destroy()
         task_done_var.set(True)
@@ -393,10 +414,12 @@ def threaded_realtime_text():
     thread.start()
     return thread
 
+
 def threaded_handle_message(formatted_message):
     thread = threading.Thread(target=show_edit_transcription_popup, args=(formatted_message,))
     thread.start()
     return thread
+
 
 def threaded_send_audio_to_server():
     thread = threading.Thread(target=send_audio_to_server)
@@ -418,8 +441,10 @@ def toggle_pause():
             pause_button.config(text="Pause", bg=DEFAULT_BUTTON_COLOUR)
         elif current_view == "minimal":
             pause_button.config(text="⏸️", bg=DEFAULT_BUTTON_COLOUR)
-    
-SILENCE_WARNING_LENGTH = 10 # seconds, warn the user after 10s of no input something might be wrong
+
+
+SILENCE_WARNING_LENGTH = 10  # seconds, warn the user after 10s of no input something might be wrong
+
 
 def open_microphone_stream():
     """
@@ -439,23 +464,24 @@ def open_microphone_stream():
     try:
         selected_index = MicrophoneTestFrame.get_selected_microphone_index()
         stream = p.open(
-            format=FORMAT, 
-            channels=1, 
-            rate=RATE, 
+            format=FORMAT,
+            channels=1,
+            rate=RATE,
             input=True,
-            frames_per_buffer=CHUNK, 
+            frames_per_buffer=CHUNK,
             input_device_index=int(selected_index))
 
         return stream, None
     except (OSError, IOError) as e:
         # Log the error message
         # TODO System logger
-        print(f"An error occurred opening the stream({type(e).__name__}): {e}")
+        logger.error(f"An error occurred opening the stream({type(e).__name__}): {e}")
         return None, e
+
 
 def record_audio():
     """
-    Records audio from the selected microphone, processes the audio to detect silence, 
+    Records audio from the selected microphone, processes the audio to detect silence,
     and manages the recording state.
 
     Global Variables:
@@ -471,7 +497,7 @@ def record_audio():
     try:
         recording_id = f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         current_chunk = []
-        silent_duration = 0        
+        silent_duration = 0
         record_duration = 0
         minimum_silent_duration = int(app_settings.editable_settings["Real Time Silence Length"])
         minimum_audio_duration = int(app_settings.editable_settings["Real Time Audio Length"])
@@ -489,10 +515,11 @@ def record_audio():
                 frames.append(data)
                 # Check for silence
                 audio_buffer = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768
-                
+
                 # convert the setting from str to float
-                try: 
-                    speech_prob_threshold = float(app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value])
+                try:
+                    speech_prob_threshold = float(
+                        app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value])
                 except ValueError:
                     # default it to value in DEFAULT_SETTINGS_TABLE on invalid error
                     speech_prob_threshold = app_settings.DEFAULT_SETTINGS_TABLE[SettingsKeys.SILERO_SPEECH_THRESHOLD.value]
@@ -510,7 +537,7 @@ def record_audio():
                 record_duration += CHUNK / RATE
 
                 # Check if we need to warn if silence is long than warn time
-                check_silence_warning(silent_warning_duration)
+                root.after(0, lambda: check_silence_warning(silent_warning_duration))
 
                 # 1 second of silence at the end so we dont cut off speech
                 if silent_duration >= minimum_silent_duration and audio_data_leng > 1.5  and record_duration > minimum_audio_duration:
@@ -554,7 +581,8 @@ def record_audio():
 
         # If the warning bar is displayed, remove it
         if window.warning_bar is not None:
-            window.destroy_warning_bar()
+            root.after(0, lambda: window.destroy_warning_bar())
+
 
 def check_silence_warning(silence_duration):
     """Check if silence warning should be displayed."""
@@ -569,7 +597,9 @@ def check_silence_warning(silence_duration):
         # If the warning bar is displayed, remove it
         window.destroy_warning_bar()
 
+
 silero, _silero = torch.hub.load(repo_or_dir='snakers4/silero-vad', model='silero_vad')
+
 
 def is_silent(data, threshold: float = 0.65):
     """Check if audio chunk contains speech using Silero VAD"""
@@ -577,19 +607,22 @@ def is_silent(data, threshold: float = 0.65):
     audio_tensor = torch.FloatTensor(data)
     if audio_tensor.dim() == 2:
         audio_tensor = audio_tensor.mean(dim=1)
-    
+
     # Get speech probability
     speech_prob = silero(audio_tensor, 16000).item()
     return speech_prob < threshold
 
+
 def realtime_text():
     global is_realtimeactive, audio_queue
     # Incase the user starts a new recording while this one the older thread is finishing.
-    # This is a local flag to prevent the processing of the current audio chunk 
+    # This is a local flag to prevent the processing of the current audio chunk
     # if the global flag is reset on new recording
-    local_cancel_flag = False 
+    local_cancel_flag = False
     if not is_realtimeactive:
         is_realtimeactive = True
+        # this is the text that will be used to process intents
+        intent_text = ""
 
         while True:
             #  break if canceled
@@ -601,22 +634,27 @@ def realtime_text():
             if audio_data is None:
                 break
             if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] == True:
-                print("Real Time Audio to Text")
+                logger.info("Real Time Audio to Text")
                 audio_buffer = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768
                 if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
-                    print(f"Local Real Time Whisper {audio_queue.qsize()=}")
-                    if stt_local_model is None:
+                    logger.info(f"Local Real Time Whisper {audio_queue.qsize()=}")
+                    if not is_whisper_valid():
+
                         update_gui("Local Whisper model not loaded. Please check your settings.")
                         break
                     try:
-                        result = faster_whisper_transcribe(audio_buffer)
+                        result = faster_whisper_transcribe(audio_buffer, app_settings=app_settings)
+                        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                            result = hallucination_cleaner.clean_text(result)
                     except Exception as e:
+                        logger.exception(str(e))
                         update_gui(f"\nError: {e}\n")
 
                     if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                         update_gui(result)
+                        intent_text = result
                 else:
-                    print("Remote Real Time Whisper")
+                    logger.info("Remote Real Time Whisper")
                     buffer = io.BytesIO()
                     with wave.open(buffer, 'wb') as wf:
                         wf.setnchannels(CHANNELS)
@@ -624,12 +662,12 @@ def realtime_text():
                         wf.setframerate(RATE)
                         wf.writeframes(audio_data)
 
-                    buffer.seek(0) # Reset buffer position
+                    buffer.seek(0)  # Reset buffer position
 
                     files = {'audio': buffer}
 
                     headers = {
-                        "Authorization": "Bearer "+app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]
+                        "Authorization": f"Bearer {app_settings.editable_settings[SettingsKeys.WHISPER_SERVER_API_KEY.value]}"
                     }
 
                     body = {
@@ -645,32 +683,48 @@ def realtime_text():
                     try:
                         verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
 
-                        print("Sending audio to server")
-                        print("File informaton")
-                        print("File Size: ", len(buffer.getbuffer()), "bytes")
+                        logger.info("Sending audio to server")
+                        logger.info("File informaton")
+                        logger.info(f"File Size: {len(buffer.getbuffer())} bytes")
 
                         response = requests.post(app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value], headers=headers,files=files, verify=verify, data=body)
                             
-                        print("Response from whisper with status code: ", response.status_code)
+                        logger.info(f"Response from whisper with status code: {response.status_code}")
 
                         if response.status_code == 200:
                             text = response.json()['text']
+                            if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                                text = hallucination_cleaner.clean_text(text)
                             if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                                 update_gui(text)
+                                intent_text = text
                         else:
                             update_gui(f"Error (HTTP Status {response.status_code}): {response.text}")
                     except Exception as e:
                         update_gui(f"Error: {e}")
                     finally:
-                        #close buffer. we dont need it anymore
+                        # close buffer. we dont need it anymore
                         buffer.close()
+                # Process intents
+                try:
+                    logger.debug(f"Processing intents for text: {intent_text}")
+                    window.get_text_intents(intent_text)
+                except Exception as e:
+                    logger.exception(f"Error processing intents: {e}")
             audio_queue.task_done()
+
+        # unload thestt model on low mem mode
+        if app_settings.is_low_mem_mode():
+            unload_stt_model()  
     else:
         is_realtimeactive = False
 
+
 def update_gui(text):
-    user_input.scrolled_text.insert(tk.END, text + '\n')
-    user_input.scrolled_text.see(tk.END)
+    # Tkinter is not thread safe, so we need to use root.after to make sure to update the GUI from main thread
+    root.after(0, lambda: user_input.scrolled_text.insert(tk.END, text + '\n'))
+    root.after(0, lambda: user_input.scrolled_text.see(tk.END))
+
 
 def save_audio():
     global frames
@@ -682,10 +736,12 @@ def save_audio():
             wf.writeframes(b''.join(frames))
         frames = []  # Clear recorded data
 
-    if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] == True and is_audio_processing_realtime_canceled.is_set() is False:
+    if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] == True and is_audio_processing_realtime_canceled.is_set(
+    ) is False:
         send_and_receive()
     elif app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] == False and is_audio_processing_whole_canceled.is_set() is False:
         threaded_send_audio_to_server()
+
 
 def toggle_recording():
     global is_recording, recording_thread, DEFAULT_BUTTON_COLOUR, audio_queue, current_view, REALTIME_TRANSCRIBE_THREAD_ID, frames, silent_warning_duration
@@ -701,18 +757,27 @@ def toggle_recording():
     realtime_thread = threaded_realtime_text()
 
     if not is_recording:
+        #load the stt model for transcription
+        if not is_whisper_valid() and app_settings.is_low_mem_mode():
+            loading_screen = LoadingWindow(root, "Loading Speech to Text model", "Loading Speech to Text model. Please wait.")
+            load_stt_model(app_settings=app_settings)
+            loading_screen.destroy()
+            
         disable_recording_ui_elements()
         # reset generate button state
         send_button.config(text="Generate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
         REALTIME_TRANSCRIBE_THREAD_ID = realtime_thread.ident
-        user_input.scrolled_text.configure(state='normal')
-        user_input.scrolled_text.delete("1.0", tk.END)
-        if not app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value]:
-            user_input.scrolled_text.insert(tk.END, "Recording")
-        response_display.scrolled_text.configure(state='normal')
-        response_display.scrolled_text.delete("1.0", tk.END)
-        response_display.scrolled_text.configure(fg='black')
-        response_display.scrolled_text.configure(state='disabled')
+        
+        def _start_recording_ui():
+            user_input.scrolled_text.configure(state='normal')
+            user_input.scrolled_text.delete("1.0", tk.END)
+            if not app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value]:
+                user_input.scrolled_text.insert(tk.END, "Recording")
+            response_display.scrolled_text.configure(state='normal')
+            response_display.scrolled_text.delete("1.0", tk.END)
+            response_display.scrolled_text.configure(fg='black')
+            response_display.scrolled_text.configure(state='disabled')
+        root.after(0, _start_recording_ui)
         is_recording = True
 
         # reset frames before new recording so old data is not used
@@ -721,23 +786,23 @@ def toggle_recording():
         recording_thread = threading.Thread(target=record_audio)
         recording_thread.start()
 
-
         if current_view == "full":
-            mic_button.config(bg="red", text="Stop\nRecording")
+            root.after(0, lambda: mic_button.config(bg="red", text="Stop\nRecording"))
         elif current_view == "minimal":
-            mic_button.config(bg="red", text="⏹️")
+            root.after(0, lambda: mic_button.config(bg="red", text="⏹️"))
 
         start_flashing()
     else:
         enable_recording_ui_elements()
         is_recording = False
-        if recording_thread.is_alive():
+        if recording_thread and recording_thread.is_alive():
             recording_thread.join()  # Ensure the recording thread is terminated
-        
-        if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and not is_audio_processing_realtime_canceled.is_set():
+
+        if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value] and not is_audio_processing_realtime_canceled.is_set(
+        ):
             def cancel_realtime_processing(thread_id):
                 """Cancels any ongoing audio processing.
-                
+
                 Sets the global flag to stop audio processing operations.
                 """
                 global REALTIME_TRANSCRIBE_THREAD_ID
@@ -747,16 +812,22 @@ def toggle_recording():
                 except Exception as e:
                     # Log the error message
                     # TODO System logger
-                    print(f"An error occurred: {e}")
+                    logger.error(f"An error occurred: {e}")
                 finally:
                     REALTIME_TRANSCRIBE_THREAD_ID = None
 
-                #empty the queue
+                # empty the queue
                 while not audio_queue.empty():
                     audio_queue.get()
                     audio_queue.task_done()
 
-            loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_realtime_processing(REALTIME_TRANSCRIBE_THREAD_ID)))
+            loading_window = LoadingWindow(
+                root,
+                "Processing Audio",
+                "Processing Audio. Please wait.",
+                on_cancel=lambda: (
+                    cancel_processing(),
+                    cancel_realtime_processing(REALTIME_TRANSCRIBE_THREAD_ID)))
 
             try:
                 timeout_length = int(app_settings.editable_settings[SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value])
@@ -774,62 +845,69 @@ def toggle_recording():
                 # round to 10 decimal places, account for floating point errors
                 timeout_timer = round(timeout_timer, 10)
 
-                # check if we should print a message every 5 seconds 
+                # check if we should print a message every 5 seconds
                 if timeout_timer % 5 == 0:
-                    print(f"Waiting for audio processing to finish. Timeout after {timeout_length} seconds. Timer: {timeout_timer}s")
-                
+                    logger.info(f"Waiting for audio processing to finish. Timeout after {timeout_length} seconds. Timer: {timeout_timer}s")
+
                 # Wait for 100ms before checking again, to avoid busy waiting
                 time.sleep(0.1)
-            
+
             loading_window.destroy()
 
             realtime_thread.join()
 
         save_audio()
 
-        print("*** Recording Stopped")
+        logger.info("*** Recording Stopped")
         stop_flashing()
 
         if current_view == "full":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="Start\nRecording"))
         elif current_view == "minimal":
-            mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤")
+            root.after(0, lambda: mic_button.config(bg=DEFAULT_BUTTON_COLOUR, text="🎤"))
+        logger.debug("the end of toggle_recording")
+
 
 def disable_recording_ui_elements():
-    window.disable_settings_menu()
-    user_input.scrolled_text.configure(state='disabled')
-    send_button.config(state='disabled')
-    #hidding the AI Scribe button actions
-    #toggle_button.config(state='disabled')
-    upload_button.config(state='disabled')
-    response_display.scrolled_text.configure(state='disabled')
-    timestamp_listbox.config(state='disabled')
-    clear_button.config(state='disabled')
-    mic_test.set_mic_test_state(False)
+    def _disable_recording_ui_elements():
+        window.disable_settings_menu()
+        user_input.scrolled_text.configure(state='disabled')
+        send_button.config(state='disabled')
+        #hidding the AI Scribe button actions
+        #toggle_button.config(state='disabled')
+        upload_button.config(state='disabled')
+        response_display.scrolled_text.configure(state='disabled')
+        timestamp_listbox.config(state='disabled')
+        clear_button.config(state='disabled')
+        mic_test.set_mic_test_state(False)
+    root.after(0, _disable_recording_ui_elements)
 
 def enable_recording_ui_elements():
-    window.enable_settings_menu()
-    user_input.scrolled_text.configure(state='normal')
-    send_button.config(state='normal')
-    #hidding the AI Scribe button actions
-    #toggle_button.config(state='normal')
-    upload_button.config(state='normal')
-    timestamp_listbox.config(state='normal')
-    clear_button.config(state='normal')
-    mic_test.set_mic_test_state(True)
-    
+    def _enable_recording_ui_elements():
+        window.enable_settings_menu()
+        user_input.scrolled_text.configure(state='normal')
+        send_button.config(state='normal')
+        #hidding the AI Scribe button actions
+        #toggle_button.config(state='normal')
+        upload_button.config(state='normal')
+        timestamp_listbox.config(state='normal')
+        clear_button.config(state='normal')
+        mic_test.set_mic_test_state(True)
+    root.after(0, _enable_recording_ui_elements)
+
 
 def cancel_processing():
     """Cancels any ongoing audio processing.
-    
+
     Sets the global flag to stop audio processing operations.
     """
-    print("Processing canceled.")
+    logger.info("Processing canceled.")
 
     if app_settings.editable_settings[SettingsKeys.WHISPER_REAL_TIME.value]:
-        is_audio_processing_realtime_canceled.set() # Flag to terminate processing
+        is_audio_processing_realtime_canceled.set()  # Flag to terminate processing
     else:
         is_audio_processing_whole_canceled.set()  # Flag to terminate processing
+
 
 def clear_application_press():
     """Resets the application state by clearing text fields and recording status."""
@@ -838,9 +916,10 @@ def clear_application_press():
     # change re generate button to generate button
     send_button.config(text="Generate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
 
+
 def reset_recording_status():
     """Resets all recording-related variables and stops any active recording.
-    
+
     Handles cleanup of recording state by:
         - Checking if recording is active
         - Canceling any processing
@@ -859,7 +938,7 @@ def reset_recording_status():
         except Exception as e:
             # Log the error message
             # TODO System logger
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
         finally:
             REALTIME_TRANSCRIBE_THREAD_ID = None
 
@@ -869,13 +948,14 @@ def reset_recording_status():
         except Exception as e:
             # Log the error message
             # TODO System logger
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
 
+
 def clear_all_text_fields():
     """Clears and resets all text fields in the application UI.
-    
+
     Performs the following:
         - Clears user input field
         - Resets focus
@@ -885,25 +965,25 @@ def clear_all_text_fields():
     # Enable and clear user input field
     user_input.scrolled_text.configure(state='normal')
     user_input.scrolled_text.delete("1.0", tk.END)
-    
+
     # Reset focus to main window
     user_input.scrolled_text.focus_set()
     root.focus_set()
-    
+
     stop_flashing()  # Stop any UI flashing effects
-    
+
     # Reset response display with default text
     response_display.scrolled_text.configure(state='normal')
     response_display.scrolled_text.delete("1.0", tk.END)
     response_display.scrolled_text.insert(tk.END, "Medical Note")
-    response_display.scrolled_text.config(fg='grey')
     response_display.scrolled_text.configure(state='disabled')
 
-#hidding the AI Scribe button Function
+# hidding the AI Scribe button Function
 # def toggle_aiscribe():
 #     global use_aiscribe
 #     use_aiscribe = not use_aiscribe
 #     toggle_button.config(text="AI Scribe\nON" if use_aiscribe else "AI Scribe\nOFF")
+
 
 def send_audio_to_server():
     """
@@ -938,26 +1018,31 @@ def send_audio_to_server():
 
     def cancel_whole_audio_process(thread_id):
         global GENERATION_THREAD_ID
-        
+
         is_audio_processing_whole_canceled.clear()
 
         try:
             kill_thread(thread_id)
         except Exception as e:
             # Log the error message
-            #TODO Logging the message to system logger
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
             clear_application_press()
             stop_flashing()
 
-    loading_window = LoadingWindow(root, "Processing Audio", "Processing Audio. Please wait.", on_cancel=lambda: (cancel_processing(), cancel_whole_audio_process(current_thread_id)))
+    loading_window = LoadingWindow(
+        root,
+        "Processing Audio",
+        "Processing Audio. Please wait.",
+        on_cancel=lambda: (
+            cancel_processing(),
+            cancel_whole_audio_process(current_thread_id)))
 
     # Check if SettingsKeys.LOCAL_WHISPER is enabled in the editable settings
     if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] == True:
         # Inform the user that SettingsKeys.LOCAL_WHISPER.value is being used for transcription
-        print(f"Using {SettingsKeys.LOCAL_WHISPER.value} for transcription.")
+        logger.info(f"Using {SettingsKeys.LOCAL_WHISPER.value} for transcription.")
 
         clear_all_text_fields()
 
@@ -968,24 +1053,47 @@ def send_audio_to_server():
         # Display a message indicating that audio to text processing is in progress
         user_input.scrolled_text.insert(tk.END, "Audio to Text Processing...Please Wait")
         try:
-            # Determine the file to send for transcription
-            file_to_send = uploaded_file_path or get_resource_path('recording.wav')
-            delete_file = False if uploaded_file_path else True
-            uploaded_file_path = None
+            if utils.system.is_macos():
+                # Load the audio file to send for transcription
+                file_to_send, sr = librosa.load(uploaded_file_path, sr=RATE, mono=True)
+                delete_file = False
+                uploaded_file_path = None
+            else:
+                # Determine the file to send for transcription
+                file_to_send = uploaded_file_path or get_resource_path('recording.wav')
+                delete_file = False if uploaded_file_path else True
+                uploaded_file_path = None
+
+
+            # load stt model for transcription
+            if not is_whisper_valid() and app_settings.is_low_mem_mode():
+                model_id = get_model_from_settings(app_settings=app_settings)
+                model_load_window = LoadingWindow(root, 
+                title = "Speech to Text model", 
+                initial_text = f"Loading Speech to Text model({model_id}). Please wait.")
+                load_thread = load_stt_model(app_settings=app_settings)
+                load_thread.join()
+                model_load_window.destroy()
 
             # Transcribe the audio file using the loaded model
             try:
-                result = faster_whisper_transcribe(file_to_send)
+                result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
+                if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                    result = hallucination_cleaner.clean_text(result)
             except Exception as e:
-                result = f"An error occurred ({type(e).__name__}): {e}"
+                logger.error(traceback.format_exc())
+                result = f"An error occurred ({type(e).__name__}): {e}\n \n {traceback.format_exc()}"
+            finally:
+                if app_settings.is_low_mem_mode():
+                    unload_stt_model()
 
             transcribed_text = result
 
             # done with file clean up
-            if os.path.exists(file_to_send) and delete_file is True:
+            if delete_file is True and os.path.exists(file_to_send) :
                 os.remove(file_to_send)
 
-            #check if canceled, if so do not update the UI
+            # check if canceled, if so do not update the UI
             if not is_audio_processing_whole_canceled.is_set():
                 # Update the user input widget with the transcribed text
                 user_input.scrolled_text.configure(state='normal')
@@ -996,20 +1104,19 @@ def send_audio_to_server():
                 send_and_receive()
         except Exception as e:
             # Log the error message
-            # TODO: Add system eventlogger
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
 
-            #log error to input window
+            # log error to input window
             user_input.scrolled_text.configure(state='normal')
             user_input.scrolled_text.delete("1.0", tk.END)
             user_input.scrolled_text.insert(tk.END, f"An error occurred: {e}")
             user_input.scrolled_text.configure(state='disabled')
         finally:
             loading_window.destroy()
-            
+
     else:
         # Inform the user that Remote Whisper is being used for transcription
-        print("Using Remote Whisper for transcription.")
+        logger.info("Using Remote Whisper for transcription.")
 
         # Configure the user input widget to be editable and clear its content
         user_input.scrolled_text.configure(state='normal')
@@ -1049,15 +1156,16 @@ def send_audio_to_server():
             try:
                 verify = not app_settings.editable_settings[SettingsKeys.S2T_SELF_SIGNED_CERT.value]
 
-                print("Sending audio to server")
-                print("File informaton")
-                print(f"File: {file_to_send}")
-                print("File Size: ", os.path.getsize(file_to_send))
+                logger.info("Sending audio to server")
+                logger.info("File informaton")
+                logger.info(f"File: {file_to_send}")
+                logger.info(f"File Size: {os.path.getsize(file_to_send)}")
 
                 # Send the request without verifying the SSL certificate
-                response = requests.post(app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value], headers=headers, files=files, verify=verify, data=body)
+                response = requests.post(
+                    app_settings.editable_settings[SettingsKeys.WHISPER_ENDPOINT.value], headers=headers, files=files, verify=verify, data=body)
 
-                print("Response from whisper with status code: ", response.status_code)
+                logger.info(f"Response from whisper with status code: {response.status_code}")
 
                 response.raise_for_status()
 
@@ -1065,8 +1173,8 @@ def send_audio_to_server():
                 if not is_audio_processing_whole_canceled.is_set():
                     # Update the UI with the transcribed text
                     transcribed_text = response.json()['text']
-                    # Only clean hallucinations if enabled in settings, remote
                     if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                        transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
                         try:
                             transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
                             logger.debug(f"remote Cleaned result: {transcribed_text}")
@@ -1081,8 +1189,8 @@ def send_audio_to_server():
                     send_and_receive()
             except Exception as e:
                 # log error message
-                #TODO: Implment proper logging to system
-                print(f"An error occurred: {e}")
+                logger.error(f"An error occurred: {e}")
+
                 # Display an error message to the user
                 user_input.scrolled_text.configure(state='normal')
                 user_input.scrolled_text.delete("1.0", tk.END)
@@ -1096,12 +1204,13 @@ def send_audio_to_server():
                 loading_window.destroy()
     stop_flashing()
 
+
 def kill_thread(thread_id):
     """
     Terminate a thread with a given thread ID.
 
     This function forcibly terminates a thread by raising a `SystemExit` exception in its context.
-    **Use with caution**, as this method is not safe and can lead to unpredictable behavior, 
+    **Use with caution**, as this method is not safe and can lead to unpredictable behavior,
     including corruption of shared resources or deadlocks.
 
     :param thread_id: The ID of the thread to terminate.
@@ -1109,7 +1218,7 @@ def kill_thread(thread_id):
     :raises ValueError: If the thread ID is invalid.
     :raises SystemError: If the operation fails due to an unexpected state.
     """
-    print("*** Attempting to kill thread with ID:", thread_id)
+    logger.info(f"*** Attempting to kill thread with ID: {thread_id}")
     # Call the C function `PyThreadState_SetAsyncExc` to asynchronously raise
     # an exception in the target thread's context.
     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
@@ -1126,8 +1235,8 @@ def kill_thread(thread_id):
         # Reset the state to prevent corrupting other threads.
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
-    
-    print("*** Killed thread with ID:", thread_id)
+    logger.info(f"*** Killed thread with ID: {thread_id}")
+
 
 def send_and_receive():
     global use_aiscribe, user_message
@@ -1158,19 +1267,23 @@ def save_notes_history():
         logger.error(f"Error saving temporary notes: {e}")
 
 def display_text(text):
-    response_display.scrolled_text.configure(state='normal')
-    response_display.scrolled_text.delete("1.0", tk.END)
-    response_display.scrolled_text.insert(tk.END, f"{text}\n")
-    response_display.scrolled_text.configure(fg='black')
-    response_display.scrolled_text.configure(state='disabled')
+    def _display_text():
+        response_display.scrolled_text.configure(state='normal')
+        response_display.scrolled_text.delete("1.0", tk.END)
+        response_display.scrolled_text.insert(tk.END, f"{text}\n")
+        response_display.scrolled_text.configure(fg='black')
+        response_display.scrolled_text.configure(state='disabled')
+    root.after(0, _display_text)
+
 
 IS_FIRST_LOG = True
+
+
 def update_gui_with_response(response_text):
     global response_history, user_message, IS_FIRST_LOG
 
     if IS_FIRST_LOG:
         timestamp_listbox.delete(0, tk.END)
-        timestamp_listbox.config(fg='black')
         IS_FIRST_LOG = False
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1184,8 +1297,13 @@ def update_gui_with_response(response_text):
         timestamp_listbox.insert(tk.END, time)
 
     display_text(response_text)
-    pyperclip.copy(response_text)
+    try:
+        # copy/paste may be disabled in sandbox environment
+        pyperclip.copy(response_text)
+    except Exception as e:
+        logger.warning(str(e))
     stop_flashing()
+
 
 def show_response(event):
     global IS_FIRST_LOG
@@ -1201,15 +1319,17 @@ def show_response(event):
         transcript_text = response_history[index][1]
         response_text = response_history[index][2]
         user_input.scrolled_text.configure(state='normal')
-        user_input.scrolled_text.config(fg='black')
         user_input.scrolled_text.delete("1.0", tk.END)
         user_input.scrolled_text.insert(tk.END, transcript_text)
         response_display.scrolled_text.configure(state='normal')
         response_display.scrolled_text.delete('1.0', tk.END)
         response_display.scrolled_text.insert('1.0', response_text)
-        response_display.scrolled_text.config(fg='black')
         response_display.scrolled_text.configure(state='disabled')
-        pyperclip.copy(response_text)
+        try:
+            pyperclip.copy(response_text)
+        except Exception as e:
+            logger.warning(str(e))
+
 
 def send_text_to_api(edited_text):
     headers = {
@@ -1234,7 +1354,7 @@ def send_text_to_api(edited_text):
 
         if app_settings.editable_settings["best_of"]:
             payload["best_of"] = int(app_settings.editable_settings["best_of"])
-            
+
     except ValueError as e:
         payload = {
             "model": app_settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value].strip(),
@@ -1251,7 +1371,7 @@ def send_text_to_api(edited_text):
         if app_settings.editable_settings["best_of"]:
             payload["best_of"] = int(app_settings.editable_settings["best_of"])
 
-        print(f"Error parsing settings: {e}. Using default settings.")
+        logger.info(f"Error parsing settings: {e}. Using default settings.")
 
     try:
 
@@ -1260,7 +1380,8 @@ def send_text_to_api(edited_text):
 
         # Open API Style
         verify = not app_settings.editable_settings["AI Server Self-Signed Certificates"]
-        response = requests.post(app_settings.editable_settings[SettingsKeys.LLM_ENDPOINT.value]+"/chat/completions", headers=headers, json=payload, verify=verify)
+        response = requests.post(
+            app_settings.editable_settings[SettingsKeys.LLM_ENDPOINT.value] + "/chat/completions", headers=headers, json=payload, verify=verify)
 
         response.raise_for_status()
         response_data = response.json()
@@ -1273,8 +1394,8 @@ def send_text_to_api(edited_text):
         #           Uncomment to use API Style Selector             #
         #                                                           #
         #############################################################
-        
-        # if app_settings.API_STYLE == "OpenAI":                    
+
+        # if app_settings.API_STYLE == "OpenAI":
         # elif app_settings.API_STYLE == "KoboldCpp":
         #     prompt = get_prompt(edited_text)
 
@@ -1290,7 +1411,8 @@ def send_text_to_api(edited_text):
     except Exception as e:
         raise e
 
-def send_text_to_localmodel(edited_text):  
+
+def send_text_to_localmodel(edited_text):
     # Send prompt to local model and get response
     if ModelManager.local_model is None:
         ModelManager.setup_model(app_settings=app_settings, root=root)
@@ -1299,14 +1421,18 @@ def send_text_to_localmodel(edited_text):
         while ModelManager.local_model is None and timer < 30:
             timer += 0.1
             time.sleep(0.1)
-        
-
-    return ModelManager.local_model.generate_response(
+       
+    response  = ModelManager.local_model.generate_response(
         edited_text,
         temperature=float(app_settings.editable_settings["temperature"]),
         top_p=float(app_settings.editable_settings["top_p"]),
         repeat_penalty=float(app_settings.editable_settings["rep_pen"]),
     )
+
+    if app_settings.is_low_mem_mode():
+        ModelManager.unload_model()
+
+    return response
 
 def screen_input_with_llm(conversation):
     """
@@ -1320,7 +1446,7 @@ def screen_input_with_llm(conversation):
     words = conversation.split()
     # Split the words into chunks
     chunks = [' '.join(words[i:i + words_per_chunk]) for i in range(0, len(words), words_per_chunk)]
-    print(f"Total chunks count: {len(chunks)}")
+    logger.info(f"Total chunks count: {len(chunks)}")
     return any(process_chunk(chunk) for chunk in chunks)
 
 
@@ -1347,13 +1473,15 @@ def process_chunk(chunk):
     # Check if the response from the LLM is 'true' (case-insensitive)
     return prescreen.strip().lower() == "true"
 
+
 def has_more_than_50_words(text: str) -> bool:
     # Split the text into words using whitespace as the delimiter
-    words = text.split()        
+    words = text.split()
     # Print the number of words
-    print(f"Number of words: {len(words)}")
+    logger.info(f"Number of words: {len(words)}")
     # Check if the number of words is greater than 50
     return len(words) > 50
+
 
 def display_screening_popup():
     """
@@ -1397,7 +1525,8 @@ def screen_input(user_message):
         validators.append(screen_input_with_llm)
 
     return all(validator(user_message) for validator in validators)
-            
+
+
 def threaded_screen_input(user_message, screen_return):
     """
     Screen the user's input message based on the application's settings in a separate thread.
@@ -1408,49 +1537,113 @@ def threaded_screen_input(user_message, screen_return):
     input_return = screen_input(user_message)
     screen_return.set(input_return)
 
-def send_text_to_chatgpt(edited_text): 
+
+def send_text_to_chatgpt(edited_text):
     if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
         return send_text_to_localmodel(edited_text)
     else:
         return send_text_to_api(edited_text)
 
+
 def generate_note(formatted_message):
-            try:
-                if use_aiscribe:
-                    # If pre-processing is enabled
-                    if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
-                        #Generate Facts List
-                        list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}")
-                        
-                        #Make a note from the facts
-                        medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {list_of_facts} {app_settings.AISCRIBE2}")
+    """Generate a note from the formatted message.
+    
+    This function processes the input text and generates a medical note or AI response
+    based on application settings. It supports pre-processing, post-processing, and
+    factual consistency verification.
+    
+    :param formatted_message: The transcribed conversation text to generate a note from
+    :type formatted_message: str
+    
+    :returns: True if note generation was successful, False otherwise
+    :rtype: bool
+    
+    .. note::
+        The behavior of this function depends on several application settings:
+        - If 'use_aiscribe' is True, it generates a structured medical note
+        - If 'Use Pre-Processing' is enabled, it first generates a list of facts
+        - If 'Use Post-Processing' is enabled, it refines the generated note
+        - Factual consistency verification is performed on the final note
+    """
+    try:
+        summary = None
+        if use_aiscribe:
+            # If pre-processing is enabled
+            if app_settings.editable_settings["Use Pre-Processing"]:
+                #Generate Facts List
+                list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}")
 
-                        # If post-processing is enabled check the note over
-                        if app_settings.editable_settings["Use Post-Processing"]:
-                            post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nFacts:{list_of_facts}\nNotes:{medical_note}")
-                            update_gui_with_response(post_processed_note)
-                        else:
-                            update_gui_with_response(medical_note)
+                #Make a note from the facts
+                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {list_of_facts} {app_settings.AISCRIBE2}")
 
-                    else: # If pre-processing is not enabled thhen just generate the note
-                        medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {formatted_message} {app_settings.AISCRIBE2}")
+                # If post-processing is enabled check the note over
+                if app_settings.editable_settings["Use Post-Processing"]:
+                    post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nFacts:{list_of_facts}\nNotes:{medical_note}")
+                    update_gui_with_response(post_processed_note)
+                    summary = post_processed_note
+                else:
+                    update_gui_with_response(medical_note)
+                    summary = medical_note
+            else: # If pre-processing is not enabled then just generate the note
+                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {formatted_message} {app_settings.AISCRIBE2}")
 
-                        if app_settings.editable_settings["Use Post-Processing"]:
-                            post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}")
-                            update_gui_with_response(post_processed_note)
-                        else:
-                            update_gui_with_response(medical_note)
-                else: # do not generate note just send text directly to AI 
-                    ai_response = send_text_to_chatgpt(formatted_message)
-                    update_gui_with_response(ai_response)
+                if app_settings.editable_settings["Use Post-Processing"]:
+                    post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}")
+                    update_gui_with_response(post_processed_note)
+                    summary = post_processed_note
+                else:
+                    update_gui_with_response(medical_note)
+                    summary = medical_note
+        else: # do not generate note just send text directly to AI
+            ai_response = send_text_to_chatgpt(formatted_message)
+            update_gui_with_response(ai_response)
+            summary = ai_response
+        check_and_warn_about_factual_consistency(formatted_message, summary)
 
-                return True
-            except Exception as e:
-                #Logg
-                #TODO: Implement proper logging to system event logger
-                print(f"An error occurred: {e}")
-                display_text(f"An error occurred: {e}")
-                return False
+        return True
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        display_text(f"An error occurred: {e}")
+        return False
+
+def check_and_warn_about_factual_consistency(formatted_message: str, medical_note: str) -> None:
+    """Verify and warn about potential factual inconsistencies in generated medical notes.
+
+    This function checks the consistency between the original conversation and the generated
+    medical note using multiple verification methods. If inconsistencies are found, a warning 
+    dialog is shown to the user.
+
+    :param formatted_message: The original transcribed conversation text
+    :type formatted_message: str
+    :param medical_note: The generated medical note to verify
+    :type medical_note: str
+    :returns: None
+
+    .. note::
+        The verification is only performed if factual consistency checking is enabled
+        in the application settings.
+
+    .. warning::
+        Even if no inconsistencies are found, this does not guarantee the note is 100% accurate.
+        Always review generated notes carefully.
+    """
+    # Verify factual consistency
+    if not app_settings.editable_settings[SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value]:
+        return
+        
+    inconsistent_entities = find_factual_inconsistency(formatted_message, medical_note)
+    logger.info(f"Inconsistent entities: {inconsistent_entities}")
+    
+    if inconsistent_entities:
+        entities = '\n'.join(f'- {entity}' for entity in inconsistent_entities)
+        warning_message = (
+            "Heads-up: Potential inconsistencies detected in the generated note:\n\n"
+            "Entities not in original conversation found:\n"
+            f"{entities}"
+            "\n\nPlease review the note for accuracy."
+        )
+        messagebox.showwarning("Factual Consistency Heads-up", warning_message)
+
 
 def show_edit_transcription_popup(formatted_message):
     scrubber = scrubadub.Scrubber()
@@ -1458,15 +1651,16 @@ def show_edit_transcription_popup(formatted_message):
     scrubbed_message = scrubadub.clean(formatted_message)
 
     pattern = r'\b\d{10}\b'     # Any 10 digit number, looks like OHIP
-    cleaned_message = re.sub(pattern,'{{OHIP}}',scrubbed_message)
+    cleaned_message = re.sub(pattern, '{{OHIP}}', scrubbed_message)
 
-    if (app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or is_private_ip(app_settings.editable_settings[SettingsKeys.LLM_ENDPOINT.value])) and not app_settings.editable_settings["Show Scrub PHI"]:
+    if (app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or is_private_ip(
+            app_settings.editable_settings[SettingsKeys.LLM_ENDPOINT.value])) and not app_settings.editable_settings["Show Scrub PHI"]:
         generate_note_thread(cleaned_message)
         return
 
     def on_proceed(edited_text):
         thread = threading.Thread(target=generate_note_thread, args=(edited_text,))
-        thread.start()   
+        thread.start()
 
     def on_cancel():
         stop_flashing()
@@ -1487,22 +1681,23 @@ def generate_note_thread(text: str):
 
     def cancel_note_generation(thread_id, screen_thread):
         """Cancels any ongoing note generation.
-        
+
         Sets the global flag to stop note generation operations.
         """
         global GENERATION_THREAD_ID
 
         try:
+            logger.debug(f"*** Cancelling note generation thread with ID: {thread_id}")
             if thread_id:
                 kill_thread(thread_id)
-            
+
             # check if screen thread is active before killing it
             if screen_thread and screen_thread.is_alive():
                 kill_thread(screen_thread.ident)
         except Exception as e:
             # Log the error message
             # TODO implment system logger
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
             stop_flashing()
@@ -1512,11 +1707,12 @@ def generate_note_thread(text: str):
     # The return value from the screen input thread
     screen_return = tk.BooleanVar()
 
-    loading_window = LoadingWindow(root, "Screening Input Text", "Ensuring input is valid. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))    
+    loading_window = LoadingWindow(root, "Screening Input Text", "Ensuring input is valid. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))
+    
     # screen input in its own thread so we can cancel it
     screen_thread = threading.Thread(target=threaded_screen_input, args=(text, screen_return))
     screen_thread.start()
-    #wait for the thread to join/cancel so we can continue
+    # wait for the thread to join/cancel so we can continue
     screen_thread.join()
 
     # Check if the screen input was canceled or force overridden by the user
@@ -1564,15 +1760,19 @@ def start_flashing():
 def stop_flashing():
     global is_flashing
     is_flashing = False
-    blinking_circle_canvas.itemconfig(circle, fill='white')  # Reset to default color
+    # Reset to default color
+    root.after(0, lambda: blinking_circle_canvas.itemconfig(circle, fill='white'))
 
 
 def flash_circle():
-    if is_flashing:
+    if not is_flashing:
+        return
+    def _flash_circle():
         current_color = blinking_circle_canvas.itemcget(circle, 'fill')
         new_color = 'blue' if current_color != 'blue' else 'black'
         blinking_circle_canvas.itemconfig(circle, fill=new_color)
         root.after(1000, flash_circle)  # Adjust the flashing speed as needed
+    root.after(0, _flash_circle)
 
 
 def send_and_flash():
@@ -1584,6 +1784,7 @@ def send_and_flash():
 last_full_position = None
 last_minimal_position = None
 
+
 def toggle_view():
     """
     Toggles the user interface between a full view and a minimal view.
@@ -1592,12 +1793,13 @@ def toggle_view():
     to essential controls, reducing screen space usage. The function also manages
     window properties, button states, and binds/unbinds hover events for transparency.
     """
-    
+
     if current_view == "full":  # Transition to minimal view
         set_minimal_view()
-    
+
     else:  # Transition back to full view
         set_full_view()
+
 
 def set_full_view():
     """
@@ -1629,10 +1831,10 @@ def set_full_view():
     upload_button.grid()
     response_display.grid()
     history_frame.grid()
-    mic_button.grid(row=1, column=1, pady=5, padx=0,sticky='nsew')
-    pause_button.grid(row=1, column=2, pady=5, padx=0,sticky='nsew')
-    switch_view_button.grid(row=1, column=6, pady=5, padx=0,sticky='nsew')
-    blinking_circle_canvas.grid(row=1, column=7, padx=0,pady=5)
+    mic_button.grid(row=1, column=1, pady=5, padx=0, sticky='nsew')
+    pause_button.grid(row=1, column=2, pady=5, padx=0, sticky='nsew')
+    switch_view_button.grid(row=1, column=6, pady=5, padx=0, sticky='nsew')
+    blinking_circle_canvas.grid(row=1, column=7, padx=0, pady=5)
     footer_frame.grid()
     
     
@@ -1653,9 +1855,9 @@ def set_full_view():
     root.minsize(900, 400)
     current_view = "full"
 
-    #Recreates Silence Warning Bar
+    # Recreates Silence Warning Bar
     window.destroy_warning_bar()
-    check_silence_warning(silence_duration= silent_warning_duration)
+    check_silence_warning(silence_duration=silent_warning_duration)
 
     # add the minimal view geometry and remove the last full view geometry
     add_min_max(root)
@@ -1679,8 +1881,8 @@ def set_full_view():
     # Disable to make the window an app(show taskbar icon)
     # root.attributes('-toolwindow', False)
 
-def set_minimal_view():
 
+def set_minimal_view():
     """
     Configures the application to display the minimal view interface.
 
@@ -1733,9 +1935,9 @@ def set_minimal_view():
     if root.wm_state() == 'zoomed':  # Check if window is maximized
         root.wm_state('normal')       # Restore the window
 
-    #Recreates Silence Warning Bar
+    # Recreates Silence Warning Bar
     window.destroy_warning_bar()
-    check_silence_warning(silence_duration= silent_warning_duration)
+    check_silence_warning(silence_duration=silent_warning_duration)
 
     # Set hover transparency events
     def on_enter(e):
@@ -1765,6 +1967,7 @@ def set_minimal_view():
     else:
         root.geometry("125x50")  # Set the window size to the minimal view size
 
+
 def copy_text(widget):
     """
     Copy text content from a tkinter widget to the system clipboard.
@@ -1773,7 +1976,11 @@ def copy_text(widget):
         widget: A tkinter Text widget containing the text to be copied.
     """
     text = widget.get("1.0", tk.END)
-    pyperclip.copy(text)
+    try:
+        pyperclip.copy(text)
+    except Exception as e:
+        logger.warning(str(e))
+
 
 def add_placeholder(event, text_widget, placeholder_text="Text box"):
     """
@@ -1786,7 +1993,7 @@ def add_placeholder(event, text_widget, placeholder_text="Text box"):
     """
     if text_widget.get("1.0", "end-1c") == "":
         text_widget.insert("1.0", placeholder_text)
-        text_widget.config(fg='grey')
+
 
 def remove_placeholder(event, text_widget, placeholder_text="Text box"):
     """
@@ -1799,194 +2006,9 @@ def remove_placeholder(event, text_widget, placeholder_text="Text box"):
     """
     if text_widget.get("1.0", "end-1c") == placeholder_text:
         text_widget.delete("1.0", "end")
-        text_widget.config(fg='black')
-
-def load_stt_model(event=None):
-    """
-    Initialize speech-to-text model loading in a separate thread.
-
-    Args:
-        event: Optional event parameter for binding to tkinter events.
-    """
-    thread = threading.Thread(target=_load_stt_model_thread)
-    thread.start()
-    return thread
-
-def _load_stt_model_thread():
-    """
-    Internal function to load the Whisper speech-to-text model.
-    
-    Creates a loading window and handles the initialization of the WhisperModel
-    with configured settings. Updates the global stt_local_model variable.
-    
-    Raises:
-        Exception: Any error that occurs during model loading is caught, logged,
-                  and displayed to the user via a message box.
-    """
-    with stt_model_loading_thread_lock:
-        global stt_local_model
-
-        def on_cancel_whisper_load():
-            cancel_await_thread.set()
-
-        model_name = app_settings.editable_settings[SettingsKeys.WHISPER_MODEL.value].strip()
-        stt_loading_window = LoadingWindow(root, title="Speech to Text", initial_text=f"Loading Speech to Text {model_name} model. Please wait.", 
-                            note_text="Note: If this is the first time loading the model, it will be actively downloading and may take some time.\n We appreciate your patience!",on_cancel=on_cancel_whisper_load)
-        window.disable_settings_menu()
-        print(f"Loading STT model: {model_name}")
-
-        try:
-            unload_stt_model()
-            device_type = get_selected_whisper_architecture()
-            set_cuda_paths()
-
-            compute_type = app_settings.editable_settings[SettingsKeys.WHISPER_COMPUTE_TYPE.value]
-            # Change the  compute type automatically if using a gpu one.
-            if device_type == Architectures.CPU.architecture_value and compute_type == "float16":
-                compute_type = "int8"
-
-
-            stt_local_model = WhisperModel(
-                model_name,
-                device=device_type,
-                cpu_threads=int(app_settings.editable_settings[SettingsKeys.WHISPER_CPU_COUNT.value]),
-                compute_type=compute_type
-            )
-
-            print("STT model loaded successfully.")
-        except Exception as e:
-            print(f"An error occurred while loading STT {type(e).__name__}: {e}")
-            stt_local_model = None
-            messagebox.showerror("Error", f"An error occurred while loading Speech to Text {type(e).__name__}: {e}")
-        finally:
-            window.enable_settings_menu()
-            stt_loading_window.destroy()
-            print("Closing STT loading window.")
-        logging.debug(f"STT model status after loading: {stt_local_model=}")
-
-def unload_stt_model(event=None):
-    """
-    Unload the speech-to-text model from memory.
-    
-    Cleans up the global stt_local_model instance and performs garbage collection
-    to free up system resources.
-    """
-    global stt_local_model
-    if stt_local_model is not None:
-        print("Unloading STT model from device.")
-        # no risk of temporary "stt_local_model in globals() is False" with same gc effect
-        stt_local_model = None
-        gc.collect()
-        print("STT model unloaded successfully.")
-    else:
-        print("STT model is already unloaded.")
-    logging.debug(f"STT model status after unloading: {stt_local_model=}")
-
-def get_selected_whisper_architecture():
-    """
-    Determine the appropriate device architecture for the Whisper model.
-    
-    Returns:
-        str: The architecture value (CPU or CUDA) based on user settings.
-    """
-    device_type = Architectures.CPU.architecture_value
-    if app_settings.editable_settings[SettingsKeys.WHISPER_ARCHITECTURE.value] == Architectures.CUDA.label:
-        device_type = Architectures.CUDA.architecture_value
-
-    return device_type
-
-def faster_whisper_transcribe(audio):
-    """
-    Transcribe audio using the Faster Whisper model.
-    
-    Args:
-        audio: Audio data to transcribe.
-    
-    Returns:
-        str: Transcribed text or error message if transcription fails.
-        
-    Raises:
-        Exception: Any error during transcription is caught and returned as an error message.
-    """
-    try:
-        if stt_local_model is None:
-            load_stt_model()
-            raise TranscribeError("Speech2Text model not loaded. Please try again once loaded.")
-        
-        # Validate beam_size
-        try:
-            beam_size = int(app_settings.editable_settings[SettingsKeys.WHISPER_BEAM_SIZE.value])
-            if beam_size <= 0:
-                raise ValueError(f"{SettingsKeys.WHISPER_BEAM_SIZE.value} must be greater than 0 in advanced settings")
-        except (ValueError, TypeError) as e:
-            return f"Invalid {SettingsKeys.WHISPER_BEAM_SIZE.value} parameter. Please go into the advanced settings and ensure you have a integer greater than 0: {str(e)}"
-
-        additional_kwargs = {}
-        if app_settings.editable_settings[SettingsKeys.USE_TRANSLATE_TASK.value]:
-            additional_kwargs['task'] = 'translate'
-        if app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
-            additional_kwargs['language'] = app_settings.editable_settings[SettingsKeys.WHISPER_LANGUAGE_CODE.value]
-
-        if app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value] not in SettingsWindow.AUTO_DETECT_LANGUAGE_CODES:
-            additional_kwargs['initial_prompt'] = app_settings.editable_settings[SettingsKeys.WHISPER_INITIAL_PROMPT.value]
-
-        # Validate vad_filter
-        vad_filter = bool(app_settings.editable_settings[SettingsKeys.WHISPER_VAD_FILTER.value])
-
-        start_time = time.monotonic()
-        segments, info = stt_local_model.transcribe(
-            audio,
-            beam_size=beam_size,
-            vad_filter=vad_filter,
-            **additional_kwargs
-        )
-        if type(audio) in [str, np.ndarray]:
-            print(f"took {time.monotonic() - start_time:.3f} seconds to process {len(audio)=} {type(audio)=} audio.")
-
-        result = "".join(f"{segment.text} " for segment in segments)
-        logger.debug(f"Result: {result}")
-
-        # Only clean hallucinations if enabled in settings
-        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
-            try:
-                result = hallucination_cleaner.clean_text(result)
-                logger.debug(f"Cleaned result: {result}")
-            except Exception as e:
-                # ignore the error as it should not break the transcription
-                logger.exception(f"Error during hallucination cleaning: {str(e)}")
-        return result
-    except Exception as e:
-        logger.exception(f"Error during transcription: {str(e)}")
-        error_message = f"Transcription failed: {str(e)}"
-        raise TranscribeError(error_message) from e
-
-def set_cuda_paths():
-    """
-    Configure CUDA-related environment variables and paths.
-    
-    Sets up the necessary environment variables for CUDA execution when CUDA
-    architecture is selected. Updates CUDA_PATH, CUDA_PATH_V12_4, and PATH
-    environment variables with the appropriate NVIDIA driver paths.
-    """
-    if (get_selected_whisper_architecture() != Architectures.CUDA.architecture_value) or (app_settings.editable_settings[SettingsKeys.LLM_ARCHITECTURE.value] != Architectures.CUDA.label):
-        return
-
-    nvidia_base_path = Path(get_file_path('nvidia-drivers'))
-    
-    cuda_path = nvidia_base_path / 'cuda_runtime' / 'bin'
-    cublas_path = nvidia_base_path / 'cublas' / 'bin'
-    cudnn_path = nvidia_base_path / 'cudnn' / 'bin'
-    
-    paths_to_add = [str(cuda_path), str(cublas_path), str(cudnn_path)]
-    env_vars = ['CUDA_PATH', 'CUDA_PATH_V12_4', 'PATH']
-
-    for env_var in env_vars:
-        current_value = os.environ.get(env_var, '')
-        new_value = os.pathsep.join(paths_to_add + ([current_value] if current_value else []))
-        os.environ[env_var] = new_value
 
 # Configure grid weights for scalability
-root.grid_columnconfigure(0, weight=1, minsize= 10)
+root.grid_columnconfigure(0, weight=1, minsize=10)
 root.grid_columnconfigure(1, weight=1)
 root.grid_columnconfigure(2, weight=1)
 root.grid_columnconfigure(3, weight=1)
@@ -2013,13 +2035,23 @@ user_input.grid(row=0, column=1, columnspan=8, padx=5, pady=15, sticky='nsew')
 
 # Insert placeholder text
 user_input.scrolled_text.insert("1.0", "Transcript of Conversation")
-user_input.scrolled_text.config(fg='grey')
 
 # Bind events to remove or add the placeholder with arguments
-user_input.scrolled_text.bind("<FocusIn>", lambda event: remove_placeholder(event, user_input.scrolled_text, "Transcript of Conversation"))
-user_input.scrolled_text.bind("<FocusOut>", lambda event: add_placeholder(event, user_input.scrolled_text, "Transcript of Conversation"))
+user_input.scrolled_text.bind(
+    "<FocusIn>",
+    lambda event: remove_placeholder(
+        event,
+        user_input.scrolled_text,
+        "Transcript of Conversation"))
+user_input.scrolled_text.bind(
+    "<FocusOut>",
+    lambda event: add_placeholder(
+        event,
+        user_input.scrolled_text,
+        "Transcript of Conversation"))
 
-mic_button = tk.Button(root, text="Start\nRecording", command=lambda: (threaded_toggle_recording()), height=2, width=11)
+mic_button = tk.Button(root, text="Start\nRecording", height=2, width=11)
+mic_button.configure(command=lambda: threaded_toggle_recording(mic_button))
 mic_button.grid(row=1, column=1, pady=5, sticky='nsew')
 
 send_button = tk.Button(root, text="Generate Note", command=send_and_flash, height=2, width=11)
@@ -2031,7 +2063,7 @@ pause_button.grid(row=1, column=2, pady=5, sticky='nsew')
 clear_button = tk.Button(root, text="Clear", command=clear_application_press, height=2, width=11)
 clear_button.grid(row=1, column=4, pady=5, sticky='nsew')
 
-#hidding the AI Scribe button
+# hidding the AI Scribe button
 # toggle_button = tk.Button(root, text="AI Scribe\nON", command=toggle_aiscribe, height=2, width=11)
 # toggle_button.grid(row=1, column=5, pady=5, sticky='nsew')
 
@@ -2051,7 +2083,6 @@ response_display.grid(row=2, column=1, columnspan=8, padx=5, pady=15, sticky='ns
 # Insert placeholder text
 response_display.scrolled_text.configure(state='normal')
 response_display.scrolled_text.insert("1.0", "Medical Note")
-response_display.scrolled_text.config(fg='grey')
 response_display.scrolled_text.configure(state='disabled')
 
 if app_settings.editable_settings["Enable Scribe Template"]:
@@ -2072,12 +2103,21 @@ system_font = tk.font.nametofont("TkDefaultFont")
 base_size = system_font.cget("size")
 scaled_size = int(base_size * 0.9)  # 90% of system font size
 
+# Add warning label
+warning_label = tk.Label(history_frame,
+                         text="Temporary Note History will be cleared when app closes",
+                         # fg="red",
+                         # wraplength=200,
+                         justify="left",
+                         font=tk.font.Font(size=scaled_size),
+                         )
+warning_label.grid(row=3, column=0, sticky='ew', pady=(0, 5))
+
 # Add the timestamp listbox
 timestamp_listbox = TimestampListbox(history_frame, height=30, exportselection=False, response_history=response_history)
-timestamp_listbox.grid(row=0, column=0, rowspan=3,sticky='nsew')
+timestamp_listbox.grid(row=0, column=0, rowspan=3, sticky='nsew')
 timestamp_listbox.bind('<<ListboxSelect>>', show_response)
 timestamp_listbox.insert(tk.END, "Temporary Note History")
-timestamp_listbox.config(fg='grey')
 
 warning_label = tk.Label(history_frame,
                             text="Temporary Note History will be cleared when app closes",
@@ -2097,12 +2137,20 @@ mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_setti
 mic_test.frame.grid(row=4, column=0, pady=10, sticky='nsew')  # Use grid to place the frame
 
 # Add a footer frame at the bottom of the window
-footer_frame = tk.Frame(root, bg="lightgray", height=30)
+footer_frame = tk.Frame(root, bg="darkgray", height=30)
 footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")  # Use grid instead of pack
 
 # Add "Version 2" label in the center of the footer
 version = get_application_version()
-version_label = tk.Label(footer_frame, text=f"FreeScribe Client {version}",bg="lightgray",fg="black").pack(side="left", expand=True, padx=2, pady=5)
+version_label = tk.Label(
+    footer_frame,
+    text=f"FreeScribe Client {version}",
+    bg="darkgray").pack(
+        side="left",
+        expand=True,
+        padx=2,
+    pady=5)
+
 
 window.update_aiscribe_texts(None)
 # Bind Alt+P to send_and_receive function
@@ -2111,22 +2159,51 @@ root.bind('<Alt-p>', lambda event: pause_button.invoke())
 # Bind Alt+R to toggle_recording function
 root.bind('<Alt-r>', lambda event: mic_button.invoke())
 
-#set min size
+# set min size
 root.minsize(900, 400)
+
+# ram checkj
+if utils.system.is_system_low_memory() and not app_settings.is_low_mem_mode():
+    logger.warning("System has low memory.")
+
+    popup_box = PopupBox(root, 
+    title="Low Memory Warning", 
+    message="Your system has low memory. Please consider enabling Low Memory Mode in the settings.",
+    button_text_1="Enable",
+    button_text_2="Dismiss",
+    )
+
+    if popup_box.response == "button_1":
+        app_settings.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value] = True
+        app_settings.save_settings_to_file()
+        logger.debug("Low Memory Mode enabled.")
 
 if (app_settings.editable_settings['Show Welcome Message']):
     window.show_welcome_message()
 
 #Wait for the UI root to be intialized then load the model. If using local llm.
-if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
-    def on_cancel_llm_load():
-        cancel_await_thread.set()
-    root.after(100, lambda:(ModelManager.setup_model(app_settings=app_settings, root=root, on_cancel=on_cancel_llm_load)))
+# Do not load the models if low mem is activated.
+if not app_settings.is_low_mem_mode():
+    # Wait for the UI root to be intialized then load the model. If using local llm.
+    if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
+        def on_cancel_llm_load():
+            cancel_await_thread.set()
+        root.after(
+            100,
+            lambda: (
+                ModelManager.setup_model(
+                    app_settings=app_settings,
+                    root=root,
+                    on_cancel=on_cancel_llm_load)))
 
-if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
-    # Inform the user that Local Whisper is being used for transcription
-    print("Using Local Whisper for transcription.")
-    root.after(100, lambda: (load_stt_model()))
+    if app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]:
+        # Inform the user that Local Whisper is being used for transcription
+        print("Using Local Whisper for transcription.")
+        root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
+
+if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+    root.after(100, lambda: (
+        load_hallucination_cleaner_model(root, app_settings)))
 
 if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
     root.after(100, lambda: (
@@ -2137,50 +2214,57 @@ def await_models(timeout_length=60):
     """
     Waits until the necessary models (Whisper and LLM) are fully loaded.
 
-    The function checks if local models are enabled based on application settings. 
-    If a remote model is used, the corresponding flag is set to True immediately, 
-    bypassing the wait. Otherwise, the function enters a loop that periodically 
+    The function checks if local models are enabled based on application settings.
+    If a remote model is used, the corresponding flag is set to True immediately,
+    bypassing the wait. Otherwise, the function enters a loop that periodically
     checks for model readiness and prints status updates until both models are loaded.
 
     :return: None
     """
-    #if we cancel this thread then break out of the loop
+
+    if not hasattr(await_models, "start_timer"):
+        await_models.start_timer = time.time()
+
+    # if we cancel this thread then break out of the loop
     if cancel_await_thread.is_set():
-        print("*** Model loading cancelled. Enabling settings bar.")
+        logger.info("*** Model loading cancelled. Enabling settings bar.")
         #reset the flag
         cancel_await_thread.clear()
-        #reset the settings bar
+        # reset the settings bar
         window.enable_settings_menu()
-        #return so the .after() doesnt get called.
+        # return so the .after() doesnt get called.
         return
 
     # if we are using remote whisper then we can assume it is loaded and dont wait
-    whisper_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] or stt_local_model)
-    
+    whisper_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] or is_whisper_valid())
+
     # if we are not using local llm then we can assume it is loaded and dont wait
     llm_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or ModelManager.local_model)
- 
+
     # if there was a error stop checking
     if ModelManager.local_model == ModelStatus.ERROR:
-        #Error message is displayed else where
+        # Error message is displayed else where
         llm_loaded = True
 
+    elapsed_time = time.time() - await_models.start_timer
     # wait for both models to be loaded
-    if not whisper_loaded or not llm_loaded:
-        print("Waiting for models to load...")
+    if (not whisper_loaded or not llm_loaded ) and not app_settings.is_low_mem_mode():
+        if math.floor(elapsed_time) % 5 == 0:
+            logger.info(f"Waiting for models to load. Loading timer: {math.floor(elapsed_time)}, Timeout:{timeout_length}")
 
         # override the lock in case something else tried to edit
         window.disable_settings_menu()
 
-        root.after(100, await_models)
+        root.after(1000, await_models)
     else:
-        print("*** Models loaded successfully on startup.")
+        logger.info("*** Models loaded successfully on startup.")
 
         # if error null out the model
         if ModelManager.local_model == ModelStatus.ERROR:
             ModelManager.local_model = None
 
         window.enable_settings_menu()
+
 
 root.after(100, await_models)
 
@@ -2226,6 +2310,7 @@ if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
     load_notes_history()
     # Populate the UI with the loaded notes
     populate_ui_with_notes()
+
 
 root.mainloop()
 

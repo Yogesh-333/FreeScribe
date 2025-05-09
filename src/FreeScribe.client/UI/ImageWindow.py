@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import Toplevel, messagebox
 from PIL import Image, ImageTk
+
+import UI.Helpers
 from utils.file_utils import get_file_path
-import utils.window_utils
+import utils.windows_utils
 
 class ImageWindow:
     """A window to display an image with scrollbars and zoom functionality.
@@ -37,8 +39,8 @@ class ImageWindow:
             # Create window and load image
             self.window = Toplevel(parent)
             self.window.title(title)
-            self.window.iconbitmap(get_file_path('assets', 'logo.ico'))
-            
+            UI.Helpers.set_window_icon(self.window)
+
             # Load image
             self.image = Image.open(image_path)
             if width and height:
@@ -88,7 +90,7 @@ class ImageWindow:
             height = min(self.image.height, screen_height - 100) + 25
             self.window.geometry(f"{width}x{height}")
             
-            utils.window_utils._display_center_to_parent(self.window, parent, width=width, height=height)  # Center the ImageWindow to MarkdownWindow
+            utils.windows_utils._display_center_to_parent(self.window, parent, width=width, height=height)  # Center the ImageWindow to MarkdownWindow
 
             
             # Bind window close to escape key
