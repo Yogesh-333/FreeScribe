@@ -50,7 +50,7 @@ class MainWindow:
             self.container_manager.set_status_icon_color(widget_name, self.container_manager.start_container(app_settings.editable_settings["LLM Caddy Container Name"]))
             self.container_manager.set_status_icon_color(widget_name, self.container_manager.start_container(app_settings.editable_settings["LLM Authentication Container Name"]))
         except Exception as e:
-            logger.exception("Failed to start LLM container")
+            logger.exception("Failed to start LLM container: %s", e)
             tk.messagebox.showerror("Error", f"An error occurred while starting the LLM container: {e}")
 
     def stop_LLM_container(self, widget_name, app_settings):

@@ -481,7 +481,7 @@ def record_audio():
         if stream is None:
             clear_application_press()
             messagebox.showerror("Error", f"An error occurred while trying to record audio: {stream_exception}")
-            logger.exception(f"An error occurred while trying to record audio: {stream_exception}")
+            logger.error(f"An error occurred while trying to record audio: {stream_exception}")
         
         audio_data_leng = 0
         while is_recording and stream is not None:
