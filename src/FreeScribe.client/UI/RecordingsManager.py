@@ -55,10 +55,11 @@ class RecordingsManager:
         scrollbar.config(command=self.recordings_list.yview)
 
         # Populate recordings list
-        recordings_dir = get_resource_path("recordings")
-        for f in sorted(os.listdir(recordings_dir)):
-            if f.endswith('.AE2'):
-                self.recordings_list.insert('end', f)
+        if os.path.exists(get_resource_path("recordings")):
+            recordings_dir = get_resource_path("recordings")
+            for f in sorted(os.listdir(recordings_dir)):
+                if f.endswith('.AE2'):
+                    self.recordings_list.insert('end', f)
 
         # Playback controls
         controls_frame = Frame(self.popup)
