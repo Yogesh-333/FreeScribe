@@ -69,9 +69,12 @@ class LogWindow:
         thread.start()
 
     def _update_text_widget(self, lines):
-        self.text_widget.delete(1.0, tk.END)
-        for line in lines:
-            self.text_widget.insert(tk.END, line)
+        # check if it exists
+        if self.text_widget.winfo_exists():
+            # Clear the text widget and insert the decrypted lines
+            self.text_widget.delete(1.0, tk.END)
+            for line in lines:
+                self.text_widget.insert(tk.END, line)
 
     def copy_to_clipboard(self):
         content = self.text_widget.get(1.0, tk.END)
