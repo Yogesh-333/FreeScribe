@@ -38,7 +38,7 @@ class LogWindow:
         def on_done(result=None, error=None):
             loading.destroy()
             if error:
-                messagebox.showerror("Error", f"Failed to load log:\n{error}")
+                messagebox.showerror("Error", f"Failed to load log:\n{error}", parent=self.root)
             else:
                 self._update_text_widget(result)
 
