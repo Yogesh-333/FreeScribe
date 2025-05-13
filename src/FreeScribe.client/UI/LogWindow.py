@@ -27,52 +27,54 @@ class LogWindow:
         self.load_log()
 
     def load_log(self):
-        loading_window = LoadingWindow(
-            parent=self.root,
-            title="Loading Log",
-            initial_text="Decrypting log file...",
-            note_text="This may take a moment depending on the log size."
-        )
-        
-        # Ensure loading window stays on top and grabs focus
-        loading_window.popup.attributes('-topmost', True)
+        loading = LoadingWindow(self.root,
+                                title="Loading Log",
+                                initial_text="Decrypting log file…",
+                                note_text="May take a moment.")
+        loading.popup.attributes('-topmost', True)
+        loading.popup.focus_force()
+        loading.popup.grab_set()
 
-        def load_thread():
+        def on_done(result=None, error=None):
+            loading.destroy()
+            if error:
+                messagebox.showerror("Error", f"Failed to load log:\n{error}")
+            else:
+                self._update_text_widget(result)
+
+        self._start_decrypt_thread(on_done)
+
+    def _start_decrypt_thread(self, callback):
+        def target():
             try:
-                file_path = get_resource_path("freescribe.log")
-                with open(file_path, "r") as f:
-                    encrypted_lines = f.readlines()
-
-                decrypted_lines = []
-                for enc_line in encrypted_lines:
-                    enc_line = enc_line.strip()
-                    if not enc_line:
-                        continue
-                    try:
-                        decrypted_text = AESCryptoUtilsClass.decrypt(enc_line)
-                        decrypted_lines.append(decrypted_text + "\n")
-                    except Exception as line_err:
-                        decrypted_lines.append(f"[Failed to decrypt line]: {line_err}\n")
-
-                # Update UI in the main thread
-                self.root.after(0, lambda: self._update_text_widget(decrypted_lines))
+                lines = self._decrypt_file()
+                self.root.after(0, lambda: callback(result=lines))
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to load or decrypt log:\n{str(e)}"))
-            finally:
-                self.root.after(0, loading_window.destroy)
+                self.root.after(0, lambda: callback(error=e))
 
-        # Start the loading thread
-        thread = threading.Thread(target=load_thread)
-        thread.daemon = True
-        thread.start()
+        t = threading.Thread(target=target, daemon=True)
+        t.start()
+
+    def _decrypt_file(self):
+        path = get_resource_path("freescribe.log")
+        with open(path, "r") as f:
+            raw = f.read().splitlines()
+
+        out = []
+        for enc in raw:
+            if not enc:
+                continue
+            try:
+                out.append(AESCryptoUtilsClass.decrypt(enc) + "\n")
+            except Exception as ex:
+                out.append(f"[Failed to decrypt line]: {ex}\n")
+        return out
 
     def _update_text_widget(self, lines):
-        # check if it exists
+        #check if text widget is  exist
         if self.text_widget.winfo_exists():
-            # Clear the text widget and insert the decrypted lines
-            self.text_widget.delete(1.0, tk.END)
-            for line in lines:
-                self.text_widget.insert(tk.END, line)
+            self.text_widget.delete("1.0", tk.END)
+            self.text_widget.insert(tk.END, "".join(lines))
 
     def copy_to_clipboard(self):
         content = self.text_widget.get(1.0, tk.END)
