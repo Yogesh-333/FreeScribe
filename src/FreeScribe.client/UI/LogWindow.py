@@ -59,7 +59,7 @@ class LogWindow:
                 # Update UI in the main thread
                 self.root.after(0, lambda: self._update_text_widget(decrypted_lines))
             except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to load or decrypt log:\n{str(e)}"))
+self.root.after(0, lambda: messagebox.showerror("Error", f"Failed to load or decrypt log:\n{str(e)}", parent=self.root))
             finally:
                 self.root.after(0, loading_window.destroy)
 
