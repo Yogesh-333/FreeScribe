@@ -84,12 +84,13 @@ class LogWindow:
     def save_to_disk(self):
         confirm = messagebox.askyesno(
             "Warning: Potential PHI Leak",
-            "Saving decrypted logs to disk may leak Protected Health Information (PHI).\n\nAre you sure you want to proceed?"
+            "Saving decrypted logs to disk may leak Protected Health Information (PHI).\n\nAre you sure you want to proceed?",
+            parent=self.root,
         )
         if not confirm:
             return
 
-        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
+        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")], parent=self.root)
         if file_path:
             try:
                 content = self.text_widget.get(1.0, tk.END).strip()
