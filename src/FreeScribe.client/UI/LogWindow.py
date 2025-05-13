@@ -36,8 +36,6 @@ class LogWindow:
         
         # Ensure loading window stays on top and grabs focus
         loading_window.popup.attributes('-topmost', True)
-        loading_window.popup.focus_force()
-        loading_window.popup.grab_set()
 
         def load_thread():
             try:
