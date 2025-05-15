@@ -1598,7 +1598,7 @@ def start_flashing():
 def stop_flashing():
     global is_flashing
     is_flashing = False
-    root.after(0, blinking_circle_canvas.itemconfig(circle, fill='white'))  # Reset to default color
+    root.after(0, lambda: blinking_circle_canvas.itemconfig(circle, fill='white'))  # Reset to default color
 
 
 def flash_circle():
