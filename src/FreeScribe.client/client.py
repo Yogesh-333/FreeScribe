@@ -207,12 +207,13 @@ def safe_set_button_config(button, **kwargs):
             logger.warning("Button does not exist, cannot set text.")
     root.after(0, lambda: update_text(button, **kwargs))
 
-def safe_set_transcription_box(text):
+def safe_set_transcription_box(text, callback=None):
     """
     Safely sets the text of the transcription box in the UI.
 
     Args:
         text (str): The text to set on the transcription box.
+        callback (callable, optional): Function to call after text is updated.
     """
     def update_text():
         if user_input.scrolled_text.winfo_exists():
@@ -220,6 +221,8 @@ def safe_set_transcription_box(text):
             user_input.scrolled_text.delete("1.0", tk.END)
             user_input.scrolled_text.insert(tk.END, text)
             user_input.scrolled_text.configure(state='disabled')
+            if callback:
+                callback()
         else:
             logger.warning("Transcription box does not exist, cannot set text.")
     root.after(0, update_text)
@@ -1055,16 +1058,9 @@ def send_audio_to_server():
 
             #check if canceled, if so do not update the UI
             if not is_audio_processing_whole_canceled.is_set():
-                safe_set_transcription_box("transcribed_text")
-
-                # Send the transcribed text and receive a response
-                send_and_receive()
+                safe_set_transcription_box(transcribed_text, send_and_receive)
         except Exception as e:
-            # Log the error message
-            # TODO: Add system eventlogger
             print(f"An error occurred: {e}")
-
-            #log error to input window
             safe_set_transcription_box(f"An error occurred: {e}")
         finally:
             loading_window.destroy()
@@ -1131,10 +1127,7 @@ def send_audio_to_server():
                         except Exception as e:
                             # ignore the error as it should not break the transcription
                             logger.exception(f"remote Error during hallucination cleaning: {str(e)}")
-                    safe_set_transcription_box(transcribed_text)
-
-                    # Send the transcribed text and receive a response
-                    send_and_receive()
+                    safe_set_transcription_box(transcribed_text, send_and_receive)
             except Exception as e:
                 # log error message
                 #TODO: Implment proper logging to system
