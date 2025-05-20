@@ -682,7 +682,6 @@ def toggle_recording():
                 user_input.scrolled_text.insert(tk.END, "Recording")
             response_display.scrolled_text.configure(state='normal')
             response_display.scrolled_text.delete("1.0", tk.END)
-            response_display.scrolled_text.configure(fg='black')
             response_display.scrolled_text.configure(state='disabled')
         root.after(0, _start_recording_ui)
         is_recording = True
@@ -1152,7 +1151,6 @@ def display_text(text):
         response_display.scrolled_text.configure(state='normal')
         response_display.scrolled_text.delete("1.0", tk.END)
         response_display.scrolled_text.insert(tk.END, f"{text}\n")
-        response_display.scrolled_text.configure(fg='black')
         response_display.scrolled_text.configure(state='disabled')
     root.after(0, _display_text)
 
