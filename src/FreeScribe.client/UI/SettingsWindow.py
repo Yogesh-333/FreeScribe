@@ -221,7 +221,7 @@ class SettingsWindow():
         ]
         
         if FeatureToggle.LLM_CONVO_PRESCREEN:
-            self.adv_ai_settings.append(SettingsKeys.Enable_AI_Conversation_Validation)
+            self.adv_ai_settings.append(SettingsKeys.Enable_AI_Conversation_Validation.value)
 
         if FeatureToggle.BEST_OF:
             self.adv_ai_settings.append(SettingsKeys.BEST_OF.value)
