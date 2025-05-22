@@ -4,6 +4,8 @@ from utils.AESCryptoUtils import AESCryptoUtilsClass
 from utils.file_utils import get_resource_path
 import threading
 from UI.LoadingWindow import LoadingWindow
+from utils.log_config import logger
+import base64
 
 class LogWindow:
     def __init__(self, parent_root):
@@ -75,7 +77,7 @@ class LogWindow:
         if self.text_widget.winfo_exists():
             self.text_widget.delete("1.0", tk.END)
             self.text_widget.insert(tk.END, "".join(lines))
-
+            
     def copy_to_clipboard(self):
         content = self.text_widget.get(1.0, tk.END)
         self.root.clipboard_clear()
@@ -98,4 +100,5 @@ class LogWindow:
                     f.write(content)
                 messagebox.showinfo("Saved", f"File saved to:\n{file_path}")
             except Exception as e:
+                logger.exception("Failed to save file")
                 messagebox.showerror("Error", f"Failed to save file:\n{str(e)}")
