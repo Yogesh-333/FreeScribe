@@ -17,6 +17,7 @@ import utils.AESCryptoUtils as AESCryptoUtils
 import utils.audio
 from UI.SettingsConstant import SettingsKeys
 from UI.LoadingWindow import LoadingWindow
+from utils.log_config import logger
 
 class RecordingsManager:
     
@@ -55,10 +56,20 @@ class RecordingsManager:
         scrollbar.config(command=self.recordings_list.yview)
 
         # Populate recordings list
-        recordings_dir = get_resource_path("recordings")
-        for f in sorted(os.listdir(recordings_dir)):
-            if f.endswith('.AE2'):
-                self.recordings_list.insert('end', f)
+        if os.path.exists(get_resource_path("recordings")):
+            recordings_dir = get_resource_path("recordings")
+            files_found = False
+            for f in sorted(os.listdir(recordings_dir)):
+                if f.endswith('.AE2'):
+                    self.recordings_list.insert('end', f)
+                    files_found = True
+            
+            if not files_found:
+                self.recordings_list.insert('end', "No recordings found")
+                self.recordings_list.itemconfig(0, {'fg': 'gray'})
+        else:
+            self.recordings_list.insert('end', "No recordings found")
+            self.recordings_list.itemconfig(0, {'fg': 'gray'})
 
         # Playback controls
         controls_frame = Frame(self.popup)
@@ -150,6 +161,7 @@ class RecordingsManager:
             self.update_position()
 
         except Exception as e:
+            logger.exception("Error playing recording")
             messagebox.showerror("Error", f"Could not play recording: {str(e)}")
 
     def play_audio(self):
@@ -175,6 +187,7 @@ class RecordingsManager:
                 self.current_position += frames_written / self.wf.getframerate()
 
         except Exception as e:
+            logger.exception("Playback error")
             messagebox.showerror("Playback Error", f"Error during playback: {str(e)}")
         finally:
             self.stop_playback()
@@ -227,6 +240,7 @@ class RecordingsManager:
                 os.remove(decrypted_path)
             self.recordings_list.delete(selection[0])
         except Exception as e:
+            logger.exception("Error deleting recording")
             messagebox.showerror("Error", f"Could not delete recording: {str(e)}")
 
     def save_unencrypted(self):
@@ -249,6 +263,7 @@ class RecordingsManager:
                 with open(wav_path, 'rb') as src, open(save_path, 'wb') as dst:
                     dst.write(src.read())
             except Exception as e:
+                logger.exception("Error saving recording")
                 messagebox.showerror("Error", f"Could not save recording: {str(e)}")
 
     def update_time_label(self):
@@ -286,6 +301,7 @@ class RecordingsManager:
                 self.popup.destroy()
                 
             except Exception as e:
+                logger.exception("Error generating note")
                 messagebox.showerror("Error", f"Could not generate note: {str(e)}")
 
         self.parent.after(0, note_loading)

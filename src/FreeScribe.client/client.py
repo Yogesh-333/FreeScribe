@@ -92,7 +92,7 @@ def delete_temp_file(filename):
             print(f"Deleting temporary file: {filename}")
             os.remove(file_path)
         except OSError as e:
-            print(f"Error deleting temporary file {filename}: {e}")
+            logger.exception(f"Error deleting temporary file {filename}: {e}")
 
 def on_closing():
     delete_temp_file('recording.wav')
@@ -143,7 +143,7 @@ def load_notes_history():
     except FileNotFoundError:
         logger.info(f"No temporary notes file found at {notes_file_path}")
     except Exception as e:
-        logger.error(f"Error loading temporary notes: {e}")
+        logger.exception(f"Error loading temporary notes: {e}")
 
 def populate_ui_with_notes():
     """
@@ -175,7 +175,7 @@ def clear_all_notes():
             file.write("")  # Write an empty string to clear the file
         logger.info(f"Temporary notes file cleared: {notes_file_path}")
     except Exception as e:
-        logger.error(f"Error clearing temporary notes file: {e}")
+        logger.exception(f"Error clearing temporary notes file: {e}")
 
 def clear_notes_ui_element():
     """Clears the UI elements displaying the notes."""
@@ -516,7 +516,7 @@ def open_microphone_stream():
     except (OSError, IOError) as e:
         # Log the error message
         # TODO System logger
-        print(f"An error occurred opening the stream({type(e).__name__}): {e}")
+        logger.exception(f"An error occurred opening the stream({type(e).__name__}): {e}")
         return None, e
 
 def record_audio():
@@ -539,14 +539,15 @@ def record_audio():
         current_chunk = []
         silent_duration = 0        
         record_duration = 0
-        minimum_silent_duration = int(app_settings.editable_settings["Real Time Silence Length"])
-        minimum_audio_duration = int(app_settings.editable_settings["Real Time Audio Length"])
+        minimum_silent_duration = float(app_settings.editable_settings["Real Time Silence Length"])
+        minimum_audio_duration = float(app_settings.editable_settings["Real Time Audio Length"])
 
         stream, stream_exception = open_microphone_stream()
 
         if stream is None:
             clear_application_press()
             messagebox.showerror("Error", f"An error occurred while trying to record audio: {stream_exception}")
+            logger.error(f"An error occurred while trying to record audio: {stream_exception}")
         
         audio_data_leng = 0
         while is_recording and stream is not None:
@@ -562,6 +563,7 @@ def record_audio():
                 except ValueError:
                     # default it to value in DEFAULT_SETTINGS_TABLE on invalid error
                     speech_prob_threshold = app_settings.DEFAULT_SETTINGS_TABLE[SettingsKeys.SILERO_SPEECH_THRESHOLD.value]
+                    logger.info(f"Invalid value for SILERO_SPEECH_THRESHOLD: {app_settings.editable_settings[SettingsKeys.SILERO_SPEECH_THRESHOLD.value]}. Defaulting to {speech_prob_threshold}")
 
                 if is_silent(audio_buffer, speech_prob_threshold ):
                     silent_duration += CHUNK / RATE
@@ -604,14 +606,15 @@ def record_audio():
 
         # Send any remaining audio chunk when recording stops
         if current_chunk:
+            last_chunk = b''.join(current_chunk)
+            audio_queue.put(last_chunk)
             if app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value]:
-                utils.audio.encrypt_audio_chunk(b''.join(current_chunk), filepath=recording_id)
-            audio_queue.put(b''.join(current_chunk))
+                utils.audio.encrypt_audio_chunk(last_chunk, filepath=recording_id)
     except Exception as e:
         # Log the error message
         # TODO System logger
         # For now general catch on any problems
-        logger.error(f"An error occurred: {e}")
+        logger.exception(f"An error occurred: {e}")
     finally:
         if stream:
             stream.stop_stream()
@@ -678,6 +681,7 @@ def realtime_text():
                         result = faster_whisper_transcribe(audio_buffer)
                     except Exception as e:
                         update_gui(f"\nError: {e}\n")
+                        logger.exception(f"Error: {e}")
 
                     if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                         update_gui(result)
@@ -727,6 +731,7 @@ def realtime_text():
                             update_gui(f"Error (HTTP Status {response.status_code}): {response.text}")
                     except Exception as e:
                         update_gui(f"Error: {e}")
+                        logger.exception(f"Error: {e}")
                     finally:
                         #close buffer. we dont need it anymore
                         buffer.close()
@@ -821,9 +826,7 @@ def toggle_recording():
                 try:
                     kill_thread(thread_id)
                 except Exception as e:
-                    # Log the error message
-                    # TODO System logger
-                    print(f"An error occurred: {e}")
+                    logger.exception(f"An error occurred: {e}")
                 finally:
                     REALTIME_TRANSCRIBE_THREAD_ID = None
 
@@ -839,6 +842,7 @@ def toggle_recording():
             except ValueError:
                 # default to 3minutes
                 timeout_length = 180
+                logger.info(f"Invalid value for AUDIO_PROCESSING_TIMEOUT_LENGTH: {app_settings.editable_settings[SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value]}. Defaulting to {timeout_length} seconds")
 
             timeout_timer = 0.0
             while audio_queue.empty() is False and timeout_timer < timeout_length:
@@ -933,9 +937,7 @@ def reset_recording_status():
         try:
             kill_thread(REALTIME_TRANSCRIBE_THREAD_ID)
         except Exception as e:
-            # Log the error message
-            # TODO System logger
-            print(f"An error occurred: {e}")
+            logger.exception(f"An error occurred: {e}")
         finally:
             REALTIME_TRANSCRIBE_THREAD_ID = None
 
@@ -943,9 +945,7 @@ def reset_recording_status():
         try:
             kill_thread(GENERATION_THREAD_ID)
         except Exception as e:
-            # Log the error message
-            # TODO System logger
-            print(f"An error occurred: {e}")
+            logger.exception(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
 
@@ -1019,9 +1019,7 @@ def send_audio_to_server():
         try:
             kill_thread(thread_id)
         except Exception as e:
-            # Log the error message
-            #TODO Logging the message to system logger
-            print(f"An error occurred: {e}")
+            logger.exception(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
             clear_application_press()
@@ -1049,6 +1047,7 @@ def send_audio_to_server():
                 result = faster_whisper_transcribe(file_to_send)
             except Exception as e:
                 result = f"An error occurred ({type(e).__name__}): {e}"
+                logger.exception(f"An error occurred: {e}")
 
             transcribed_text = result
 
@@ -1060,7 +1059,7 @@ def send_audio_to_server():
             if not is_audio_processing_whole_canceled.is_set():
                 safe_set_transcription_box(transcribed_text, send_and_receive)
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logger.exception(f"An error occurred: {e}")
             safe_set_transcription_box(f"An error occurred: {e}")
         finally:
             loading_window.destroy()
@@ -1129,9 +1128,7 @@ def send_audio_to_server():
                             logger.exception(f"remote Error during hallucination cleaning: {str(e)}")
                     safe_set_transcription_box(transcribed_text, send_and_receive)
             except Exception as e:
-                # log error message
-                #TODO: Implment proper logging to system
-                print(f"An error occurred: {e}")
+                logger.exception(f"An error occurred: {e}")
                 # Display an error message to the user
                 safe_set_transcription_box(f"An error occurred: {e}")
             finally:
@@ -1201,7 +1198,7 @@ def save_notes_history():
             file.write(encrypted_data)
         logger.info(f"Temporary notes saved to {notes_file_path}")
     except Exception as e:
-        logger.error(f"Error saving temporary notes: {e}")
+        logger.exception(f"Error saving temporary notes: {e}")
 
 IS_FIRST_LOG = True
 def update_gui_with_response(response_text):
@@ -1286,7 +1283,7 @@ def send_text_to_api(edited_text):
         if app_settings.editable_settings["best_of"]:
             payload["best_of"] = int(app_settings.editable_settings["best_of"])
 
-        print(f"Error parsing settings: {e}. Using default settings.")
+        logger.exception(f"Error parsing settings: {e}. Using default settings.")
 
     try:
 
@@ -1481,9 +1478,7 @@ def generate_note(formatted_message):
 
                 return True
             except Exception as e:
-                #Logg
-                #TODO: Implement proper logging to system event logger
-                print(f"An error occurred: {e}")
+                logger.exception(f"An error occurred: {e}")
                 safe_set_note_box(f"An error occurred: {e}")
                 return False
 
@@ -1535,9 +1530,7 @@ def generate_note_thread(text: str):
             if screen_thread and screen_thread.is_alive():
                 kill_thread(screen_thread.ident)
         except Exception as e:
-            # Log the error message
-            # TODO implment system logger
-            print(f"An error occurred: {e}")
+            logger.exception(f"An error occurred: {e}")
         finally:
             GENERATION_THREAD_ID = None
             stop_flashing()
@@ -1900,7 +1893,7 @@ def _load_stt_model_thread():
 
             print("STT model loaded successfully.")
         except Exception as e:
-            print(f"An error occurred while loading STT {type(e).__name__}: {e}")
+            logger.exception(f"Error loading STT model: {str(e)}")
             stt_local_model = None
             messagebox.showerror("Error", f"An error occurred while loading Speech to Text {type(e).__name__}: {e}")
         finally:
@@ -1964,6 +1957,7 @@ def faster_whisper_transcribe(audio):
             if beam_size <= 0:
                 raise ValueError(f"{SettingsKeys.WHISPER_BEAM_SIZE.value} must be greater than 0 in advanced settings")
         except (ValueError, TypeError) as e:
+            logger.exception(f"Invalid {SettingsKeys.WHISPER_BEAM_SIZE.value} parameter: {str(e)}")
             return f"Invalid {SettingsKeys.WHISPER_BEAM_SIZE.value} parameter. Please go into the advanced settings and ensure you have a integer greater than 0: {str(e)}"
 
         additional_kwargs = {}
