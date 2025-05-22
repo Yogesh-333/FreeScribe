@@ -59,7 +59,8 @@ class LoadingWindow:
         self.on_cancel = on_cancel
         self.cancelled = False
     
-        self.parent.after(0, self.build_ui)
+        if self.parent:
+            self.parent.after(0, self.build_ui)
 
     def build_ui(self):
         try:
