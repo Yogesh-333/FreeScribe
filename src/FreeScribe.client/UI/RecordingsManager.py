@@ -10,6 +10,7 @@ import tkinter as tk
 import pyaudio
 import audioop
 import requests
+import numpy as np
 from tkinter import Toplevel, Listbox, Button, Frame, messagebox, ttk, Label
 from tkinter import filedialog
 from utils.file_utils import get_resource_path
@@ -17,6 +18,7 @@ import utils.AESCryptoUtils as AESCryptoUtils
 import utils.audio
 from UI.SettingsConstant import SettingsKeys
 from UI.LoadingWindow import LoadingWindow
+from utils.log_config import logger
 
 class RecordingsManager:
     
@@ -55,10 +57,20 @@ class RecordingsManager:
         scrollbar.config(command=self.recordings_list.yview)
 
         # Populate recordings list
-        recordings_dir = get_resource_path("recordings")
-        for f in sorted(os.listdir(recordings_dir)):
-            if f.endswith('.AE2'):
-                self.recordings_list.insert('end', f)
+        if os.path.exists(get_resource_path("recordings")):
+            recordings_dir = get_resource_path("recordings")
+            files_found = False
+            for f in sorted(os.listdir(recordings_dir)):
+                if f.endswith('.AE2'):
+                    self.recordings_list.insert('end', f)
+                    files_found = True
+            
+            if not files_found:
+                self.recordings_list.insert('end', "No recordings found")
+                self.recordings_list.itemconfig(0, {'fg': 'gray'})
+        else:
+            self.recordings_list.insert('end', "No recordings found")
+            self.recordings_list.itemconfig(0, {'fg': 'gray'})
 
         # Playback controls
         controls_frame = Frame(self.popup)
@@ -150,6 +162,7 @@ class RecordingsManager:
             self.update_position()
 
         except Exception as e:
+            logger.exception("Error playing recording")
             messagebox.showerror("Error", f"Could not play recording: {str(e)}")
 
     def play_audio(self):
@@ -175,6 +188,7 @@ class RecordingsManager:
                 self.current_position += frames_written / self.wf.getframerate()
 
         except Exception as e:
+            logger.exception("Playback error")
             messagebox.showerror("Playback Error", f"Error during playback: {str(e)}")
         finally:
             self.stop_playback()
@@ -227,6 +241,7 @@ class RecordingsManager:
                 os.remove(decrypted_path)
             self.recordings_list.delete(selection[0])
         except Exception as e:
+            logger.exception("Error deleting recording")
             messagebox.showerror("Error", f"Could not delete recording: {str(e)}")
 
     def save_unencrypted(self):
@@ -236,9 +251,7 @@ class RecordingsManager:
             return
 
         filename = self.recordings_list.get(selection[0])
-        decrypted_file = filename.replace('.AE2', '')
-        utils.audio.decrypt_whole_audio_file(decrypted_file)
-        wav_path = get_resource_path(f"recordings/{decrypted_file}.wav")
+        decrypted_file = filename
 
         if save_path := filedialog.asksaveasfilename(
             defaultextension=".wav",
@@ -246,10 +259,27 @@ class RecordingsManager:
             initialfile=f"{decrypted_file}.wav"
         ):
             try:
-                with open(wav_path, 'rb') as src, open(save_path, 'wb') as dst:
-                    dst.write(src.read())
+                decrypted_file_data = utils.audio.decrypt_whole_audio_file(decrypted_file)
+
+                # Basic WAV parameters
+                sample_rate = 16000  # Adjust as needed
+                n_channels = 1       # Mono
+                
+                # Ensure data is in 16-bit integer format
+                audio_data = decrypted_file_data.astype(np.int16)
+                
+                # Write WAV file
+                with open(save_path, 'wb') as f:
+                    wav = wave.open(f, 'wb')
+                    wav.setnchannels(n_channels)
+                    wav.setsampwidth(2)  # 2 bytes for 16-bit
+                    wav.setframerate(sample_rate)
+                    wav.writeframes(audio_data.tobytes())
+                    wav.close()
             except Exception as e:
+                logger.exception("Error saving recording")
                 messagebox.showerror("Error", f"Could not save recording: {str(e)}")
+                logger.exception("Error saving recording")
 
     def update_time_label(self):
         """Update time display label"""
@@ -286,6 +316,7 @@ class RecordingsManager:
                 self.popup.destroy()
                 
             except Exception as e:
+                logger.exception("Error generating note")
                 messagebox.showerror("Error", f"Could not generate note: {str(e)}")
 
         self.parent.after(0, note_loading)

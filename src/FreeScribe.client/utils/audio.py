@@ -17,6 +17,7 @@ import utils.file_utils
 from utils.log_config import logger
 import os
 import wave
+import io
 
 DEFAULT_RATE = 16000
 DEFAULT_CHUNK_SIZE = 512
@@ -50,7 +51,7 @@ def pad_audio_chunk(chunk, pad_seconds=0.5, rate = DEFAULT_RATE, chunk_size = DE
 
     return silence_start + chunk + silence_end
 
-def encrypt_audio_chunk(chunk, filepath: str = None):
+def encrypt_audio_chunk(chunk, filepath: str):
     """
     Encrypt an audio chunk using AES encryption and save as WAV format.
     Appends to existing file if it exists.
@@ -62,16 +63,7 @@ def encrypt_audio_chunk(chunk, filepath: str = None):
     filepath : str, optional
         Base filename to save the encrypted file (without extension)
         If None, uses the current_recording_file from client.py
-    """
-    import wave
-    import io
-    
-    if filepath is None:
-        from client import current_recording_file
-        if current_recording_file is None:
-            raise ValueError("No recording file specified")
-        filepath = current_recording_file
-    
+    """  
     filepath = utils.file_utils.get_resource_path(f"recordings/{filepath}.AE2")
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -87,7 +79,7 @@ def encrypt_audio_chunk(chunk, filepath: str = None):
                 encrypted_data = f.read()
                 existing_data = AESCryptoUtils.decrypt_bytes(encrypted_data)
         except Exception as e:
-            logger.error(f"Error reading existing file {filepath}: {str(e)}")
+            logger.exception(f"Error reading existing file {filepath}: {str(e)}")
             existing_data = None
     
     # Create in-memory WAV file combining existing and new data
@@ -129,9 +121,6 @@ def decrypt_whole_audio_file(filename: str):
     np.ndarray
         The decrypted audio data
     """
-    import wave
-    import io
-    
     filepath = utils.file_utils.get_resource_path(f"recordings/{filename}")
     wav_filepath = utils.file_utils.get_resource_path(f"recordings/{filename}.wav")
     
@@ -170,11 +159,11 @@ def decrypt_whole_audio_file(filename: str):
         return wav_data
         
     except FileNotFoundError:
-        logger.error(f"File not found: {filepath}")
+        logger.exception(f"File not found: {filepath}")
         raise
     except wave.Error as e:
-        logger.error(f"Invalid WAV file format: {str(e)}")
+        logger.exception(f"Invalid WAV file format: {str(e)}")
         return np.array([], dtype=np.int16)
     except Exception as e:
-        logger.error(f"Error decrypting audio: {str(e)}")
+        logger.exception(f"Error decrypting audio: {str(e)}")
         raise
