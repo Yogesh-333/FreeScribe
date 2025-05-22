@@ -42,7 +42,7 @@ import librosa
 from faster_whisper import WhisperModel
 from UI.MainWindowUI import MainWindowUI
 from UI.SettingsWindow import SettingsWindow
-from UI.SettingsConstant import SettingsKeys, Architectures
+from UI.SettingsConstant import SettingsKeys, FeatureToggle
 from UI.Widgets.CustomTextBox import CustomTextBox
 from UI.LoadingWindow import LoadingWindow
 from UI.ImageWindow import ImageWindow
@@ -556,7 +556,7 @@ def realtime_text():
                         break
                     try:
                         result = faster_whisper_transcribe(audio_buffer, app_settings=app_settings)
-                        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                        if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
                             result = hallucination_cleaner.clean_text(result)
                     except Exception as e:
                         logger.exception(str(e))
@@ -602,7 +602,7 @@ def realtime_text():
 
                         if response.status_code == 200:
                             text = response.json()['text']
-                            if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                            if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
                                 text = hallucination_cleaner.clean_text(text)
                             if not local_cancel_flag and not is_audio_processing_realtime_canceled.is_set():
                                 update_gui(text)
@@ -615,11 +615,12 @@ def realtime_text():
                         # close buffer. we dont need it anymore
                         buffer.close()
                 # Process intents
-                try:
-                    logger.debug(f"Processing intents for text: {intent_text}")
-                    window.get_text_intents(intent_text)
-                except Exception as e:
-                    logger.exception(f"Error processing intents: {e}")
+                if FeatureToggle.INTENT_ACTION:
+                    try:
+                        logger.debug(f"Processing intents for text: {intent_text}")
+                        window.get_text_intents(intent_text)
+                    except Exception as e:
+                        logger.exception(f"Error processing intents: {e}")
             audio_queue.task_done()
 
         # unload thestt model on low mem mode
@@ -982,7 +983,7 @@ def send_audio_to_server():
             # Transcribe the audio file using the loaded model
             try:
                 result = faster_whisper_transcribe(file_to_send, app_settings=app_settings)
-                if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
                     result = hallucination_cleaner.clean_text(result)
             except Exception as e:
                 logger.error(traceback.format_exc())
@@ -1074,7 +1075,7 @@ def send_audio_to_server():
                 if not is_audio_processing_whole_canceled.is_set():
                     # Update the UI with the transcribed text
                     transcribed_text = response.json()['text']
-                    if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+                    if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
                         transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
                         try:
                             transcribed_text = hallucination_cleaner.clean_text(transcribed_text)
@@ -1504,7 +1505,7 @@ def check_and_warn_about_factual_consistency(formatted_message: str, medical_not
         Always review generated notes carefully.
     """
     # Verify factual consistency
-    if not app_settings.editable_settings[SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value]:
+    if not app_settings.editable_settings[SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value] and FeatureToggle.FACTS_CHECK:
         return
         
     inconsistent_entities = find_factual_inconsistency(formatted_message, medical_note)
@@ -2063,11 +2064,11 @@ if not app_settings.is_low_mem_mode():
         print("Using Local Whisper for transcription.")
         root.after(100, lambda: (load_model_with_loading_screen(root=root, app_settings=app_settings)))
 
-if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
     root.after(100, lambda: (
         load_hallucination_cleaner_model(root, app_settings)))
 
-if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value]:
+if app_settings.editable_settings[SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value] and FeatureToggle.HALLUCINATION_CLEANING:
     root.after(100, lambda: (
         load_hallucination_cleaner_model(root, app_settings)))
 

@@ -211,7 +211,6 @@ class SettingsWindow():
             # "top_a",
             "top_k",
             "top_p",
-            SettingsKeys.BEST_OF.value,
             # "typical",
             # "sampler_order",
             # "singleline",
@@ -219,9 +218,16 @@ class SettingsWindow():
             # "frmtrmblln",
             SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value,
             SettingsKeys.Enable_Word_Count_Validation.value,
-            SettingsKeys.Enable_AI_Conversation_Validation.value,
-            SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value,
         ]
+        
+        if FeatureToggle.LLM_CONVO_PRESCREEN:
+            self.adv_ai_settings.append(SettingsKeys.Enable_AI_Conversation_Validation.value)
+
+        if FeatureToggle.BEST_OF:
+            self.adv_ai_settings.append(SettingsKeys.BEST_OF.value)
+
+        if FeatureToggle.FACTS_CHECK:
+            self.adv_ai_settings.append(SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value)
 
         self.adv_whisper_settings = [
             # "Real Time Audio Length",
@@ -234,8 +240,10 @@ class SettingsWindow():
             # SettingsKeys.SILERO_SPEECH_THRESHOLD.value, 
             SettingsKeys.USE_TRANSLATE_TASK.value,
             SettingsKeys.WHISPER_LANGUAGE_CODE.value,
-            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
+
+        if FeatureToggle.HALLUCINATION_CLEANING:
+            self.adv_whisper_settings.append(SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value)
 
 
         self.adv_general_settings = [
