@@ -1577,7 +1577,7 @@ def generate_note_thread(text: str):
             loading_window.destroy()
             stop_flashing()
             # switch generate note button to "Regenerate Note"
-            safe_set_button_config(send_button, text="Generate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
+            safe_set_button_config(send_button, text="Regenerate Note", bg=DEFAULT_BUTTON_COLOUR, state='normal')
     root.after(500, lambda: check_thread_status(thread, loading_window))
 
 def upload_file():
