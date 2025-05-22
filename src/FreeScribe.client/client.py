@@ -959,7 +959,7 @@ def clear_all_text_fields():
         - Resets response display with default text
     """
     # Enable and clear user input field
-    safe_set_transcription_box("Tran")
+    safe_set_transcription_box("")
     
     # Reset focus to main window
     def set_focus():
