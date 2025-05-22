@@ -10,6 +10,7 @@ import tkinter as tk
 import pyaudio
 import audioop
 import requests
+import numpy as np
 from tkinter import Toplevel, Listbox, Button, Frame, messagebox, ttk, Label
 from tkinter import filedialog
 from utils.file_utils import get_resource_path
@@ -250,9 +251,7 @@ class RecordingsManager:
             return
 
         filename = self.recordings_list.get(selection[0])
-        decrypted_file = filename.replace('.AE2', '')
-        utils.audio.decrypt_whole_audio_file(decrypted_file)
-        wav_path = get_resource_path(f"recordings/{decrypted_file}.wav")
+        decrypted_file = filename
 
         if save_path := filedialog.asksaveasfilename(
             defaultextension=".wav",
@@ -260,11 +259,27 @@ class RecordingsManager:
             initialfile=f"{decrypted_file}.wav"
         ):
             try:
-                with open(wav_path, 'rb') as src, open(save_path, 'wb') as dst:
-                    dst.write(src.read())
+                decrypted_file_data = utils.audio.decrypt_whole_audio_file(decrypted_file)
+
+                # Basic WAV parameters
+                sample_rate = 16000  # Adjust as needed
+                n_channels = 1       # Mono
+                
+                # Ensure data is in 16-bit integer format
+                audio_data = decrypted_file_data.astype(np.int16)
+                
+                # Write WAV file
+                with open(save_path, 'wb') as f:
+                    wav = wave.open(f, 'wb')
+                    wav.setnchannels(n_channels)
+                    wav.setsampwidth(2)  # 2 bytes for 16-bit
+                    wav.setframerate(sample_rate)
+                    wav.writeframes(audio_data.tobytes())
+                    wav.close()
             except Exception as e:
                 logger.exception("Error saving recording")
                 messagebox.showerror("Error", f"Could not save recording: {str(e)}")
+                logger.exception("Error saving recording")
 
     def update_time_label(self):
         """Update time display label"""
