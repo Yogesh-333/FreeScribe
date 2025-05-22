@@ -194,11 +194,11 @@ def clear_notes_ui_element():
 
 def safe_set_button_config(button, **kwargs):
     """
-    Safely sets the text of a button in the UI.
+    Safely sets configuration options for a button in the UI.
 
     Args:
         button (tk.Button): The button to update.
-        text (str): The text to set on the button.
+        **kwargs: Arbitrary keyword arguments for button configuration options (e.g., text, state, etc.).
     """
     def update_text(button, **kwargs):
         if button.winfo_exists():
