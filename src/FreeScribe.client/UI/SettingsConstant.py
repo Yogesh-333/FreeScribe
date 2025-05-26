@@ -54,7 +54,12 @@ class FeatureToggle:
     DOCKER_SETTINGS_TAB = False
     DOCKER_STATUS_BAR = False
     POST_PROCESSING = False
-    PRE_PROCESSING = True
+    PRE_PROCESSING = False
+    INTENT_ACTION = False
+    HALLUCINATION_CLEANING = False
+    FACTS_CHECK = False
+    BEST_OF = False
+    LLM_CONVO_PRESCREEN = False
 
 
 DEFAULT_CONTEXT_WINDOW_SIZE = 4096
