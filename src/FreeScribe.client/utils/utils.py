@@ -1,6 +1,6 @@
-
-import ctypes
 from utils.file_utils import get_file_path
+from utils.log_config import logger
+
 from utils.log_config import logger
 
 # Define the mutex name and error code
@@ -37,15 +37,6 @@ def bring_to_front(app_name: str):
     U32DLL.ShowWindow(hwnd, SW_SHOW)
     U32DLL.SetForegroundWindow(hwnd)
 
-def close_mutex():
-    """
-    Close the mutex handle to release the resource.
-    """
-    global mutex
-    if mutex:
-        ctypes.windll.kernel32.ReleaseMutex(mutex)
-        ctypes.windll.kernel32.CloseHandle(mutex)
-        mutex = None
 
 def get_application_version():
         version_str = "vx.x.x.alpha"

@@ -1,6 +1,7 @@
 import logging
 import tkinter as tk
 import tkinter.messagebox as messagebox
+from utils.log_config import logger
 
 
 class TimestampListbox(tk.Listbox):
