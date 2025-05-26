@@ -440,12 +440,12 @@ class MainWindowUI:
 
         self.manage_app_data_menu = tk.Menu(self.menu_bar, tearoff=0)
         settings_enabled = 0
-        if self.app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value] == 1:
+        if self.app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value]:
             self.manage_app_data_menu.add_command(label="Manage Recordings", command=lambda: RecordingsManager(self.root))
             settings_enabled += 1
             logger.debug("Manage Recordings option added to menu")
         
-        if self.app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value] == 1:
+        if self.app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value]:
             self.manage_app_data_menu.add_command(label="Manage Logs", command=lambda: LogWindow(self.root))
             settings_enabled += 1
             logger.debug("Manage Logs option added to menu")
