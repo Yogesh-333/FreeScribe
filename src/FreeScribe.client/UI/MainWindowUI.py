@@ -48,15 +48,16 @@ class MainWindowUI:
 
         self.warning_bar = None # Warning bar
         
-        # Initialize intent action system
-        maps_dir = Path(get_file_path('assets', 'maps'))
-        maps_dir.mkdir(parents=True, exist_ok=True)
-        self.intent_manager = IntentActionManager(
-            maps_dir,
-            self.app_settings.editable_settings.get("Google Maps API Key", "")
-        )
-        self.action_window = ActionResultsWindow(self.root)
-        self.action_window.hide()  # Hide initially
+        if FeatureToggle.INTENT_ACTION:
+            # Initialize intent action system
+            maps_dir = Path(get_file_path('assets', 'maps'))
+            maps_dir.mkdir(parents=True, exist_ok=True)
+            self.intent_manager = IntentActionManager(
+                maps_dir,
+                self.app_settings.editable_settings.get("Google Maps API Key", "")
+            )
+            self.action_window = ActionResultsWindow(self.root)
+            self.action_window.hide()  # Hide initially
 
         self.current_docker_status_check_id = None  # ID for the current Docker status check
         self.current_container_status_check_id = None  # ID for the current container status check
@@ -439,12 +440,12 @@ class MainWindowUI:
 
         self.manage_app_data_menu = tk.Menu(self.menu_bar, tearoff=0)
         settings_enabled = 0
-        if self.app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value] == 1:
+        if self.app_settings.editable_settings[SettingsKeys.STORE_RECORDINGS_LOCALLY.value]:
             self.manage_app_data_menu.add_command(label="Manage Recordings", command=lambda: RecordingsManager(self.root))
             settings_enabled += 1
             logger.debug("Manage Recordings option added to menu")
         
-        if self.app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value] == 1:
+        if self.app_settings.editable_settings[SettingsKeys.ENABLE_FILE_LOGGER.value]:
             self.manage_app_data_menu.add_command(label="Manage Logs", command=lambda: LogWindow(self.root))
             settings_enabled += 1
             logger.debug("Manage Logs option added to menu")
