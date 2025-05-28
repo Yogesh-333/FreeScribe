@@ -1,6 +1,5 @@
+import ctypes
 from utils.file_utils import get_file_path
-from utils.log_config import logger
-
 from utils.log_config import logger
 
 # Define the mutex name and error code
