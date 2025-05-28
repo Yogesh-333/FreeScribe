@@ -19,10 +19,6 @@ jobs:
       - name: Create Version Text File for PyInstaller
         run: |
           $tag = '${{ github.ref }}' -replace 'refs/tags/', ''
-          if ($tag -eq 'dev') {
-            $date = (Get-Date -Format "yyyyMMdd")
-            $tag = "$tag-nightly-$date"
-          }
           echo $tag > .\scripts\__version__
         shell: pwsh
 
@@ -184,17 +180,6 @@ jobs:
         with:
           name: FreeScribeInstaller_arm64.pkg
 
-      - name: Generate Release Name
-        id: generate_release_name
-        run: |
-          $tag = '${{ github.ref }}' -replace 'refs/tags/', ''
-          if ($tag -eq 'dev') { 
-            $date = (Get-Date -Format "yyyyMMdd")
-            $tag = "$tag-nightly-$date"
-          }
-          echo "release_name=$tag" >> $GITHUB_ENV
-        shell: pwsh
-
       - name: Check if alpha or RC release
         id: check_alpha
         run: |
@@ -211,7 +196,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Release ${{ env.release_name }}
+          name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref }}
           body: |
             ## What's Changed
