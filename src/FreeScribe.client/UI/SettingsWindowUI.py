@@ -921,17 +921,18 @@ pady=5, sticky="w")
         """
         Initializes the notes history setting based on the current editable settings.
         """
+        old_value = self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]
+        new_value = self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get()
 
         # check the checkbox again the current setting
-        if self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get() == self.settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
+        if old_value == new_value:
             logger.info("Notes history setting unchanged.")
             return
         
-        if self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get() == 1:
+        if new_value == 1:
             logger.info("Notes history enabled.")
             self.root.event_generate("<<EnableNoteHistory>>")
-
-        if self.settings.editable_settings_entries[SettingsKeys.STORE_NOTES_LOCALLY.value].get() == 0:
+        else:
             logger.info("Notes history disabled.")
             self.root.event_generate("<<DisableNoteHistory>>")
 
