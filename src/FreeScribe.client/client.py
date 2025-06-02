@@ -198,7 +198,6 @@ def clear_notes_ui_element():
         response_display.scrolled_text.delete("1.0", tk.END)
         response_display.scrolled_text.insert(tk.END, "Medical Note")
         response_display.scrolled_text.config(fg='grey')
-        response_display.scrolled_text.configure(state='disabled') 
 
     root.after(0, action)
 
@@ -230,7 +229,6 @@ def safe_set_transcription_box(text, callback=None):
             user_input.scrolled_text.configure(state='normal')
             user_input.scrolled_text.delete("1.0", tk.END)
             user_input.scrolled_text.insert(tk.END, text)
-            user_input.scrolled_text.configure(state='disabled')
             if callback:
                 callback()
         else:
@@ -250,7 +248,6 @@ def safe_set_note_box(text):
             response_display.scrolled_text.delete("1.0", tk.END)
             response_display.scrolled_text.insert(tk.END, text)
             response_display.scrolled_text.config(fg='black')
-            response_display.scrolled_text.configure(state='disabled')
         else:
             logger.warning("Note box does not exist, cannot set text.")
     root.after(0, update_text)
@@ -755,7 +752,6 @@ def update_gui(text):
             user_input.scrolled_text.configure(state='normal')  # enable for editing
             user_input.scrolled_text.insert(tk.END, text + '\n')
             user_input.scrolled_text.see(tk.END)
-            user_input.scrolled_text.configure(state='disabled')  # disable again
     root.after(0, lambda: action(text))
 
 def save_audio():
