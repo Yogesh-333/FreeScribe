@@ -122,24 +122,34 @@ def on_closing():
 # Register the cleanup function to be called on exit
 atexit.register(on_closing)
 
-def update_store_notes_locally_ui(event=None):
-        global warning_label        
-        """
-        Updates the UI components based on the 'Store Notes Locally' setting.
-        """
-        if app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
-            # Loads all existing notes
-            load_notes_history()
-            warning_label.grid_remove()
-        else:
-            # Clear all existing notes
-            warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
-            clear_all_notes()
+def enable_notes_history(event=None):
+    """
+    Enables the 'Store Notes Locally' setting in the application settings.
+    """
+    load_notes_history()
+    warning_label.grid_remove()
+
+root.bind("<<EnableNoteHistory>>", enable_notes_history)
+
+def disable_notes_history(event=None):
+    """
+    Disables the 'Store Notes Locally' setting in the application settings.
+    Clears all existing notes and updates the UI accordingly.
+    """
+    clear_all_notes()
+    warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+
+    # delete all notes button
+
+root.bind("<<DisableNoteHistory>>", disable_notes_history)
 
 def load_notes_history():
     """
     Loads the temporary notes from a local .txt file containing encrypted JSON data and populates the response_history list.
     """
+    #ensure the box is empty
+    root.after(0, lambda: timestamp_listbox.delete(0, tk.END))  # Clear the timestamp listbox
+
     notes_file_path = get_resource_path('notes_history.txt')
     try:
         with open(notes_file_path, 'r') as file:
@@ -204,7 +214,6 @@ def clear_notes_ui_element():
         response_display.scrolled_text.delete("1.0", tk.END)
         response_display.scrolled_text.insert(tk.END, "Medical Note")
         response_display.scrolled_text.config(fg='grey')
-        response_display.scrolled_text.configure(state='disabled') 
 
     root.after(0, action)
 
@@ -236,7 +245,6 @@ def safe_set_transcription_box(text, callback=None):
             user_input.scrolled_text.configure(state='normal')
             user_input.scrolled_text.delete("1.0", tk.END)
             user_input.scrolled_text.insert(tk.END, text)
-            user_input.scrolled_text.configure(state='disabled')
             if callback:
                 callback()
         else:
@@ -256,7 +264,6 @@ def safe_set_note_box(text):
             response_display.scrolled_text.delete("1.0", tk.END)
             response_display.scrolled_text.insert(tk.END, text)
             response_display.scrolled_text.config(fg='black')
-            response_display.scrolled_text.configure(state='disabled')
         else:
             logger.warning("Note box does not exist, cannot set text.")
     root.after(0, update_text)
@@ -795,7 +802,6 @@ def update_gui(text):
             user_input.scrolled_text.configure(state='normal')  # enable for editing
             user_input.scrolled_text.insert(tk.END, text + '\n')
             user_input.scrolled_text.see(tk.END)
-            user_input.scrolled_text.configure(state='disabled')  # disable again
     root.after(0, lambda: action(text))
 
 def save_audio():
@@ -2165,8 +2171,6 @@ warning_label = tk.Label(history_frame,
 
 if not app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
     warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
-    
-    
 
 # Add microphone test frame
 mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_settings, root=root)
@@ -2306,7 +2310,6 @@ root.after(100, await_models)
 
 root.bind("<<LoadSttModel>>", load_stt_model)
 root.bind("<<UnloadSttModel>>", unload_stt_model)
-root.bind("<<UpdateNoteHistoryUi>>", update_store_notes_locally_ui)
 
 def generate_note_bind(event, data: np.ndarray):
     """
