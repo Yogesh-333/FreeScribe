@@ -103,7 +103,7 @@ class LoadingWindow:
                 self.popup.transient(self.parent)
                 
                 # Disable the parent window
-                self.parent.wm_attributes('-disabled', True)
+                UI.Helpers.disable_parent_window(self.parent, self.popup)
 
             # Use label and progress bar
             self.label = tk.Label(self.popup, text=self.initial_text)
@@ -137,11 +137,10 @@ class LoadingWindow:
             # Disable closing of the popup manually
             self.popup.protocol("WM_DELETE_WINDOW", lambda: None)
         except Exception:
+            logger.exception("Error creating LoadingWindow")
             # Enable the window on exception
             if self.parent:
-                UI.Helpers.enable_self.parent_window(self.parent, self.popup)
-
-            logger.exception("Error creating LoadingWindow")
+                UI.Helpers.enable_parent_window(self.parent, self.popup)
             raise
 
     def _handle_cancel(self):
@@ -184,8 +183,10 @@ class LoadingWindow:
             if self.parent:
                 UI.Helpers.enable_parent_window(self.parent, self.popup)
 
-            if self.progress.winfo_exists():
-                self.progress.stop()
+            if hasattr(self, 'progress') and self.progress:
+                if self.progress.winfo_exists():
+                    # Stop the progress bar animation
+                    self.progress.stop()
 
             if self.popup.winfo_exists():
                 self.popup.destroy()
