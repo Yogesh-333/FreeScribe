@@ -126,8 +126,7 @@ def update_store_notes_locally_ui(event=None):
             def action():
                 # Clear all existing notes
                 clear_all_notes_btn.grid_remove()
-                warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
-
+                grid_warning_label()
             root.after(0, action) 
 
 def load_notes_history():
@@ -2156,8 +2155,17 @@ def grid_clear_all_btn():
 
     root.after(0, action)
 
+def grid_warning_label():
+    """
+    Function to grid the warning label after the UI is initialized.
+    """
+    def action():
+        warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+
+    root.after(0, action)
+
 if not app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
-    warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+    grid_warning_label()
 else:
     grid_clear_all_btn()
 
