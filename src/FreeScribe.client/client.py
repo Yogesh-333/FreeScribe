@@ -263,7 +263,6 @@ def safe_set_note_box(text):
             response_display.scrolled_text.configure(state='normal')
             response_display.scrolled_text.delete("1.0", tk.END)
             response_display.scrolled_text.insert(tk.END, text)
-            response_display.scrolled_text.config(fg='black')
         else:
             logger.warning("Note box does not exist, cannot set text.")
     root.after(0, update_text)
@@ -2045,8 +2044,7 @@ def remove_placeholder(event, text_widget, placeholder_text="Text box"):
     def on_call(text_widget=text_widget, placeholder_text=placeholder_text):
         if text_widget.get("1.0", "end-1c") == placeholder_text:
             text_widget.delete("1.0", "end")
-            text_widget.config(fg='black')
-
+            
     root.after(0, on_call)
 
 # Configure grid weights for scalability
