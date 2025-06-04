@@ -106,8 +106,7 @@ def on_closing():
 # Register the close_mutex function to be called on exit
 atexit.register(on_closing)
 
-def update_store_notes_locally_ui(event=None):
-        global warning_label        
+def update_store_notes_locally_ui(event=None):     
         """
         Updates the UI components based on the 'Store Notes Locally' setting.
         """
@@ -115,7 +114,6 @@ def update_store_notes_locally_ui(event=None):
             # Loads all existing notes
             load_notes_history()
             def action():
-                global warning_label
                 warning_label.grid_remove()
                 grid_clear_all_btn()
 

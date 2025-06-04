@@ -1,0 +1,22 @@
+documents:
+  - blood_pressure_handout:
+    - document_id: blood_pressure_handout
+      document_name: Blood Pressure Handout
+      file_path: "C:/path/to/BloodPressureHandout.pdf"
+    - recognizer:
+      - LOWER:
+        - "blood"
+      - LOWER:
+        - "pressure"
+      - LOWER:
+        - "handout"
+        
+  - diabetes_handout:
+    - document_id: diabetes_handout
+      document_name: Diabetes Handout
+      file_path: "C:/path/to/DiabetesHandout.pdf"
+    - recognizer:
+      - LOWER:
+        - "diabetes"
+      - LOWER:
+        - "handout"
