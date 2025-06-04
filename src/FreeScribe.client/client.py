@@ -213,7 +213,6 @@ def clear_notes_ui_element():
         response_display.scrolled_text.configure(state='normal')
         response_display.scrolled_text.delete("1.0", tk.END)
         response_display.scrolled_text.insert(tk.END, "Medical Note")
-        response_display.scrolled_text.config(fg='grey')
 
     root.after(0, action)
 
@@ -2028,7 +2027,6 @@ def add_placeholder(event, text_widget, placeholder_text="Text box"):
     def on_call(text_widget=text_widget, placeholder_text=placeholder_text):
         if text_widget.get("1.0", "end-1c") == "":
             text_widget.insert("1.0", placeholder_text)
-            text_widget.config(fg='grey')
 
     root.after(0, on_call)
 
