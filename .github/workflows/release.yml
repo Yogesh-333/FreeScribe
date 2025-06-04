@@ -113,6 +113,8 @@ jobs:
       - name: Build PKG installer
         run: |
           ./build-pkg.sh --arch x86_64
+        env:
+          GITHUB_REF: ${{ github.ref }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -154,6 +156,8 @@ jobs:
       - name: Build PKG installer
         run: |
           ./build-pkg.sh --arch arm64
+        env:
+          GITHUB_REF: ${{ github.ref }}
       
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
