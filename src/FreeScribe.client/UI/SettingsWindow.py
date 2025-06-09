@@ -236,6 +236,8 @@ class SettingsWindow():
         self.developer_settings = [
             "Real Time Silence Length",
             "BlankSpace", # Represents the Whisper Initial Prompt
+            SettingsKeys.Enable_AI_Conversation_Validation.value,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
