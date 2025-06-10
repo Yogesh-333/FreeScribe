@@ -2288,7 +2288,7 @@ def await_models(timeout_length=60):
         if math.floor(elapsed_time) % 5 == 0:
             logger.info(f"Waiting for models to load. Loading timer: {math.floor(elapsed_time)}, Timeout:{timeout_length}")
 
-        if elapsed_time > timeout_length:
+        if elapsed_time >= timeout_length:
             logger.error(f"Models failed to load within {timeout_length} seconds. Please check your settings.")
             window.enable_settings_menu()
             return
