@@ -1412,40 +1412,18 @@ def send_text_to_api(edited_text, cancel_event):
         connect_timeout=30
     )
 
-    llm_client = OpenAIClient(config=network_config)
-    
-    # Set up cancellation monitoring
-    llm_client.start_cancel_monitoring(threading_cancel_event=cancel_event, root=root)
+    llm_client = OpenAIClient(config=network_config, root=root)
 
-    async def run_async():
-        stop_event = asyncio.Event()
-        generated_response = await llm_client.send_chat_completion(
-            text=edited_text,
-            model=app_settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value],
-            stop_event=stop_event,
-            temperature=float(app_settings.editable_settings["temperature"]),
-            top_p=float(app_settings.editable_settings["top_p"]),
-            top_k=int(app_settings.editable_settings["top_k"]),
-            stream=False,
-        )
-        return generated_response
+    generated_response = llm_client.send_chat_completion_sync(
+        text=edited_text,
+        model=app_settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value],
+        threading_cancel_event=cancel_event,
+        temperature=float(app_settings.editable_settings["temperature"]),
+        top_p=float(app_settings.editable_settings["top_p"]),
+        top_k=int(app_settings.editable_settings["top_k"]),
+        stream=False,
+    )
 
-    # Run the async function properly
-    try:
-        # Create a new event loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            generated_response = loop.run_until_complete(run_async())
-        finally:
-            # Properly close the loop
-            llm_client.stop_cancel_monitoring()
-    except Exception as e:
-        logger.exception(f"Error running async function: {e}")
-        generated_response = f"Error: {e}"
-        llm_client.stop_cancel_monitoring()
-
-    logger.info(f"Generated response: {generated_response}")
     return generated_response
          
 def send_text_to_localmodel(edited_text):  

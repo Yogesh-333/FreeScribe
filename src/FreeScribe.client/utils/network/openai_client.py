@@ -11,14 +11,59 @@ import tkinter as tk
 class OpenAIClient(BaseNetworkClient):
     """Client for communicating with OpenAI API."""
     
-    def __init__(self, config: NetworkConfig):
+    def __init__(self, config: NetworkConfig, root: tk.Tk):
         super().__init__(config)
+        self.root = root
+    
+    def send_chat_completion_sync(
+        self, 
+        text: str, 
+        model: str, 
+        threading_cancel_event: threading.Event,
+        system_message: Optional[str] = None,
+        **options
+    ) -> str:
+        """
+        Synchronous wrapper for send_chat_completion that manages event loop.
+        
+        Args:
+            text (str): The text to send to the API
+            model (str): The model name to use
+            threading_cancel_event (threading.Event): Event to signal cancellation
+            system_message (str, optional): System message to set context
+            **options: Additional model options
+            
+        Returns:
+            str: The response text or error message
+        """
+        async def run_async():
+            stop_event = asyncio.Event()
+            return await self.send_chat_completion(
+                text=text,
+                model=model,
+                stop_event=stop_event,
+                threading_cancel_event=threading_cancel_event,
+                system_message=system_message,
+                **options
+            )
+
+        # Run the async function with proper event loop management
+        try:
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            generated_response = loop.run_until_complete(run_async())
+            return generated_response
+        except Exception as e:
+            logger.exception(f"Error running async function: {e}")
+            return f'Error: {str(e)}'
     
     async def send_chat_completion(
         self, 
         text: str, 
         model: str, 
         stop_event: asyncio.Event,
+        threading_cancel_event: threading.Event,
         system_message: Optional[str] = None,
         **options
     ) -> str:
@@ -29,12 +74,16 @@ class OpenAIClient(BaseNetworkClient):
             text (str): The text to send to the API
             model (str): The model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
             stop_event (asyncio.Event): Event to signal cancellation
+            threading_cancel_event (threading.Event): Threading event for cancellation
             system_message (str, optional): System message to set context
             **options: Additional model options (temperature, max_tokens, etc.)
             
         Returns:
             str: The response text or 'Error' if cancelled/failed
         """
+        self.threading_cancel_event = threading_cancel_event
+
+        self.start_cancel_monitoring()
         try:
             # Check for cancellation before starting
             if stop_event.is_set():
@@ -60,6 +109,8 @@ class OpenAIClient(BaseNetworkClient):
             # Check for cancellation after response
             if stop_event.is_set():
                 return 'Error: Operation cancelled'
+            
+            self.stop_cancel_monitoring()
             
             # Extract and return response text
             return self._parse_response(response)
@@ -226,25 +277,21 @@ class OpenAIClient(BaseNetworkClient):
     def _parse_response(self, response: httpx.Response) -> str:
         """Parse the response from OpenAI Chat API."""
         response_data = response.json()
-        logger.debug(f"OpenAI Chat Response: {json.dumps(response_data, indent=2)}")
         
         try:
             return response_data['choices'][0]['message']['content']
         except (KeyError, IndexError) as e:
             logger.error(f"Error parsing OpenAI response structure: {e}")
-            logger.error(f"Response data: {response_data}")
             return 'Error: Invalid response format from OpenAI API'
     
     def _parse_completion_response(self, response: httpx.Response) -> str:
         """Parse the response from OpenAI Completion API."""
         response_data = response.json()
-        logger.debug(f"OpenAI Completion Response: {json.dumps(response_data, indent=2)}")
         
         try:
             return response_data['choices'][0]['text'].strip()
         except (KeyError, IndexError) as e:
             logger.error(f"Error parsing OpenAI completion response structure: {e}")
-            logger.error(f"Response data: {response_data}")
             return 'Error: Invalid response format from OpenAI Completion API'
     
     def _handle_error(self, error: Exception) -> str:
@@ -279,11 +326,9 @@ class OpenAIClient(BaseNetworkClient):
         except Exception as e:
             logger.exception(f"Error during OpenAI API cancellation: {e}")
 
-    def start_cancel_monitoring(self, threading_cancel_event: threading.Event, root: tk.Tk):
+    def start_cancel_monitoring(self):
         """Start the cancellation monitoring loop."""
-        if root and threading_cancel_event:
-            self.threading_cancel_event = threading_cancel_event
-            self.root = root
+        if self.root and self.threading_cancel_event:
             try:
                 self.checking_active = True
                 self.root.after(0, self.check_cancel)
@@ -304,7 +349,6 @@ class OpenAIClient(BaseNetworkClient):
             self.checking_active = False
             return
             
-        logger.info("Checking for cancellation event.")
         if self.threading_cancel_event is None:
             logger.info("No cancellation event provided. Continuing with the request.")
             return
