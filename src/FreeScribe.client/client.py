@@ -1717,6 +1717,8 @@ def generate_note_thread(text: str):
             if screen_thread and screen_thread.is_alive():
                 kill_thread(screen_thread.ident)
                 
+            # Set the note box to client canceled
+            safe_set_note_box("Note generation canceled.")
         except Exception as e:
             logger.exception(f"An error occurred: {e}")
         finally:
