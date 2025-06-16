@@ -4,6 +4,8 @@ import httpx
 from typing import Dict, Any, Optional, List
 from .base import BaseNetworkClient, NetworkConfig, NetworkRequestError
 from utils.log_config import logger
+import threading
+import tkinter as tk
 
 
 class OpenAIClient(BaseNetworkClient):
@@ -276,3 +278,63 @@ class OpenAIClient(BaseNetworkClient):
             logger.info("OpenAI API request cancelled successfully.")
         except Exception as e:
             logger.exception(f"Error during OpenAI API cancellation: {e}")
+
+    def start_cancel_monitoring(self, threading_cancel_event: threading.Event, root: tk.Tk):
+        """Start the cancellation monitoring loop."""
+        if root and threading_cancel_event:
+            self.threading_cancel_event = threading_cancel_event
+            self.root = root
+            try:
+                self.checking_active = True
+                self.root.after(0, self.check_cancel)
+            except tk.TclError:
+                self.checking_active = False
+    
+    def check_cancel(self):
+        """Check if the cancellation event is set."""
+        if not self.checking_active:
+            return  # Stop checking if flag is False
+        
+        # Check if the root window still exists and is valid
+        try:
+            if not self.root.winfo_exists():
+                self.checking_active = False
+                return
+        except tk.TclError:
+            self.checking_active = False
+            return
+            
+        logger.info("Checking for cancellation event.")
+        if self.threading_cancel_event is None:
+            logger.info("No cancellation event provided. Continuing with the request.")
+            return
+
+        if self.threading_cancel_event.is_set():
+            # Schedule async close in a new thread
+            def close_client():
+                try:
+                    asyncio.run(self.cancel_request())
+                except Exception as e:
+                    logger.exception(f"Error closing client: {e}")
+            
+            threading.Thread(target=close_client, daemon=True).start()
+            self.checking_active = False  # Stop checking
+            return
+        
+        if hasattr(self, '_client') and self._client and self._client.is_closed:
+            logger.info("LLM client is closed. Stopping the request.")
+            self.checking_active = False
+            return
+        
+        # Only schedule if still checking and root is valid
+        if self.checking_active:
+            try:
+                self.root.after(100, self.check_cancel)
+            except tk.TclError:
+                # Root window has been destroyed, stop checking
+                self.checking_active = False
+    
+    def stop_cancel_monitoring(self):
+        """Stop the cancellation monitoring."""
+        logger.info("Stopping OpenAI API cancellation monitoring.")
+        self.checking_active = False

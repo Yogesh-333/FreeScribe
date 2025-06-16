@@ -121,7 +121,32 @@ def delete_temp_file(filename):
 def on_closing():
     delete_temp_file('recording.wav')
     delete_temp_file('realtime.wav')
+
+    #save all notes
+    save_notes_history()
+     
+    # Cancel any pending async operations
+    try:
+        # Set any global cancellation flags
+        global checking_active
+        checking_active = False
+        
+        # If there are any running async tasks, cancel them
+        if hasattr(asyncio, '_get_running_loop'):
+            try:
+                loop = asyncio.get_running_loop()
+                if loop and not loop.is_closed():
+                    # Cancel all pending tasks
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        task.cancel()
+            except RuntimeError:
+                pass  # No running loop
+    except Exception as e:
+        logger.exception(f"Error during async cleanup: {e}")
+
     app_manager.cleanup()
+
 
 # Register the cleanup function to be called on exit
 atexit.register(on_closing)
@@ -1388,57 +1413,38 @@ def send_text_to_api(edited_text, cancel_event):
     )
 
     llm_client = OpenAIClient(config=network_config)
-
-    # Flag to control the checking loop
-    checking_active = True
-
-    def check_cancel():
-        nonlocal llm_client, cancel_event, checking_active
-        """Check if the cancellation event is set."""
-        if not checking_active:
-            return  # Stop checking if flag is False
-            
-        logger.info("Checking for cancellation event.")
-        if cancel_event is None:
-            logger.info("No cancellation event provided. Continuing with the request.")
-            return
-
-        if cancel_event.is_set():
-            # logger.info("Cancellation event is set. Stopping the request.")
-            # Schedule async close in a new thread
-            def close_client():
-                try:
-                    asyncio.run(llm_client.cancel_request())
-                except Exception as e:
-                    logger.exception(f"Error closing client: {e}")
-            
-            threading.Thread(target=close_client, daemon=True).start()
-            checking_active = False  # Stop checking
-            return
-        
-        if llm_client._client.is_closed:
-            logger.info("LLM client is closed. Stopping the request.")
-            checking_active = False
-            return
-        
-        # logger.info(f"Cancellation event status: {cancel_event.is_set()}, client: {llm_client is not None}")
-        if llm_client is not None and checking_active:
-            root.after(100, check_cancel)  # Only schedule if still checking
-
-    root.after(0, check_cancel)
-
-    stop_event = asyncio.Event()
-
-    generated_response = llm_client.send_chat_completion(
-        text=edited_text,
-        model=app_settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value],
-        stop_event=stop_event,
-        temperature=float(app_settings.editable_settings["temperature"]),
-        top_p=float(app_settings.editable_settings["top_p"]),
-        top_k=int(app_settings.editable_settings["top_k"]),
-        stream=False,
-    )
     
+    # Set up cancellation monitoring
+    llm_client.start_cancel_monitoring(threading_cancel_event=cancel_event, root=root)
+
+    async def run_async():
+        stop_event = asyncio.Event()
+        generated_response = await llm_client.send_chat_completion(
+            text=edited_text,
+            model=app_settings.editable_settings[SettingsKeys.LOCAL_LLM_MODEL.value],
+            stop_event=stop_event,
+            temperature=float(app_settings.editable_settings["temperature"]),
+            top_p=float(app_settings.editable_settings["top_p"]),
+            top_k=int(app_settings.editable_settings["top_k"]),
+            stream=False,
+        )
+        return generated_response
+
+    # Run the async function properly
+    try:
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            generated_response = loop.run_until_complete(run_async())
+        finally:
+            # Properly close the loop
+            llm_client.stop_cancel_monitoring()
+    except Exception as e:
+        logger.exception(f"Error running async function: {e}")
+        generated_response = f"Error: {e}"
+        llm_client.stop_cancel_monitoring()
+
     logger.info(f"Generated response: {generated_response}")
     return generated_response
          
@@ -1571,26 +1577,9 @@ def send_text_to_chatgpt(edited_text, cancel_event=None):
     if app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]:
         return send_text_to_localmodel(edited_text)
     else:
-        # send_text_to_api(edited_text, cancel_event=cancel_event)
-        # Handle the async function call
-        async def run_async():
-            return await send_text_to_api(edited_text, cancel_event)
-        
-        try:
-            # Try to get existing event loop
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If loop is running, create a new thread for async execution
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, run_async())
-                    return future.result()
-            else:
-                return loop.run_until_complete(run_async())
-        except RuntimeError:
-            # No event loop exists, create one
-            return asyncio.run(run_async())
-
+        # send_text_to_api is already synchronous and handles async internally
+        return send_text_to_api(edited_text, cancel_event)
+    
 def generate_note(formatted_message, cancel_event):
             try:
                 if use_aiscribe:
@@ -1710,8 +1699,11 @@ def generate_note_thread(text: str):
         global GENERATION_THREAD_ID
 
         try:
-            # Create and run the async cancellation in a new event loop
-            cancel_event.set()  # Set the cancellation event
+            # Set the cancellation event first
+            cancel_event.set()
+            
+            # Small delay to allow the async operations to detect cancellation
+            time.sleep(0.1)
             
             if thread_id:
                 kill_thread(thread_id)
@@ -1719,6 +1711,7 @@ def generate_note_thread(text: str):
             # check if screen thread is active before killing it
             if screen_thread and screen_thread.is_alive():
                 kill_thread(screen_thread.ident)
+                
         except Exception as e:
             logger.exception(f"An error occurred: {e}")
         finally:
@@ -1749,8 +1742,18 @@ def generate_note_thread(text: str):
     loading_window.destroy()
     loading_window = LoadingWindow(root, "Generating Note.", "Generating Note. Please wait.", on_cancel=lambda: (cancel_note_generation(GENERATION_THREAD_ID, screen_thread)))
 
+    def generate_note_with_cleanup(text, cancel_event):
+        """Wrapper function that ensures proper cleanup."""
+        try:
+            return generate_note(text, cancel_event)
+        except Exception as e:
+            logger.exception(f"Error in generate_note: {e}")
+            return False
+        finally:
+            # Ensure the cancel event is set to stop any ongoing operations
+            cancel_event.set()
 
-    thread = threading.Thread(target=generate_note, args=(text, cancel_event))
+    thread = threading.Thread(target=generate_note_with_cleanup, args=(text, cancel_event))
     thread.start()
     GENERATION_THREAD_ID = thread.ident
 
