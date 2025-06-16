@@ -14,6 +14,7 @@ class NetworkConfig:
     host: str
     api_key: str
     verify_ssl: bool = True
+    timeout: float = 60.0
     connect_timeout: float = 10.0
     
     def __post_init__(self):
@@ -31,7 +32,7 @@ class BaseNetworkClient:
     async def _create_client(self) -> httpx.AsyncClient:
         """Create and return an async HTTP client."""
         if self._client is None:
-            timeout = httpx.Timeout(connect=self.config.connect_timeout)
+            timeout = httpx.Timeout(self.config.timeout, connect=self.config.connect_timeout)
             self._client = httpx.AsyncClient(timeout=timeout, verify=self.config.verify_ssl)
         return self._client
     
