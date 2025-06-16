@@ -1559,35 +1559,35 @@ def send_text_to_chatgpt(edited_text, cancel_event=None):
         return send_text_to_api(edited_text, cancel_event)
     
 def generate_note(formatted_message, cancel_event):
-            try:
-                if use_aiscribe:
-                    # If pre-processing is enabled
-                    if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
-                        #Generate Facts List
-                        list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}", cancel_event)
-                        
-                        #Make a note from the facts
-                        medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {list_of_facts} {app_settings.AISCRIBE2}", cancel_event)
+    try:
+        if use_aiscribe:
+            # If pre-processing is enabled
+            if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
+                #Generate Facts List
+                list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}", cancel_event)
+                
+                #Make a note from the facts
+                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {list_of_facts} {app_settings.AISCRIBE2}", cancel_event)
 
-                        # If post-processing is enabled check the note over
-                        if app_settings.editable_settings["Use Post-Processing"]:
-                            post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nFacts:{list_of_facts}\nNotes:{medical_note}", cancel_event)
-                            update_gui_with_response(post_processed_note)
-                        else:
-                            update_gui_with_response(medical_note)
+                # If post-processing is enabled check the note over
+                if app_settings.editable_settings["Use Post-Processing"]:
+                    post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nFacts:{list_of_facts}\nNotes:{medical_note}", cancel_event)
+                    update_gui_with_response(post_processed_note)
+                else:
+                    update_gui_with_response(medical_note)
 
-                    else: # If pre-processing is not enabled thhen just generate the note
-                        medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {formatted_message} {app_settings.AISCRIBE2}", cancel_event)
+            else: # If pre-processing is not enabled thhen just generate the note
+                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {formatted_message} {app_settings.AISCRIBE2}", cancel_event)
 
-                        if app_settings.editable_settings["Use Post-Processing"]:
-                            post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}", cancel_event)
-                            update_gui_with_response(post_processed_note)
-                        else:
-                            update_gui_with_response(medical_note)
-                else: # do not generate note just send text directly to AI 
-                    ai_response = send_text_to_chatgpt(formatted_message, cancel_event)
-                    update_gui_with_response(ai_response)
-
+                if app_settings.editable_settings["Use Post-Processing"]:
+                    post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}", cancel_event)
+                    update_gui_with_response(post_processed_note)
+                else:
+                    update_gui_with_response(medical_note)
+        else: # do not generate note just send text directly to AI 
+            ai_response = send_text_to_chatgpt(formatted_message, cancel_event)
+            update_gui_with_response(ai_response)
+            
         return True
     except Exception as e:
         logger.exception(f"An error occurred: {e}")
