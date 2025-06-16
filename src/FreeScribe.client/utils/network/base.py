@@ -32,7 +32,7 @@ class BaseNetworkClient:
     async def _create_client(self) -> httpx.AsyncClient:
         """Create and return an async HTTP client."""
         if self._client is None:
-            timeout = httpx.Timeout(self.config.timeout, connect=self.config.connect_timeout)
+            timeout = httpx.Timeout(self.config.timeout, connect=self.config.connect_timeout, read=self.config.timeout, write=self.config.timeout, pool=self.config.timeout)
             self._client = httpx.AsyncClient(timeout=timeout, verify=self.config.verify_ssl)
         return self._client
     
