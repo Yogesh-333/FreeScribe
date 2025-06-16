@@ -1408,8 +1408,7 @@ def send_text_to_api(edited_text, cancel_event):
         host=app_settings.editable_settings[SettingsKeys.LLM_ENDPOINT.value],
         api_key=app_settings.OPENAI_API_KEY,
         verify_ssl=not app_settings.editable_settings["AI Server Self-Signed Certificates"],
-        timeout=50,
-        connect_timeout=30
+        connect_timeout=10,
     )
 
     llm_client = OpenAIClient(config=network_config, root=root)
