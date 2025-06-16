@@ -126,11 +126,7 @@ def on_closing():
     save_notes_history()
      
     # Cancel any pending async operations
-    try:
-        # Set any global cancellation flags
-        global checking_active
-        checking_active = False
-        
+    try:      
         # If there are any running async tasks, cancel them
         if hasattr(asyncio, '_get_running_loop'):
             try:
