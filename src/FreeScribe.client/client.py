@@ -1559,7 +1559,27 @@ def send_text_to_chatgpt(edited_text, cancel_event=None):
         return send_text_to_api(edited_text, cancel_event)
     
 def generate_note(formatted_message, cancel_event):
+    """Generate a note from the formatted message.
+    
+    This function processes the input text and generates a medical note or AI response
+    based on application settings. It supports pre-processing, post-processing, and
+    factual consistency verification.
+    
+    :param formatted_message: The transcribed conversation text to generate a note from
+    :type formatted_message: str
+    
+    :returns: True if note generation was successful, False otherwise
+    :rtype: bool
+    
+    .. note::
+        The behavior of this function depends on several application settings:
+        - If 'use_aiscribe' is True, it generates a structured medical note
+        - If 'Use Pre-Processing' is enabled, it first generates a list of facts
+        - If 'Use Post-Processing' is enabled, it refines the generated note
+        - Factual consistency verification is performed on the final note
+    """
     try:
+        summary = None
         if use_aiscribe:
             # If pre-processing is enabled
             if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
@@ -1572,8 +1592,10 @@ def generate_note(formatted_message, cancel_event):
                 # If post-processing is enabled check the note over
                 if app_settings.editable_settings["Use Post-Processing"]:
                     post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nFacts:{list_of_facts}\nNotes:{medical_note}", cancel_event)
+                    summary = post_processed_note
                     update_gui_with_response(post_processed_note)
                 else:
+                    summary = medical_note
                     update_gui_with_response(medical_note)
 
             else: # If pre-processing is not enabled thhen just generate the note
@@ -1582,11 +1604,16 @@ def generate_note(formatted_message, cancel_event):
                 if app_settings.editable_settings["Use Post-Processing"]:
                     post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}", cancel_event)
                     update_gui_with_response(post_processed_note)
+                    summary = post_processed_note
                 else:
                     update_gui_with_response(medical_note)
+                    summary = medical_note
         else: # do not generate note just send text directly to AI 
             ai_response = send_text_to_chatgpt(formatted_message, cancel_event)
             update_gui_with_response(ai_response)
+            summary = ai_response
+
+        check_and_warn_about_factual_consistency(formatted_message, summary)
             
         return True
     except Exception as e:
