@@ -59,6 +59,13 @@ class OpenAIClient(BaseNetworkClient):
         except Exception as e:
             logger.exception(f"Error running async function: {e}")
             return f'Error: {str(e)}'
+        finally:
+            # Clean up the event loop
+            try:
+                loop.close()
+            except Exception as e:
+                logger.exception(f"Error closing event loop: {e}")
+            asyncio.set_event_loop(None)
     
     async def send_chat_completion(
         self, 
