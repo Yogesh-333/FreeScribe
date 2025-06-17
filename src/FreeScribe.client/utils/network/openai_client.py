@@ -100,8 +100,8 @@ class OpenAIClient(BaseNetworkClient):
                 return 'Error: Operation cancelled'
 
             # Send POST request to OpenAI chat endpoint
-            response = await self._send_request(payload)
-            
+            response_data = await self._send("chat/completions", payload)
+
             # Check for cancellation after response
             if stop_event.is_set():
                 return 'Error: Operation cancelled'
@@ -109,7 +109,7 @@ class OpenAIClient(BaseNetworkClient):
             self.stop_cancel_monitoring()
             
             # Extract and return response text
-            return self._parse_response(response)
+            return self._parse_response_data(response_data)
 
         except Exception as e:
             error_message = self._handle_error(e)
@@ -152,7 +152,7 @@ class OpenAIClient(BaseNetworkClient):
             if stop_event.is_set():
                 return 'Error: Operation cancelled'
 
-            response = await self._send_completion_request(payload)
+            response = await self._send("completions",payload)
             
             if stop_event.is_set():
                 return 'Error: Operation cancelled'
@@ -167,6 +167,33 @@ class OpenAIClient(BaseNetworkClient):
         finally:
             await self._close_client()
     
+    def _apply_options(self, payload: Dict[str, Any], options: Dict[str, Any]) -> None:
+        # Set default values
+        payload.update({
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "top_p": 1.0
+        })
+        
+        # Handle stop parameter separately as it can be string or list
+        if "stop" in options:
+            payload["stop"] = options['stop']  # Can be string or list
+
+        casts = {
+            "temperature": float,
+            "max_tokens": int,
+            "top_p": float,
+            "frequency_penalty": float,
+            "presence_penalty": float,
+            "stream": bool,
+        }
+        for key, cast in casts.items():
+            if (v := options.get(key)) is not None:
+                try:
+                    payload[key] = cast(v)
+                except ValueError:
+                    logger.warning(f"Invalid {key}={v}, skipping")
+
     def _build_payload(
         self, 
         text: str, 
@@ -189,31 +216,8 @@ class OpenAIClient(BaseNetworkClient):
             "messages": messages
         }
         
-        # Add options with validation
-        try:
-            if 'temperature' in options and options['temperature'] is not None:
-                payload["temperature"] = float(options['temperature'])
-            if 'max_tokens' in options and options['max_tokens'] is not None:
-                payload["max_tokens"] = int(options['max_tokens'])
-            if 'top_p' in options and options['top_p'] is not None:
-                payload["top_p"] = float(options['top_p'])
-            if 'frequency_penalty' in options and options['frequency_penalty'] is not None:
-                payload["frequency_penalty"] = float(options['frequency_penalty'])
-            if 'presence_penalty' in options and options['presence_penalty'] is not None:
-                payload["presence_penalty"] = float(options['presence_penalty'])
-            if 'stop' in options and options['stop'] is not None:
-                payload["stop"] = options['stop']  # Can be string or list
-            if 'stream' in options and options['stream'] is not None:
-                payload["stream"] = bool(options['stream'])
-                
-        except ValueError as e:
-            logger.exception(f"Error parsing options: {e}. Using defaults.")
-            # Set reasonable defaults for OpenAI
-            payload.update({
-                "temperature": 0.7,
-                "max_tokens": 1000,
-                "top_p": 1.0
-            })
+        # Apply additional options to the payload
+        self._apply_options(payload, options)
         
         return payload
     
@@ -223,66 +227,32 @@ class OpenAIClient(BaseNetworkClient):
             "model": model.strip(),
             "prompt": prompt
         }
-        
-        try:
-            if 'temperature' in options and options['temperature'] is not None:
-                payload["temperature"] = float(options['temperature'])
-            if 'max_tokens' in options and options['max_tokens'] is not None:
-                payload["max_tokens"] = int(options['max_tokens'])
-            if 'top_p' in options and options['top_p'] is not None:
-                payload["top_p"] = float(options['top_p'])
-            if 'frequency_penalty' in options and options['frequency_penalty'] is not None:
-                payload["frequency_penalty"] = float(options['frequency_penalty'])
-            if 'presence_penalty' in options and options['presence_penalty'] is not None:
-                payload["presence_penalty"] = float(options['presence_penalty'])
-            if 'stop' in options and options['stop'] is not None:
-                payload["stop"] = options['stop']
-                
-        except ValueError as e:
-            logger.exception(f"Error parsing completion options: {e}")
-            payload.update({
-                "temperature": 0.7,
-                "max_tokens": 1000
-            })
+
+        self._apply_options(payload, options)
         
         return payload
     
-    async def _send_request(self, payload: Dict[str, Any]) -> httpx.Response:
-        """Send the HTTP request to the OpenAI Chat API."""
-        url = f"{self.config.host}/chat/completions"
+    async def _send(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Unified method to send HTTP requests to OpenAI API endpoints."""
+        url = f"{self.config.host}/{endpoint}"
         headers = {
             "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
         }
-
-        return await self._client.post(url, json=payload, headers=headers)
-    
-    async def _send_completion_request(self, payload: Dict[str, Any]) -> httpx.Response:
-        """Send the HTTP request to the OpenAI Completion API."""
-        url = f"{self.config.host}/completions"
-        headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
-        
         response = await self._client.post(url, json=payload, headers=headers)
         response.raise_for_status()
-        return response
+        return response.json()
     
-    def _parse_response(self, response: httpx.Response) -> str:
-        """Parse the response from OpenAI Chat API."""
-        response_data = response.json()
-        
+    def _parse_response_data(self, response_data: Dict[str, Any]) -> str:
+        """Parse the response data from OpenAI Chat API."""
         try:
             return response_data['choices'][0]['message']['content']
         except (KeyError, IndexError) as e:
             logger.error(f"Error parsing OpenAI response structure: {e}")
             return 'Error: Invalid response format from OpenAI API'
-    
-    def _parse_completion_response(self, response: httpx.Response) -> str:
-        """Parse the response from OpenAI Completion API."""
-        response_data = response.json()
-        
+
+    def _parse_completion_response_data(self, response_data: Dict[str, Any]) -> str:
+        """Parse the response data from OpenAI Completion API."""
         try:
             return response_data['choices'][0]['text'].strip()
         except (KeyError, IndexError) as e:
