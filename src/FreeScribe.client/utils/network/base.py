@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 import httpx
 from dataclasses import dataclass
+from utils.log_config import logger
 
 class NetworkRequestError(Exception):
     """Custom exception for network request errors."""
@@ -42,7 +43,7 @@ class BaseNetworkClient:
             try:
                 await self._client.aclose()
             except Exception as e:
-                print(f"Error closing client: {e}")
+                logger.exception(f"Error closing client: {e}")
             finally:
                 self._client = None
     
