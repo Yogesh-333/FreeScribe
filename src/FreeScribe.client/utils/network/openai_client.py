@@ -305,11 +305,11 @@ class OpenAIClient(BaseNetworkClient):
     def _handle_error(self, error: Exception) -> str:
         """Handle and categorize different types of errors specific to OpenAI."""
         if isinstance(error, httpx.ReadError):
-            return f"Network connection lost to OpenAI API. Please check your internet connection."
+            return "Network connection lost to OpenAI API. Please check your internet connection."
         elif isinstance(error, httpx.ConnectError):
-            return f"Cannot connect to OpenAI API. Please check your internet connection."
+            return "Cannot connect to OpenAI API. Please check your internet connection."
         elif isinstance(error, httpx.TimeoutException):
-            return f"Request timed out to OpenAI API. Please try again."
+            return "Request timed out to OpenAI API. Please try again."
         elif isinstance(error, httpx.HTTPStatusError):
             status_code = error.response.status_code
             if status_code == 401:
