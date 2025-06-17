@@ -16,6 +16,7 @@ class OpenAIClient(BaseNetworkClient):
         super().__init__(config)
         self.cancel_monitor_thread = None
         self.monitoring_stop_event = threading.Event()
+        self.stop_event = asyncio.Event()
     
     def send_chat_completion_sync(
         self, 
@@ -39,11 +40,10 @@ class OpenAIClient(BaseNetworkClient):
             str: The response text or error message
         """
         async def run_async():
-            stop_event = asyncio.Event()
             return await self.send_chat_completion(
                 text=text,
                 model=model,
-                stop_event=stop_event,
+                stop_event=self.stop_event,
                 threading_cancel_event=threading_cancel_event,
                 system_message=system_message,
                 **options
@@ -340,6 +340,7 @@ class OpenAIClient(BaseNetworkClient):
         if self.threading_cancel_event:
             self.checking_active = True
             self.monitoring_stop_event.clear()
+            self.stop_event.clear()
             self.cancel_monitor_thread = threading.Thread(
                 target=self._monitor_cancellation, 
                 daemon=True
@@ -351,6 +352,7 @@ class OpenAIClient(BaseNetworkClient):
         while self.checking_active and not self.monitoring_stop_event.is_set():
             try:
                 if self.threading_cancel_event is None:
+                    self.f
                     logger.info("No cancellation event provided. Continuing with the request.")
                     break
 
@@ -385,6 +387,7 @@ class OpenAIClient(BaseNetworkClient):
         logger.info("Stopping OpenAI API cancellation monitoring.")
         self.checking_active = False
         self.monitoring_stop_event.set()
+        self.stop_event.set()
         
         # Wait for the monitoring thread to finish
         if self.cancel_monitor_thread and self.cancel_monitor_thread.is_alive():
