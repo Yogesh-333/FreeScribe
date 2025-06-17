@@ -126,20 +126,16 @@ def on_closing():
     save_notes_history()
      
     # Cancel any pending async operations
-    try:      
-        # If there are any running async tasks, cancel them
-        if hasattr(asyncio, '_get_running_loop'):
-            try:
-                loop = asyncio.get_running_loop()
-                if loop and not loop.is_closed():
-                    # Cancel all pending tasks
-                    pending = asyncio.all_tasks(loop)
-                    for task in pending:
-                        task.cancel()
-            except RuntimeError:
-                pass  # No running loop
-    except Exception as e:
+    try:
+        loop = asyncio.get_running_loop()
+        if loop and not loop.is_closed():
+            # Cancel all pending tasks
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+    except RuntimeError:
         logger.exception(f"Error during async cleanup: {e}")
+        pass  # No running loop
 
     app_manager.cleanup()
 
