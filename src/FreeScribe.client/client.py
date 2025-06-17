@@ -133,7 +133,7 @@ def on_closing():
             pending = asyncio.all_tasks(loop)
             for task in pending:
                 task.cancel()
-    except RuntimeError:
+    except RuntimeError as e:
         logger.exception(f"Error during async cleanup: {e}")
         pass  # No running loop
 
@@ -1698,9 +1698,6 @@ def generate_note_thread(text: str):
         try:
             # Set the cancellation event first
             cancel_event.set()
-            
-            # Small delay to allow the async operations to detect cancellation
-            time.sleep(0.1)
             
             if thread_id:
                 kill_thread(thread_id)
