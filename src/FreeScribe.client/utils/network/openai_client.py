@@ -12,9 +12,8 @@ import time
 class OpenAIClient(BaseNetworkClient):
     """Client for communicating with OpenAI API."""
     
-    def __init__(self, config: NetworkConfig, root: tk.Tk):
+    def __init__(self, config: NetworkConfig):
         super().__init__(config)
-        self.root = root
         self.cancel_monitor_thread = None
         self.monitoring_stop_event = threading.Event()
     

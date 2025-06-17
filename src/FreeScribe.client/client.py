@@ -1404,7 +1404,7 @@ def send_text_to_api(edited_text, cancel_event):
         connect_timeout=10.0,
     )
 
-    llm_client = OpenAIClient(config=network_config, root=root)
+    llm_client = OpenAIClient(config=network_config)
 
     generated_response = llm_client.send_chat_completion_sync(
         text=edited_text,
