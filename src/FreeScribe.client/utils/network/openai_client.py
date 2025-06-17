@@ -1,3 +1,18 @@
+"""
+/utils/network/openai_client.py
+
+This software is released under the AGPL-3.0 license
+Copyright (c) 2023-2024 Braedon Hendy
+
+Further updates and packaging added in 2024 through the ClinicianFOCUS initiative, 
+a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied 
+Learning and Technology as part of the CNERG+ applied research project, 
+Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform". 
+Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner), 
+and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and Naitik Patel.
+"""
+
+
 import asyncio
 import json
 import httpx
@@ -10,7 +25,49 @@ import time
 
 
 class OpenAIClient(BaseNetworkClient):
-    """Client for communicating with OpenAI API."""
+    """
+    Client for communicating with OpenAI API endpoints.
+    
+    This class provides an asynchronous interface for interacting with OpenAI's 
+    Chat Completion API and legacy Completion API. It supports cancellable requests,
+    error handling, and configurable model parameters.
+    
+    Features:
+        - Asynchronous API calls with httpx
+        - Request cancellation via threading and asyncio events
+        - Automatic error handling and user-friendly error messages
+        - Support for both Chat API (gpt-4, gpt-3.5-turbo) and Completion API
+        - Configurable model parameters (temperature, max_tokens, etc.)
+        - Thread-safe cancellation monitoring
+    
+    Attributes:
+        cancel_monitor_thread (threading.Thread): Thread for monitoring cancellation events
+        monitoring_stop_event (threading.Event): Event to stop the monitoring thread
+        stop_event (asyncio.Event): Async event for request cancellation
+        threading_cancel_event (threading.Event): Threading event for cancellation signals
+        checking_active (bool): Flag indicating if cancellation monitoring is active
+    
+    Example:
+        ```python
+        config = NetworkConfig(host="https://api.openai.com/v1", api_key="your-key")
+        client = OpenAIClient(config)
+        
+        # Synchronous call
+        response = client.send_chat_completion_sync(
+            text="Hello, world!",
+            model="gpt-4",
+            threading_cancel_event=cancel_event
+        )
+        
+        # Asynchronous call
+        response = await client.send_chat_completion(
+            text="Hello, world!",
+            model="gpt-4",
+            stop_event=stop_event,
+            threading_cancel_event=cancel_event
+        )
+        ```
+    """
     
     def __init__(self, config: NetworkConfig):
         super().__init__(config)
@@ -168,6 +225,13 @@ class OpenAIClient(BaseNetworkClient):
             await self._close_client()
     
     def _apply_options(self, payload: Dict[str, Any], options: Dict[str, Any]) -> None:
+        """
+        Apply model configuration options to the API request payload.
+        
+        Args:
+            payload (Dict[str, Any]): The request payload to modify
+            options (Dict[str, Any]): Dictionary of options to apply (temperature, max_tokens, etc.)
+        """
         # Set default values
         payload.update({
             "temperature": 0.7,
@@ -201,7 +265,18 @@ class OpenAIClient(BaseNetworkClient):
         system_message: Optional[str] = None,
         **options
     ) -> Dict[str, Any]:
-        """Build the request payload for OpenAI Chat API."""
+        """
+        Build the request payload for OpenAI Chat API.
+        
+        Args:
+            text (str): The user message text to send
+            model (str): The model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
+            system_message (Optional[str]): Optional system message to set context
+            **options: Additional model options
+            
+        Returns:
+            Dict[str, Any]: The formatted request payload for the Chat API
+        """
         messages = []
         
         # Add system message if provided
@@ -222,7 +297,17 @@ class OpenAIClient(BaseNetworkClient):
         return payload
     
     def _build_completion_payload(self, prompt: str, model: str, **options) -> Dict[str, Any]:
-        """Build the request payload for OpenAI Completion API."""
+        """
+        Build the request payload for OpenAI Completion API.
+        
+        Args:
+            prompt (str): The prompt text to send to the API
+            model (str): The model name to use
+            **options: Additional model options
+            
+        Returns:
+            Dict[str, Any]: The formatted request payload for the Completion API
+        """
         payload = {
             "model": model.strip(),
             "prompt": prompt
@@ -233,7 +318,19 @@ class OpenAIClient(BaseNetworkClient):
         return payload
     
     async def _send(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Unified method to send HTTP requests to OpenAI API endpoints."""
+        """
+        Unified method to send HTTP requests to OpenAI API endpoints.
+        
+        Args:
+            endpoint (str): The API endpoint path (e.g., 'chat/completions')
+            payload (Dict[str, Any]): The request payload to send
+            
+        Returns:
+            Dict[str, Any]: The JSON response from the API
+            
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error status code
+        """
         url = f"{self.config.host}/{endpoint}"
         headers = {
             "Authorization": f"Bearer {self.config.api_key}",
@@ -244,7 +341,15 @@ class OpenAIClient(BaseNetworkClient):
         return response.json()
     
     def _parse_response_data(self, response_data: Dict[str, Any]) -> str:
-        """Parse the response data from OpenAI Chat API."""
+        """
+        Parse the response data from OpenAI Chat API.
+        
+        Args:
+            response_data (Dict[str, Any]): The raw response data from the API
+            
+        Returns:
+            str: The extracted message content or error message if parsing fails
+        """
         try:
             return response_data['choices'][0]['message']['content']
         except (KeyError, IndexError) as e:
@@ -252,7 +357,15 @@ class OpenAIClient(BaseNetworkClient):
             return 'Error: Invalid response format from OpenAI API'
 
     def _parse_completion_response_data(self, response_data: Dict[str, Any]) -> str:
-        """Parse the response data from OpenAI Completion API."""
+        """
+        Parse the response data from OpenAI Completion API.
+        
+        Args:
+            response_data (Dict[str, Any]): The raw response data from the API
+            
+        Returns:
+            str: The extracted completion text or error message if parsing fails
+        """
         try:
             return response_data['choices'][0]['text'].strip()
         except (KeyError, IndexError) as e:
@@ -260,7 +373,15 @@ class OpenAIClient(BaseNetworkClient):
             return 'Error: Invalid response format from OpenAI Completion API'
     
     def _handle_error(self, error: Exception) -> str:
-        """Handle and categorize different types of errors specific to OpenAI."""
+        """
+        Handle and categorize different types of errors specific to OpenAI.
+        
+        Args:
+            error (Exception): The exception that occurred during the API request
+            
+        Returns:
+            str: A user-friendly error message describing the issue
+        """
         if isinstance(error, httpx.ReadError):
             return "Network connection lost to OpenAI API. Please check your internet connection."
         elif isinstance(error, httpx.ConnectError):
@@ -283,7 +404,12 @@ class OpenAIClient(BaseNetworkClient):
             return f"OpenAI API request failed: {str(error)}"
     
     async def cancel_request(self):
-        """Cancel an ongoing API request by setting the stop event and closing the client."""
+        """
+        Cancel an ongoing API request by setting the stop event and closing the client.
+        
+        This method gracefully closes the HTTP client connection to terminate
+        any pending requests.
+        """
         try:
             logger.info("Cancelling OpenAI API request...")
             await self._close_client()
@@ -292,7 +418,12 @@ class OpenAIClient(BaseNetworkClient):
             logger.exception(f"Error during OpenAI API cancellation: {e}")
 
     def start_cancel_monitoring(self):
-        """Start the cancellation monitoring loop in a separate thread."""
+        """
+        Start the cancellation monitoring loop in a separate thread.
+        
+        Begins monitoring the threading cancel event to detect cancellation
+        requests and handle them appropriately by closing the client connection.
+        """
         if self.threading_cancel_event:
             self.checking_active = True
             self.monitoring_stop_event.clear()
@@ -304,7 +435,13 @@ class OpenAIClient(BaseNetworkClient):
             self.cancel_monitor_thread.start()
     
     def _monitor_cancellation(self):
-        """Monitor cancellation event in a separate thread."""
+        """
+        Monitor cancellation event in a separate thread.
+        
+        Continuously checks for cancellation signals and closes the client
+        connection when cancellation is detected. Runs in a daemon thread
+        with periodic sleep intervals.
+        """
         while self.checking_active and not self.monitoring_stop_event.is_set():
             try:
                 if self.threading_cancel_event is None:
@@ -339,7 +476,12 @@ class OpenAIClient(BaseNetworkClient):
                 break
     
     def stop_cancel_monitoring(self):
-        """Stop the cancellation monitoring."""
+        """
+        Stop the cancellation monitoring.
+        
+        Terminates the cancellation monitoring thread and cleans up
+        associated events and resources.
+        """
         logger.info("Stopping OpenAI API cancellation monitoring.")
         self.checking_active = False
         self.monitoring_stop_event.set()
