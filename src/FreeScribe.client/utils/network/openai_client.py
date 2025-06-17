@@ -39,33 +39,20 @@ class OpenAIClient(BaseNetworkClient):
         Returns:
             str: The response text or error message
         """
-        async def run_async():
-            return await self.send_chat_completion(
-                text=text,
-                model=model,
-                stop_event=self.stop_event,
-                threading_cancel_event=threading_cancel_event,
-                system_message=system_message,
-                **options
-            )
-
-        # Run the async function with proper event loop management
         try:
-            # Create a new event loop for this thread
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            generated_response = loop.run_until_complete(run_async())
-            return generated_response
+            return asyncio.run(
+                self.send_chat_completion(
+                    text=text,
+                    model=model,
+                    stop_event=self.stop_event,
+                    threading_cancel_event=threading_cancel_event,
+                    system_message=system_message,
+                    **options
+                )
+            )
         except Exception as e:
             logger.exception(f"Error running async function: {e}")
             return f'Error: {str(e)}'
-        finally:
-            # Clean up the event loop
-            try:
-                loop.close()
-            except Exception as e:
-                logger.exception(f"Error closing event loop: {e}")
-            asyncio.set_event_loop(None)
     
     async def send_chat_completion(
         self, 
