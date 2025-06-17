@@ -122,7 +122,6 @@ def decrypt_whole_audio_file(filename: str):
         The decrypted audio data
     """
     filepath = utils.file_utils.get_resource_path(f"recordings/{filename}")
-    wav_filepath = utils.file_utils.get_resource_path(f"recordings/{filename}.wav")
     
     try:
         # Read encrypted data
@@ -155,7 +154,7 @@ def decrypt_whole_audio_file(filename: str):
             frames = wav_file.readframes(n_frames)
             wav_data = np.frombuffer(frames, dtype=np.int16)
             
-        logger.info(f"Successfully decrypted audio with {len(wav_data)} samples to {wav_filepath}")
+        logger.info(f"Successfully decrypted audio with {len(wav_data)} samples.")
         return wav_data
         
     except FileNotFoundError:
