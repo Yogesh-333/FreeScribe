@@ -267,9 +267,8 @@ class OpenAIClient(BaseNetworkClient):
             "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
         }
-        
-        response = await self._client.post(url, json=payload, headers=headers)
-        return response
+
+        return await self._client.post(url, json=payload, headers=headers)
     
     async def _send_completion_request(self, payload: Dict[str, Any]) -> httpx.Response:
         """Send the HTTP request to the OpenAI Completion API."""
