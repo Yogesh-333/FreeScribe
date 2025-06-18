@@ -190,7 +190,7 @@ class LoadingWindow:
             while not self.ui_built:
                 elapsed_time = time.time() - start_time
                 if int(elapsed_time) % 2 == 0 or elapsed_time < 1:
-                    logger.info(f"LoadingWindow UI not built yet, waiting for it to be built... elapsed_time: {elapsed_time:.1f} to self.ui_built: {self.ui_built}")
+                    logger.info(f"Waiting for LoadingWindowUI to build (elapsed={elapsed_time}s, built={self.ui_built})")
                 time.sleep(0.1)
             
             logger.debug("LoadingWindow UI is built, proceeding to destroy it")
