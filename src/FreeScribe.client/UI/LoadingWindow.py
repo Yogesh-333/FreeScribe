@@ -138,15 +138,15 @@ class LoadingWindow:
 
             # Disable closing of the popup manually
             self.popup.protocol("WM_DELETE_WINDOW", lambda: None)
+            
+            logger.debug("LoadingWindow UI built successfully")
+            self.ui_built = True
         except Exception:
             logger.exception("Error creating LoadingWindow")
             # Enable the window on exception
             if self.parent:
                 UI.Helpers.enable_parent_window(self.parent, self.popup)
             raise
-        finally:
-            logger.debug("LoadingWindow UI built successfully")
-            self.ui_built = True
 
     def _handle_cancel(self):
         """
