@@ -185,15 +185,13 @@ class LoadingWindow:
         """
         # wait for the UI to be built
         def _destroy_ui():
-            time_counter = 0
+            start_time = time.time()
             logger.debug("Waiting for LoadingWindow UI to be built")
             while not self.ui_built:
-                if time_counter % 2 == 0 or time_counter == 0:
-                    logger.info(f"LoadingWindow UI not built yet, waiting for it to be built... time_counter{time_counter} to self.ui_built: {self.ui_built}")
+                elapsed_time = time.time() - start_time
+                if int(elapsed_time) % 2 == 0 or elapsed_time < 1:
+                    logger.info(f"LoadingWindow UI not built yet, waiting for it to be built... elapsed_time: {elapsed_time:.1f} to self.ui_built: {self.ui_built}")
                 time.sleep(0.1)
-                time_counter += 0.09
-                # roudn the time counter to the nearest tenth of a second
-                time_counter = round(time_counter, 1)
             
             logger.debug("LoadingWindow UI is built, proceeding to destroy it")
             if self.popup:
