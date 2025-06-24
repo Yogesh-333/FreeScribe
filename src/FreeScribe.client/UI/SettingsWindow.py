@@ -441,10 +441,13 @@ class SettingsWindow():
         self.AISCRIBE = aiscribe_text
         self.AISCRIBE2 = aiscribe2_text
 
+        ret_value = True
         with open(get_resource_path('aiscribe.txt'), 'w') as f:
-            return self.write_scribe_data(f, self.AISCRIBE)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE)
         with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-            return self.write_scribe_data(f, self.AISCRIBE2)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def load_aiscribe_from_file(self):
         """
@@ -743,15 +746,18 @@ class SettingsWindow():
         # Save updated settings to file
         self.save_settings_to_file()
         
-        # Ensure AIScribe files exist, create them if missing
+        # Ensure AIScribe files exist, create them if 
+        ret_value = True
         if not os.path.exists(get_resource_path('aiscribe.txt')):
             logger.info("AIScribe file not found. Creating default AIScribe file.")
             with open(get_resource_path('aiscribe.txt'), 'w') as f:
-                return self.write_scribe_data(f, self.AISCRIBE)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE)
         if not os.path.exists(get_resource_path('aiscribe2.txt')):
             logger.info("AIScribe2 file not found. Creating default AIScribe2 file.")
             with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-                return self.write_scribe_data(f, self.AISCRIBE2)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def get_available_architectures(self):
         """

@@ -926,7 +926,6 @@ pady=5, sticky="w")
                 self.settings.editable_settings["Silence cut-off"], # Save the old one for whisper audio cutoff, will be removed in future, left in incase we go back to old cut off
                 # self.cutoff_slider.threshold / 32768, # old threshold 
             ):
-            close_window = False
             return
         # send load event after the settings are saved
         if update_whisper_model_flag:
