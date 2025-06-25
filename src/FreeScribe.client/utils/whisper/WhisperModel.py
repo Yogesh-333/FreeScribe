@@ -174,9 +174,6 @@ def _load_stt_model_windows(app_settings):
 
     with stt_model_loading_thread_lock:
 
-        def on_cancel_whisper_load():
-            cancel_await_thread.set()
-
         model_name = get_model_from_settings(app_settings)
         print(f"Loading STT model: {model_name}")
 
