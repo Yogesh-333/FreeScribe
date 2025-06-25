@@ -2276,14 +2276,13 @@ def await_models(timeout_length=60):
 
     # if we are not using local llm then we can assume it is loaded and dont wait
     llm_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or ModelManager.is_llm_valid())
-    logger.info(f"LLM Info: {ModelManager.local_model}, llm_loaded: {not app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]},Whisper Loaded: {whisper_loaded}, LLM Loaded: {llm_loaded}")
 
     # Check for errors in models
     whisper_error = get_whisper_model() == WhisperModelStatus.ERROR
     llm_error = ModelManager.local_model == ModelStatus.ERROR
 
-    logger.error("*** Model loading status: ")
-    logger.error(f"Whisper loaded: {whisper_loaded},{whisper_error}, LLM loaded: {llm_loaded},{llm_error},{ModelManager.local_model}")
+    logger.debug("*** Model loading status: ")
+    logger.debug(f"Whisper loaded: {whisper_loaded}, Whisper Error Status:{whisper_error}, LLM loaded: {llm_loaded}, LLM Error status: {llm_error}")
 
     elapsed_time = time.time() - await_models.start_timer
     
@@ -2338,7 +2337,7 @@ def await_models(timeout_length=60):
             window.disable_settings_menu()
             root.after(1000, await_models)
         except Exception as e:
-            logger.error(f"Error in model loading loop: {e}")
+            logger.exception(f"Error in model loading loop: {e}")
             # Ensure settings menu is enabled if there's an error
             window.enable_settings_menu()
             raise
