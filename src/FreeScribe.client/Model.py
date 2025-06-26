@@ -279,6 +279,18 @@ class ModelManager:
         root.after(500, lambda: check_thread_status(thread, loading_window, root))
 
     @staticmethod
+    def is_llm_valid() -> bool:
+        """
+        Check if the local model is valid and loaded.
+
+        :return: True if a valid model is loaded, False otherwise
+        :rtype: bool
+
+        This method checks if the local_model attribute is not None and is an instance of Model.
+        If the model is in an error state, it returns False.
+        """
+        return ModelManager.local_model is not None and ModelManager.local_model != ModelStatus.ERROR
+    @staticmethod
     def start_model_threaded(settings, root_window):
         """
         Start the model in a separate thread.
