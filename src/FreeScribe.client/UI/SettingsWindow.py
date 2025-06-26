@@ -430,7 +430,8 @@ class SettingsWindow():
         :param str aiscribe2_text: The text for the second AI Scribe.
         :param tk.Toplevel settings_window: The settings window instance to be destroyed after saving.
         """
-        self.OPENAI_API_KEY = openai_api_key
+        # Ensure no leading/trailing spaces
+        self.OPENAI_API_KEY = openai_api_key.strip()
         # self.API_STYLE = api_style
 
         self.editable_settings["Silence cut-off"] = silence_cutoff
@@ -439,6 +440,14 @@ class SettingsWindow():
             value = entry.get()
             # Convert the value to the appropriate type based on the setting name
             self.editable_settings[setting] = self.convert_setting_value(setting, value)
+
+            # trim any blank spaces or new char lines for endpoints and API keys
+            if setting in [SettingsKeys.LLM_ENDPOINT.value, 
+                          SettingsKeys.WHISPER_ENDPOINT.value,
+                          SettingsKeys.WHISPER_SERVER_API_KEY.value]:
+                value = entry.get()
+                self.editable_settings[setting] = value.strip()
+
 
         self.save_settings_to_file()
 
