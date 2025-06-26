@@ -445,10 +445,13 @@ class SettingsWindow():
         self.AISCRIBE = aiscribe_text
         self.AISCRIBE2 = aiscribe2_text
 
+        ret_value = True
         with open(get_resource_path('aiscribe.txt'), 'w') as f:
-            f.write(self.AISCRIBE)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE)
         with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-            f.write(self.AISCRIBE2)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def load_aiscribe_from_file(self):
         """
@@ -747,15 +750,18 @@ class SettingsWindow():
         # Save updated settings to file
         self.save_settings_to_file()
         
-        # Ensure AIScribe files exist, create them if missing
+        # Ensure AIScribe files exist, create them if 
+        ret_value = True
         if not os.path.exists(get_resource_path('aiscribe.txt')):
             logger.info("AIScribe file not found. Creating default AIScribe file.")
             with open(get_resource_path('aiscribe.txt'), 'w') as f:
-                f.write(self.AISCRIBE)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE)
         if not os.path.exists(get_resource_path('aiscribe2.txt')):
             logger.info("AIScribe2 file not found. Creating default AIScribe2 file.")
             with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-                f.write(self.AISCRIBE2)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def get_available_architectures(self):
         """
@@ -813,3 +819,32 @@ class SettingsWindow():
             bool: The value of the 'Use Low Memory Mode' setting
         """
         return self.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value]
+    
+    def write_scribe_data(self, file, text):
+        """
+        Writes the provided text to a file, handling UnicodeEncodeError gracefully.
+        This method attempts to write the given text to the specified file. If a UnicodeEncodeError occurs,
+        it will catch the exception and display an error message to the user, indicating that the text contains
+        unsupported characters. The method will return False if the write operation fails due to an unsupported character
+
+        :param file: The file object to write to.
+        :type file: file-like object
+        :param text: The text to write to the file.
+        :type text: str
+        :returns: True if the write operation is successful, False if it fails due to an
+        unsupported character.
+        :rtype: bool
+        """
+        try:
+            file.write(text)
+        except UnicodeEncodeError as e:
+            problematic_char = e.object[e.start:e.end]
+            import tkinter.messagebox as messagebox
+            messagebox.showerror(
+                "Invalid Character", 
+                f"Settings contain an unsupported character: '{problematic_char}'\n"
+                f"Please remove special symbols and save again."
+            )
+            logger.exception("Failed to write scribe data due to unsupported character")
+            return False
+        return True
