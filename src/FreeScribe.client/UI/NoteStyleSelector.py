@@ -187,7 +187,7 @@ class NoteStyleSelector(tk.Frame):
 
     def delete_style(self):
         current_style = self.style_var.get()
-        if current_style == "Add Prompt Template..." or current_style == "SOAP Note - Default":
+        if current_style in ["Add Prompt Template...", "SOAP Note - Default"]:
             messagebox.showwarning("Delete Style", "Cannot delete 'Add Prompt Template...' or 'SOAP Note - Default' style.")
             return
         

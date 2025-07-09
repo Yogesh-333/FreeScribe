@@ -74,12 +74,6 @@ def center_window_to_parent(window, parent):
     :param parent: The parent window to center to
     :type parent: tk.Toplevel or tk.Tk
     """
-    if utils.system.is_windows():
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (window.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (window.winfo_height() // 2)
-        window.geometry(f"+{x}+{y}")
-    else:
-        # For macOS and Linux, we can use the same method as Windows
-        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (window.winfo_width() // 2)
-        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (window.winfo_height() // 2)
-        window.geometry(f"+{x}+{y}")
+    x = parent.winfo_x() + (parent.winfo_width() // 2) - (window.winfo_width() // 2)
+    y = parent.winfo_y() + (parent.winfo_height() // 2) - (window.winfo_height() // 2)
+    window.geometry(f"+{x}+{y}")

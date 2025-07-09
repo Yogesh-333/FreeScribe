@@ -2176,11 +2176,7 @@ mic_test.frame.grid(row=4, column=0, pady=10, sticky='nsew')  # Use grid to plac
 
 # Add a footer frame at the bottom of the window
 footer_frame = tk.Frame(root, bg="lightgrey", height=30)
-footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")  # Use grid instead of pack
-
-# Add a footer frame at the bottom of the window
-footer_frame = tk.Frame(root, bg="lightgrey", height=30)
-footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")  # Use grid instead of pack
+footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")
 
 # Configure footer frame grid columns
 footer_frame.grid_columnconfigure(0, weight=1)  # Left spacer
