@@ -1,3 +1,25 @@
+"""
+NoteStyleSelector Module
+
+This module provides a user interface for managing note style templates and prompts.
+It includes classes for selecting, creating, editing, and deleting AI prompt templates
+used for generating different types of clinical notes (SOAP notes, etc.).
+
+This software is released under the AGPL-3.0 license
+Copyright (c) 2023-2024 Braedon Hendy
+
+Further updates and packaging added in 2024 through the ClinicianFOCUS initiative, 
+a collaboration with Dr. Braedon Hendy and Conestoga College Institute of Applied 
+Learning and Technology as part of the CNERG+ applied research project, 
+Unburdening Primary Healthcare: An Open-Source AI Clinician Partner Platform". 
+Prof. Michael Yingbull (PI), Dr. Braedon Hendy (Partner), 
+and Research Students - Software Developer Alex Simko, Pemba Sherpa (F24), and Naitik Patel.
+
+Classes:
+    StylePromptInfo: Data class for storing style prompt information.
+    NoteStyleSelector: Main widget for selecting and managing note styles.
+    StyleDialog: Dialog window for creating and editing style templates.
+"""
 import tkinter as tk
 import UI.Helpers
 from tkinter import ttk, simpledialog, messagebox
@@ -8,11 +30,32 @@ import os
 
 @dataclass
 class StylePromptInfo:
+    """
+    Data class for storing style prompt information.
+
+    Attributes:
+        style_name (str): The name of the style.
+        pre_prompt (str): The prompt text that appears before the conversation.
+        post_prompt (str): The prompt text that appears after the conversation.
+    """
     style_name: str
     pre_prompt: str
     post_prompt: str
 
 class NoteStyleSelector(tk.Frame):
+    """
+    A Tkinter frame widget for selecting and managing note styles.
+    
+    This class provides a dropdown selector for note styles along with
+    edit and delete buttons. It manages style data persistence and
+    provides static methods for accessing current style information.
+
+    Attributes:
+        current_style (str): The currently selected style name.
+        style_data (dict): Dictionary containing style data with pre/post prompts.
+        style_options (list): List of available style options for the dropdown.
+        _styles_file (str): Path to the JSON file storing style data.
+    """
     # Static class variables
     current_style = "SOAP Note - Default"
     style_data = {}  # Store style data with pre/post prompts
@@ -21,7 +64,13 @@ class NoteStyleSelector(tk.Frame):
     
     @classmethod
     def _get_default_styles(cls):
-        """Return the default styles configuration"""
+        """
+        Returns the default styles configuration.
+
+        Returns:
+            dict: Dictionary containing default style configurations with
+                  pre_prompt and post_prompt for each style.
+        """
         return {
             "SOAP Note - Default": {
                 "pre_prompt": "AI, please transform the following conversation into a concise SOAP note. Do not assume any medical data, vital signs, or lab values. Base the note strictly on the information provided in the conversation. Ensure that the SOAP note is structured appropriately with Subjective, Objective, Assessment, and Plan sections. Strictly extract facts from the conversation. Here's the conversation:",
@@ -31,7 +80,19 @@ class NoteStyleSelector(tk.Frame):
     
     @classmethod
     def load_styles(cls):
-        """Load styles from disk, create defaults if file doesn't exist"""
+        """
+        Loads styles from disk and creates defaults if file doesn't exist.
+        
+        This method reads the styles JSON file, loads existing styles into
+        class variables, and creates default styles if no file exists.
+        Updates the style_options list with custom styles.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         try:
             if os.path.exists(cls._styles_file):
                 with open(cls._styles_file, 'r', encoding='utf-8') as f:
@@ -59,7 +120,18 @@ class NoteStyleSelector(tk.Frame):
 
     @classmethod
     def save_styles(cls):
-        """Save styles to disk"""
+        """
+        Saves current styles to disk.
+        
+        Writes the current style data and selected style to the JSON file.
+        Handles encoding and error management during the save process.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         try:
             data = {
                 'styles': cls.style_data,
@@ -71,6 +143,19 @@ class NoteStyleSelector(tk.Frame):
             print(f"Error saving styles: {e}")
     
     def __init__(self, root=None, parent_frame=None):
+        """
+        Initializes the NoteStyleSelector widget.
+        
+        Loads styles if not already loaded and creates the widget UI.
+        Sets up the frame with the specified parent and background.
+
+        Args:
+            root (tk.Tk, optional): The root window reference.
+            parent_frame (tk.Frame, optional): The parent frame to contain this widget.
+
+        Returns:
+            None
+        """
         # Load styles before initializing
         if not hasattr(NoteStyleSelector, '_styles_loaded'):
             NoteStyleSelector.load_styles()
@@ -82,6 +167,18 @@ class NoteStyleSelector(tk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
+        """
+        Creates and arranges the UI widgets for the note style selector.
+        
+        Sets up the combobox dropdown for style selection and the
+        edit/delete buttons. Binds event handlers for user interactions.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # Frame to hold dropdown and buttons horizontally
         self.style_var = tk.StringVar(value=NoteStyleSelector.current_style)
 
@@ -98,7 +195,18 @@ class NoteStyleSelector(tk.Frame):
 
     @staticmethod
     def get_current_prompt_info() -> StylePromptInfo:
-        """Static method to get current style's prompt information"""
+        """
+        Gets the current style's prompt information.
+        
+        Returns a StylePromptInfo object containing the current style's
+        name, pre-prompt, and post-prompt text.
+
+        Args:
+            None
+
+        Returns:
+            StylePromptInfo: Object containing current style information.
+        """
         current_style = NoteStyleSelector.current_style
         if current_style in NoteStyleSelector.style_data:
             return StylePromptInfo(
@@ -114,6 +222,19 @@ class NoteStyleSelector(tk.Frame):
             )
 
     def on_style_change(self, event=None):
+        """
+        Handles style selection changes in the dropdown.
+        
+        When a user selects a different style, this method either opens
+        the add style dialog (if "Add Prompt Template..." is selected)
+        or updates the current style and saves the changes.
+
+        Args:
+            event (tk.Event, optional): The event object from the combobox selection.
+
+        Returns:
+            None
+        """
         selected_value = self.style_var.get()
         if selected_value == "Add Prompt Template...":
             self.add_style()
@@ -125,6 +246,19 @@ class NoteStyleSelector(tk.Frame):
             NoteStyleSelector.save_styles()
 
     def add_style(self):
+        """
+        Opens a dialog to add a new prompt template style.
+        
+        Creates a StyleDialog for entering new style information,
+        adds the new style to the system if valid, and updates
+        the dropdown and current selection.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # Create a custom dialog for style creation
         dialog = StyleDialog(self.root, "Add Prompt Template")
         if dialog.result:
@@ -141,6 +275,19 @@ class NoteStyleSelector(tk.Frame):
                 NoteStyleSelector.save_styles()
 
     def edit_style(self):
+        """
+        Opens a dialog to edit or view the currently selected style.
+        
+        For default styles, opens in read-only view mode. For custom styles,
+        allows editing of the style name and prompt content. Updates the
+        system with any changes made.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         current_style = self.style_var.get()
         if current_style == "Add Prompt Template...":
             messagebox.showwarning("Edit Style", "Cannot edit 'Add Prompt Template...' option.")
@@ -186,6 +333,19 @@ class NoteStyleSelector(tk.Frame):
                 NoteStyleSelector.save_styles()
 
     def delete_style(self):
+        """
+        Deletes the currently selected style after confirmation.
+        
+        Prevents deletion of protected styles ("Add Prompt Template..."
+        and "SOAP Note - Default"). Shows confirmation dialog before
+        deletion and resets to default style after deletion.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         current_style = self.style_var.get()
         if current_style in ["Add Prompt Template...", "SOAP Note - Default"]:
             messagebox.showwarning("Delete Style", "Cannot delete 'Add Prompt Template...' or 'SOAP Note - Default' style.")
@@ -202,10 +362,34 @@ class NoteStyleSelector(tk.Frame):
             NoteStyleSelector.save_styles()
 
     def update_dropdown(self):
+        """
+        Updates the dropdown combobox with current style options.
+        
+        Refreshes the values displayed in the combobox to reflect
+        any changes in the available styles.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # Update the Combobox values
         self.style_combo['values'] = NoteStyleSelector.style_options
 
     def apply_style(self):
+        """
+        Applies the currently selected style and prints its information.
+        
+        Retrieves the current style's prompt information and displays
+        it to the console. Used for testing and debugging purposes.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         selected_style = self.style_var.get()
         if selected_style != "Add Prompt Template...":
             prompt_info = NoteStyleSelector.get_current_prompt_info()
@@ -214,7 +398,36 @@ class NoteStyleSelector(tk.Frame):
             print(f"Post Prompt: {prompt_info.post_prompt}")
 
 class StyleDialog:
+    """
+    A dialog window for creating and editing note style templates.
+    
+    This class creates a modal dialog that allows users to input or modify
+    style template information including name, pre-prompt, and post-prompt.
+    Supports both editable and read-only modes.
+
+    Attributes:
+        result (tuple): Contains (name, pre_prompt, post_prompt) if dialog completed successfully.
+        read_only (bool): Whether the dialog is in read-only mode.
+        dialog (tk.Toplevel): The dialog window.
+    """
     def __init__(self, parent, title, initial_name="", initial_pre="", initial_post="", read_only=False):
+        """
+        Initializes the StyleDialog window.
+        
+        Creates and displays a modal dialog for editing style information.
+        Sets up the UI components and waits for user interaction.
+
+        Args:
+            parent (tk.Widget): The parent window for this dialog.
+            title (str): The title to display in the dialog window.
+            initial_name (str, optional): Initial value for the style name field.
+            initial_pre (str, optional): Initial value for the pre-prompt field.
+            initial_post (str, optional): Initial value for the post-prompt field.
+            read_only (bool, optional): Whether to display in read-only mode.
+
+        Returns:
+            None
+        """
         self.result = None
         self.read_only = read_only
         
@@ -341,6 +554,18 @@ class StyleDialog:
         self.dialog.wait_window()
     
     def ok_clicked(self):
+        """
+        Handles the OK button click event.
+        
+        Validates the input fields and stores the result if valid.
+        Closes the dialog window after processing.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         if self.read_only:
             return  # Shouldn't be called in read-only mode, but just in case
             
@@ -354,6 +579,17 @@ class StyleDialog:
         self.dialog.destroy()
     
     def cancel_clicked(self):
+        """
+        Handles the Cancel/Close button click event.
+        
+        Closes the dialog window without saving any changes.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         self.dialog.destroy()
 
 if __name__ == "__main__":
