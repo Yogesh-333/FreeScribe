@@ -603,7 +603,11 @@ class StyleDialog:
             self.show_error_warning("⚠️ Template name cannot be empty - Please enter a title")
             self.name_entry.focus_set()
             return
-        
+        else:
+            if name in NoteStyleSelector.style_options:
+                self.show_error_warning(f"⚠️ Template style '{name}' already exists - Please choose a different name")
+                return
+    
         # Hide any existing warning if validation passes
         self.hide_error_warning()
         
