@@ -26,7 +26,7 @@ from tkinter import ttk, simpledialog, messagebox
 from dataclasses import dataclass
 import json
 import os
-
+from utils.log_config import logger
 
 @dataclass
 class StylePromptInfo:
@@ -110,7 +110,7 @@ class NoteStyleSelector(tk.Frame):
             cls.style_options = ["Add Prompt Template...", "SOAP Note - Default"] + custom_styles
 
         except Exception as e:
-            print(f"Error loading styles: {e}")
+            logger.exception(f"Error loading styles: {e}")
             # Fallback to defaults
             cls.style_data = cls._get_default_styles()
             cls.current_style = "SOAP Note - Default"
@@ -140,7 +140,7 @@ class NoteStyleSelector(tk.Frame):
             with open(cls._styles_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            print(f"Error saving styles: {e}")
+            logger.exception(f"Error saving styles: {e}")
     
     def __init__(self, root=None, parent_frame=None):
         """
@@ -393,9 +393,9 @@ class NoteStyleSelector(tk.Frame):
         selected_style = self.style_var.get()
         if selected_style != "Add Prompt Template...":
             prompt_info = NoteStyleSelector.get_current_prompt_info()
-            print(f"Selected Note Style: {prompt_info.style_name}")
-            print(f"Pre Prompt: {prompt_info.pre_prompt}")
-            print(f"Post Prompt: {prompt_info.post_prompt}")
+            logger.info(f"Selected Note Style: {prompt_info.style_name}")
+            logger.debug(f"Pre Prompt: {prompt_info.pre_prompt}")
+            logger.debug(f"Post Prompt: {prompt_info.post_prompt}")
 
 class StyleDialog:
     """
