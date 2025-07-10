@@ -430,6 +430,7 @@ class StyleDialog:
         """
         self.result = None
         self.read_only = read_only
+        self.warning_frame = None  # Will hold the error warning frame
         
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
@@ -445,18 +446,10 @@ class StyleDialog:
         
         # Center the dialog
         self.dialog.geometry("+%d+%d" % (parent.winfo_rootx() + 50, parent.winfo_rooty() + 50))
-        
-        # Add warning for read-only mode
-        if self.read_only:
-            warning_frame = tk.Frame(self.dialog, bg='#ffeeee', relief='raised', bd=2)
-            warning_frame.pack(fill=tk.X, padx=10, pady=5)
-            warning_label = tk.Label(warning_frame, 
-                                   text="⚠️ Cannot edit default note style - View only mode",
-                                   bg='#ffeeee', fg='#cc0000', font=('Arial', 10, 'bold'))
-            warning_label.pack(pady=5)
-        
+             
         # Style name
-        tk.Label(self.dialog, text="Template Name:").pack(pady=5)
+        self.name_label = tk.Label(self.dialog, text="Template Name:")
+        self.name_label.pack(pady=5)
         self.name_entry = tk.Entry(self.dialog, width=50, font=('Arial', 10))
         self.name_entry.pack(pady=5)
         self.name_entry.insert(0, initial_name)
@@ -550,8 +543,39 @@ class StyleDialog:
         UI.Helpers.center_window_to_parent(self.dialog, parent)
         UI.Helpers.set_window_icon(self.dialog)
 
+        # Add warning for read-only mode
+        if self.read_only:
+            self.show_error_warning("⚠️ Cannot edit default note style - View only mode")
+
         # Wait for dialog to close
         self.dialog.wait_window()
+    
+    def show_error_warning(self, message):
+        """
+        Shows an error warning frame at the top of the dialog.
+        
+        Args:
+            message (str): The error message to display.
+        """
+        # Remove existing warning frame if present
+        if self.warning_frame:
+            self.warning_frame.destroy()
+        
+        # Create new warning frame
+        self.warning_frame = tk.Frame(self.dialog, bg='#ffeeee', relief='raised', bd=2)
+        self.warning_frame.pack(fill=tk.X, padx=10, pady=5, before=self.name_label)
+        warning_label = tk.Label(self.warning_frame, 
+                               text=message,
+                               bg='#ffeeee', fg='#cc0000', font=('Arial', 10, 'bold'))
+        warning_label.pack(pady=5)
+    
+    def hide_error_warning(self):
+        """
+        Hides the error warning frame if it exists.
+        """
+        if self.warning_frame:
+            self.warning_frame.destroy()
+            self.warning_frame = None
     
     def ok_clicked(self):
         """
@@ -572,6 +596,14 @@ class StyleDialog:
         name = self.name_entry.get().strip()
         pre_prompt = self.pre_text.get("1.0", tk.END).strip()
         post_prompt = self.post_text.get("1.0", tk.END).strip()
+        
+        if not name:
+            self.show_error_warning("⚠️ Template name cannot be empty - Please enter a title")
+            self.name_entry.focus_set()
+            return
+        
+        # Hide any existing warning if validation passes
+        self.hide_error_warning()
         
         if name:
             self.result = (name, pre_prompt, post_prompt)
