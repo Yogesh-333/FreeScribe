@@ -58,7 +58,8 @@ class NoteStyleSelector(tk.Frame):
     """
     # Static class variables
     current_style = "SOAP Note - Default"
-    style_data = {}  # Store style data with pre/post prompts
+    # Store style data with pre/post prompts
+    style_data = {}
     style_options = ["Add Prompt Template...", "SOAP Note - Default"]
     _styles_file = "note_styles.json"
     
@@ -246,7 +247,8 @@ class NoteStyleSelector(tk.Frame):
             else:
                 # Reset to previous valid selection if no style was added
                 if len(NoteStyleSelector.style_options) > 1:
-                    self.style_var.set(NoteStyleSelector.current_style)  # Reset to current style
+                    # Reset to current style
+                    self.style_var.set(NoteStyleSelector.current_style)
         else:
             NoteStyleSelector.current_style = selected_value
             NoteStyleSelector.save_styles()
@@ -443,7 +445,8 @@ class StyleDialog:
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("900x650")  # Slightly taller to accommodate warning
+        # Slightly taller to accommodate warning
+        self.dialog.geometry("900x650")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         self.dialog.focus_force()
@@ -599,7 +602,8 @@ class StyleDialog:
             None
         """
         if self.read_only:
-            return  # Shouldn't be called in read-only mode, but just in case
+            # Shouldn't be called in read-only mode, but just in case
+            return  
             
         name = self.name_entry.get().strip()
         pre_prompt = self.pre_text.get("1.0", tk.END).strip()

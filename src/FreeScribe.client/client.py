@@ -2179,9 +2179,12 @@ footer_frame = tk.Frame(root, bg="lightgrey", height=30)
 footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")
 
 # Configure footer frame grid columns
-footer_frame.grid_columnconfigure(0, weight=1)  # Left spacer
-footer_frame.grid_columnconfigure(1, weight=0)  # NoteStyleSelector (center)
-footer_frame.grid_columnconfigure(2, weight=1)  # Right spacer
+# Left spacer
+footer_frame.grid_columnconfigure(0, weight=1)  
+# NoteStyleSelector (center)
+footer_frame.grid_columnconfigure(1, weight=0) 
+# Right spacer 
+footer_frame.grid_columnconfigure(2, weight=1) 
 
 # Add NoteStyleSelector in the center of the footer
 note_style_selector = NoteStyleSelector(root, footer_frame)
