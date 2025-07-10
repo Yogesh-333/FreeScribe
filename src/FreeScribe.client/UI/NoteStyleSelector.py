@@ -237,10 +237,16 @@ class NoteStyleSelector(tk.Frame):
         """
         selected_value = self.style_var.get()
         if selected_value == "Add Prompt Template...":
-            self.add_style()
-            # Reset to previous valid selection
-            if len(NoteStyleSelector.style_options) > 1:
-                self.style_var.set(NoteStyleSelector.style_options[1])  # Set to first non-"Add Prompt Template" option
+            new_style_name = self.add_style()
+            # Select the newly added style if it was created
+            if new_style_name and new_style_name in NoteStyleSelector.style_options:
+                self.style_var.set(new_style_name)
+                NoteStyleSelector.current_style = new_style_name
+                NoteStyleSelector.save_styles()
+            else:
+                # Reset to previous valid selection if no style was added
+                if len(NoteStyleSelector.style_options) > 1:
+                    self.style_var.set(NoteStyleSelector.current_style)  # Reset to current style
         else:
             NoteStyleSelector.current_style = selected_value
             NoteStyleSelector.save_styles()
@@ -257,7 +263,7 @@ class NoteStyleSelector(tk.Frame):
             None
 
         Returns:
-            None
+            str or None: The name of the newly added style if successful, None otherwise.
         """
         # Create a custom dialog for style creation
         dialog = StyleDialog(self.root, "Add Prompt Template")
@@ -270,9 +276,9 @@ class NoteStyleSelector(tk.Frame):
                     'post_prompt': post_prompt
                 }
                 self.update_dropdown()
-                self.style_var.set(style_name)
-                NoteStyleSelector.current_style = style_name
-                NoteStyleSelector.save_styles()
+                # Return the new style name so it can be selected
+                return style_name
+        return None
 
     def edit_style(self):
         """
