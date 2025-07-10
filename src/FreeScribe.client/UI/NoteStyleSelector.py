@@ -352,7 +352,9 @@ class NoteStyleSelector(tk.Frame):
             return
         
         if messagebox.askyesno("Delete Style", f"Are you sure you want to delete '{current_style}'?"):
-            NoteStyleSelector.style_options.remove(current_style)
+            # Check if style exists in options before attempting removal
+            if current_style in NoteStyleSelector.style_options:
+                NoteStyleSelector.style_options.remove(current_style)
             if current_style in NoteStyleSelector.style_data:
                 del NoteStyleSelector.style_data[current_style]
             self.update_dropdown()
