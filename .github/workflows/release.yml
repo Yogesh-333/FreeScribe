@@ -168,6 +168,8 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     needs: [build-windows, build-macos-intel, build-macos-arm]
+    permissions:
+      contents: write
     steps:
       - name: Download Windows Installer
         uses: actions/download-artifact@v4
