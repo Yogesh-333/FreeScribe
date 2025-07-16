@@ -131,7 +131,7 @@ def test_recognizer_initialization(recognizer):
     """Test LLMIntentRecognizer initialization."""
     assert recognizer.model_endpoint == "http://localhost:11434"
     assert recognizer.api_key is None
-    assert recognizer.agent is not 
+    assert recognizer.agent is not None
     
 def test_recognizer_multiple_intents(monkeypatch, recognizer):
     """Test recognizer returns and handles multiple intents."""
