@@ -58,9 +58,12 @@ def set_window_icon(window):
     """
     Set a window icon on the given window.
     """
-    if utils.system.is_linux():
-        icon_path = utils.file_utils.get_file_path('assets', 'logo.png')
-        window.iconphoto(True, tk.PhotoImage(file=icon_path))
-    else:
-        icon_path = utils.file_utils.get_file_path('assets', 'logo.ico')
-        window.iconbitmap(icon_path)
+    try:
+        if utils.system.is_linux():
+            icon_path = utils.file_utils.get_file_path('assets', 'logo.png')
+            window.iconphoto(True, tk.PhotoImage(file=icon_path))
+        else:
+            icon_path = utils.file_utils.get_file_path('assets', 'logo.ico')
+            window.iconbitmap(icon_path)
+    except Exception as e:
+        logger.exception(f"Failed to set window icon. This was handled gracefully using default. The error below is just the call stack: {e}")
