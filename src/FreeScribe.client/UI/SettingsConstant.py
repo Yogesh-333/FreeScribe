@@ -50,13 +50,14 @@ class Architectures(Enum):
 
 
 class FeatureToggle:
+    # False by default, set to True to enable
     DOCKER_SETTINGS_TAB = False
     DOCKER_STATUS_BAR = False
     POST_PROCESSING = False
     PRE_PROCESSING = False
     INTENT_ACTION = False
     HALLUCINATION_CLEANING = False
-    FACTS_CHECK = True
+    FACTS_CHECK = False
     BEST_OF = False
     LLM_CONVO_PRESCREEN = False
 
