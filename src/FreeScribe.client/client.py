@@ -2387,7 +2387,7 @@ def await_models(timeout_length=60):
 
 root.after(100, await_models)
 
-root.bind("<<LoadSttModel>>", load_stt_model)
+root.bind("<<LoadSttModel>>", lambda e: load_stt_model(e, app_settings=app_settings))
 root.bind("<<UnloadSttModel>>", unload_stt_model)
 
 def generate_note_bind(event, data: np.ndarray):
