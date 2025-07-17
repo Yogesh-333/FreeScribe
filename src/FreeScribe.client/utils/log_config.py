@@ -159,6 +159,7 @@ def add_file_handler(log, format:logging.Formatter, file_name:str = "freescribe.
     file_handler.setLevel(LOG_LEVEL)
     file_handler.setFormatter(format)
     log.addHandler(file_handler)
+    log.info(f"File Log Path: {log_file}")
 
 def remove_file_handler(log, file_name:str = "freescribe.log"):
     """Remove the file handler from the logger.
