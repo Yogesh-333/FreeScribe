@@ -224,6 +224,8 @@ class SettingsWindow():
             # "frmtrmblln",
             SettingsKeys.LOCAL_LLM_CONTEXT_WINDOW.value,
             SettingsKeys.Enable_Word_Count_Validation.value,
+            SettingsKeys.USE_PRE_PROCESSING.value,
+
         ]
         
         if FeatureToggle.LLM_CONVO_PRESCREEN:
@@ -265,6 +267,8 @@ class SettingsWindow():
         self.developer_settings = [
             "Real Time Silence Length",
             "BlankSpace", # Represents the Whisper Initial Prompt
+            SettingsKeys.Enable_AI_Conversation_Validation.value,
+            SettingsKeys.ENABLE_HALLUCINATION_CLEAN.value,
         ]
 
         self.editable_settings = SettingsWindow.DEFAULT_SETTINGS_TABLE
@@ -426,7 +430,8 @@ class SettingsWindow():
         :param str aiscribe2_text: The text for the second AI Scribe.
         :param tk.Toplevel settings_window: The settings window instance to be destroyed after saving.
         """
-        self.OPENAI_API_KEY = openai_api_key
+        # Ensure no leading/trailing spaces
+        self.OPENAI_API_KEY = openai_api_key.strip()
         # self.API_STYLE = api_style
 
         self.editable_settings["Silence cut-off"] = silence_cutoff
@@ -436,15 +441,26 @@ class SettingsWindow():
             # Convert the value to the appropriate type based on the setting name
             self.editable_settings[setting] = self.convert_setting_value(setting, value)
 
+            # trim any blank spaces or new char lines for endpoints and API keys
+            if setting in [SettingsKeys.LLM_ENDPOINT.value, 
+                          SettingsKeys.WHISPER_ENDPOINT.value,
+                          SettingsKeys.WHISPER_SERVER_API_KEY.value]:
+                value = entry.get()
+                self.editable_settings[setting] = value.strip()
+
+
         self.save_settings_to_file()
 
         self.AISCRIBE = aiscribe_text
         self.AISCRIBE2 = aiscribe2_text
 
+        ret_value = True
         with open(get_resource_path('aiscribe.txt'), 'w') as f:
-            f.write(self.AISCRIBE)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE)
         with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-            f.write(self.AISCRIBE2)
+            ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def load_aiscribe_from_file(self):
         """
@@ -743,15 +759,18 @@ class SettingsWindow():
         # Save updated settings to file
         self.save_settings_to_file()
         
-        # Ensure AIScribe files exist, create them if missing
+        # Ensure AIScribe files exist, create them if 
+        ret_value = True
         if not os.path.exists(get_resource_path('aiscribe.txt')):
             logger.info("AIScribe file not found. Creating default AIScribe file.")
             with open(get_resource_path('aiscribe.txt'), 'w') as f:
-                f.write(self.AISCRIBE)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE)
         if not os.path.exists(get_resource_path('aiscribe2.txt')):
             logger.info("AIScribe2 file not found. Creating default AIScribe2 file.")
             with open(get_resource_path('aiscribe2.txt'), 'w') as f:
-                f.write(self.AISCRIBE2)
+                ret_value = self.write_scribe_data(f, self.AISCRIBE2)
+
+        return ret_value
 
     def get_available_architectures(self):
         """
@@ -809,3 +828,32 @@ class SettingsWindow():
             bool: The value of the 'Use Low Memory Mode' setting
         """
         return self.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value]
+    
+    def write_scribe_data(self, file, text):
+        """
+        Writes the provided text to a file, handling UnicodeEncodeError gracefully.
+        This method attempts to write the given text to the specified file. If a UnicodeEncodeError occurs,
+        it will catch the exception and display an error message to the user, indicating that the text contains
+        unsupported characters. The method will return False if the write operation fails due to an unsupported character
+
+        :param file: The file object to write to.
+        :type file: file-like object
+        :param text: The text to write to the file.
+        :type text: str
+        :returns: True if the write operation is successful, False if it fails due to an
+        unsupported character.
+        :rtype: bool
+        """
+        try:
+            file.write(text)
+        except UnicodeEncodeError as e:
+            problematic_char = e.object[e.start:e.end]
+            import tkinter.messagebox as messagebox
+            messagebox.showerror(
+                "Invalid Character", 
+                f"Settings contain an unsupported character: '{problematic_char}'\n"
+                f"Please remove special symbols and save again."
+            )
+            logger.exception("Failed to write scribe data due to unsupported character")
+            return False
+        return True

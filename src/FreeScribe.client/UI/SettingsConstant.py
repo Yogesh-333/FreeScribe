@@ -50,6 +50,7 @@ class Architectures(Enum):
 
 
 class FeatureToggle:
+    # False by default, set to True to enable
     DOCKER_SETTINGS_TAB = False
     DOCKER_STATUS_BAR = False
     POST_PROCESSING = False

@@ -863,16 +863,17 @@ pady=5, sticky="w")
             # Save Google Maps API key
             self.settings.editable_settings[SettingsKeys.GOOGLE_MAPS_API_KEY.value] = self.widgets[SettingsKeys.GOOGLE_MAPS_API_KEY.value].get()
 
-
-        self.settings.save_settings(
-            self.openai_api_key_entry.get(),
-            self.aiscribe_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
-            self.aiscribe2_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
-            self.settings_window,
-            # self.api_dropdown.get(),
-            self.settings.editable_settings["Silence cut-off"], # Save the old one for whisper audio cutoff, will be removed in future, left in incase we go back to old cut off
-            # self.cutoff_slider.threshold / 32768, # old threshold 
-        )
+        
+        if not self.settings.save_settings(
+                self.openai_api_key_entry.get(),
+                self.aiscribe_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
+                self.aiscribe2_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
+                self.settings_window,
+                # self.api_dropdown.get(),
+                self.settings.editable_settings["Silence cut-off"], # Save the old one for whisper audio cutoff, will be removed in future, left in incase we go back to old cut off
+                # self.cutoff_slider.threshold / 32768, # old threshold 
+            ):
+            return
         # send load event after the settings are saved
         if update_whisper_model_flag:
             self.main_window.root.event_generate("<<LoadSttModel>>")

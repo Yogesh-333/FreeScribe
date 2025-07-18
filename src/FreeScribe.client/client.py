@@ -65,7 +65,7 @@ from UI.ScrubWindow import ScrubWindow
 from utils.log_config import logger
 from Model import ModelStatus
 from services.whisper_hallucination_cleaner import hallucination_cleaner
-from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings
+from utils.whisper.WhisperModel import load_stt_model, faster_whisper_transcribe, is_whisper_valid, is_whisper_lock, load_model_with_loading_screen, unload_stt_model, get_model_from_settings, WhisperModelStatus, get_whisper_model, set_whisper_model
 from services.factual_consistency import find_factual_inconsistency
 import utils.arg_parser
 from services.whisper_hallucination_cleaner import hallucination_cleaner, load_hallucination_cleaner_model
@@ -129,6 +129,7 @@ def enable_notes_history(event=None):
     """
     load_notes_history()
     warning_label.grid_remove()
+    grid_clear_all_btn()
 
 root.bind("<<EnableNoteHistory>>", enable_notes_history)
 
@@ -138,9 +139,8 @@ def disable_notes_history(event=None):
     Clears all existing notes and updates the UI accordingly.
     """
     clear_all_notes()
-    warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
-
-    # delete all notes button
+    clear_all_notes_btn.grid_remove()
+    grid_warning_label()
 
 root.bind("<<DisableNoteHistory>>", disable_notes_history)
 
@@ -1663,7 +1663,7 @@ def check_and_warn_about_factual_consistency(formatted_message: str, medical_not
         Always review generated notes carefully.
     """
     # Verify factual consistency
-    if not app_settings.editable_settings[SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value] and FeatureToggle.FACTS_CHECK:
+    if not app_settings.editable_settings[SettingsKeys.FACTUAL_CONSISTENCY_VERIFICATION.value] or not FeatureToggle.FACTS_CHECK:
         return
         
     inconsistent_entities = find_factual_inconsistency(formatted_message, medical_note)
@@ -2167,8 +2167,39 @@ warning_label = tk.Label(history_frame,
                             font=tk.font.Font(size=scaled_size),
                             )
 
+def on_click_clear_all_notes():
+    """
+    Callback function to clear all notes from the timestamp listbox and response display.
+    """
+    # Disclaimer that all notes will be deleted
+    if messagebox.askyesno("Clear All Notes", "Are you sure you want to delete all notes? You will not be able to undo or recover the notes."):
+        clear_all_notes()
+
+
+clear_all_notes_btn = tk.Button(history_frame, text="Clear All Notes", command=on_click_clear_all_notes, width=20, height=2)
+
+def grid_clear_all_btn():
+    """
+    Function to grid the clear all notes button after the UI is initialized.
+    """
+    def action():
+        clear_all_notes_btn.grid(row=3, column=0, sticky='ew', pady=5)
+
+    root.after(0, action)
+
+def grid_warning_label():
+    """
+    Function to grid the warning label after the UI is initialized.
+    """
+    def action():
+        warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+
+    root.after(0, action)
+
 if not app_settings.editable_settings[SettingsKeys.STORE_NOTES_LOCALLY.value]:
-    warning_label.grid(row=3, column=0, sticky='ew', pady=(0,5))
+    grid_warning_label()
+else:
+    grid_clear_all_btn()
 
 # Add microphone test frame
 mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_settings, root=root)
@@ -2292,36 +2323,88 @@ def await_models(timeout_length=60):
     whisper_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value] or is_whisper_valid())
 
     # if we are not using local llm then we can assume it is loaded and dont wait
-    llm_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or ModelManager.local_model)
+    llm_loaded = (not app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value] or ModelManager.is_llm_valid())
 
-    # if there was a error stop checking
-    if ModelManager.local_model == ModelStatus.ERROR:
-        # Error message is displayed else where
-        llm_loaded = True
+    # Check for errors in models
+    whisper_error = get_whisper_model() == WhisperModelStatus.ERROR
+    llm_error = ModelManager.local_model == ModelStatus.ERROR
+
+    logger.debug("*** Model loading status: ")
+    logger.debug(f"Whisper loaded: {whisper_loaded}, Whisper Error Status:{whisper_error}, LLM loaded: {llm_loaded}, LLM Error status: {llm_error}")
 
     elapsed_time = time.time() - await_models.start_timer
+    
+    # Check if we should show error dialog (timeout OR any model error)
+    should_show_error = (elapsed_time >= timeout_length) or \
+        (whisper_error and llm_loaded) or \
+        (llm_error and whisper_loaded) or \
+        (llm_error and whisper_error)
+
     # wait for both models to be loaded
-    if (not whisper_loaded or not llm_loaded ) and not app_settings.is_low_mem_mode():
+    if (not whisper_loaded or not llm_loaded) and not app_settings.is_low_mem_mode():
         if math.floor(elapsed_time) % 5 == 0:
             logger.info(f"Waiting for models to load. Loading timer: {math.floor(elapsed_time)}, Timeout:{timeout_length}")
 
-        # override the lock in case something else tried to edit
-        window.disable_settings_menu()
+        if should_show_error:
+            # Gather diagnostic information about which models failed
+            failed_models = []
+            if (not whisper_loaded and app_settings.editable_settings[SettingsKeys.LOCAL_WHISPER.value]) or whisper_error:
+                failed_models.append("Whisper (STT)")
+            if (not llm_loaded and app_settings.editable_settings[SettingsKeys.LOCAL_LLM.value]) or llm_error:
+                failed_models.append("LLM")
+            
+            failed_models_str = ', '.join(failed_models) if failed_models else 'Unknown'
+            
+            if elapsed_time >= timeout_length:
+                error_message = f"Models failed to load within {timeout_length} seconds."
+            else:
+                error_message = "One or more models failed to load due to errors."
+            
+            logger.error(
+                f"{error_message} "
+                f"Failed models: {failed_models_str}. "
+                "Please check your settings."
+            )
+            
+            try:
+                messagebox.showerror(
+                    "Model Loading Error",
+                    f"{error_message}\n\n"
+                    f"Failed models: {failed_models_str}\n\n"
+                    "The settings menu has been re-enabled. Please check your configuration and try again."
+                )
+            except Exception as e:
+                logger.warning(f"Failed to show error notification dialog: {e}")
+            finally:
+                # Ensure settings menu is always enabled, regardless of success or failure
+                window.enable_settings_menu()
+            return
 
-        root.after(1000, await_models)
+        try:
+            # override the lock in case something else tried to edit
+            window.disable_settings_menu()
+            root.after(1000, await_models)
+        except Exception as e:
+            logger.exception(f"Error in model loading loop: {e}")
+            # Ensure settings menu is enabled if there's an error
+            window.enable_settings_menu()
+            raise
     else:
         logger.info("*** Models loaded successfully on startup.")
 
         # if error null out the model
         if ModelManager.local_model == ModelStatus.ERROR:
             ModelManager.local_model = None
+        
+        if get_whisper_model() == WhisperModelStatus.ERROR:
+            set_whisper_model(None)
 
         window.enable_settings_menu()
 
 
 root.after(100, await_models)
 
-root.bind("<<LoadSttModel>>", load_stt_model)
+root.bind("<<LoadSttModel>>", lambda e: load_stt_model(e, app_settings=app_settings))
 root.bind("<<UnloadSttModel>>", unload_stt_model)
 
 def generate_note_bind(event, data: np.ndarray):
