@@ -27,6 +27,7 @@ from dataclasses import dataclass
 import json
 import os
 from utils.log_config import logger
+from utils.file_utils import get_resource_path
 
 @dataclass
 class StylePromptInfo:
@@ -62,6 +63,7 @@ class NoteStyleSelector(tk.Frame):
     style_data = {}
     style_options = ["Add Prompt Template...", "SOAP Note - Default"]
     _styles_file = "note_styles.json"
+    _styles_path = get_resource_path(_styles_file)
     
     @classmethod
     def _get_default_styles(cls):
@@ -95,8 +97,8 @@ class NoteStyleSelector(tk.Frame):
             None
         """
         try:
-            if os.path.exists(cls._styles_file):
-                with open(cls._styles_file, 'r', encoding='utf-8') as f:
+            if os.path.exists(cls._styles_path):
+                with open(cls._styles_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     cls.style_data = data.get('styles', {})
                     cls.current_style = data.get('current_style', "SOAP Note - Default")
@@ -138,7 +140,7 @@ class NoteStyleSelector(tk.Frame):
                 'styles': cls.style_data,
                 'current_style': cls.current_style
             }
-            with open(cls._styles_file, 'w', encoding='utf-8') as f:
+            with open(cls._styles_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.exception(f"Error saving styles: {e}")
