@@ -298,7 +298,7 @@ class NoteStyleSelector(tk.Frame):
         """
         current_style = self.style_var.get()
         if current_style == "Add Prompt Template...":
-            messagebox.showwarning("Edit Style", "Cannot edit 'Add Prompt Template...' option.")
+            messagebox.showwarning("Edit Template", "Cannot edit 'Add Prompt Template...' option.")
             return
         
         # Get existing data if available
@@ -306,8 +306,8 @@ class NoteStyleSelector(tk.Frame):
         
         # Check if it's the default style - allow viewing but not editing
         is_default = (current_style == "SOAP Note - Default")
-        
-        dialog = StyleDialog(self.root, "View Style" if is_default else "Edit Style", 
+
+        dialog = StyleDialog(self.root, "View Template" if is_default else "Edit Template",
                            initial_name=current_style,
                            initial_pre=existing_data['pre_prompt'],
                            initial_post=existing_data['post_prompt'],
@@ -357,11 +357,11 @@ class NoteStyleSelector(tk.Frame):
         """
         current_style = self.style_var.get()
         if current_style in ["Add Prompt Template...", "SOAP Note - Default"]:
-            messagebox.showwarning("Delete Style", "Cannot delete 'Add Prompt Template...' or 'SOAP Note - Default' style.")
+            messagebox.showwarning("Delete Template", "Cannot delete 'Add Prompt Template...' or 'SOAP Note - Default' template.")
             return
-        
-        if messagebox.askyesno("Delete Style", f"Are you sure you want to delete '{current_style}'?"):
-            # Check if style exists in options before attempting removal
+
+        if messagebox.askyesno("Delete Template", f"Are you sure you want to delete '{current_style}'?"):
+            # Check if template exists in options before attempting removal
             if current_style in NoteStyleSelector.style_options:
                 NoteStyleSelector.style_options.remove(current_style)
             if current_style in NoteStyleSelector.style_data:
@@ -557,7 +557,7 @@ class StyleDialog:
 
         # Add warning for read-only mode
         if self.read_only:
-            self.show_error_warning("⚠️ Cannot edit default note style - View only mode")
+            self.show_error_warning("⚠️ Cannot edit default note template - View only mode")
 
         # Wait for dialog to close
         self.dialog.wait_window()
@@ -615,8 +615,8 @@ class StyleDialog:
             self.name_entry.focus_set()
             return
         else:
-            if not is_edit and name in NoteStyleSelector.style_options:
-                self.show_error_warning(f"⚠️ Template style '{name}' already exists - Please choose a different name")
+            if not is_edit and name in NoteStyleSelector.template_options:
+                self.show_error_warning(f"⚠️ Template '{name}' already exists - Please choose a different name")
                 return
     
         # Hide any existing warning if validation passes
@@ -645,7 +645,7 @@ if __name__ == "__main__":
     # build a sample tkinter window to test the NoteStyleSelector
 
     root = tk.Tk()
-    root.title("Note Style Selector Test")
+    root.title("Note Template Selector Test")
 
     note_style_selector = NoteStyleSelector(root)
     note_style_selector.pack()
