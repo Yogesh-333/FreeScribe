@@ -87,13 +87,6 @@ class MainWindowUI:
         self.root.attributes('-topmost', True)  # Set the window to be always on top
         self.root.focus_force()  # Force focus on the window
         self.root.after_idle(self.root.attributes, '-topmost', False)  # Reset the always on top attribute after idle
-        
-
-    def update_aiscribe_texts(self, event):
-        if self.scribe_template is not None:
-            selected_option = self.scribe_template.get()
-            if selected_option in self.app_settings.scribe_template_mapping:
-                self.app_settings.AISCRIBE, self.app_settings.AISCRIBE2 = self.app_settings.scribe_template_mapping[selected_option]
 
     def create_docker_status_bar(self):
         """

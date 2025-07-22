@@ -2226,7 +2226,6 @@ version_label = tk.Label(
 )
 version_label.pack()
 
-window.update_aiscribe_texts(None)
 # Bind Alt+P to send_and_receive function
 root.bind('<Alt-p>', lambda event: pause_button.invoke())
 

@@ -866,8 +866,6 @@ pady=5, sticky="w")
         
         if not self.settings.save_settings(
                 self.openai_api_key_entry.get(),
-                self.aiscribe_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
-                self.aiscribe2_text.get("1.0", "end-1c"), # end-1c removes the trailing newline
                 self.settings_window,
                 # self.api_dropdown.get(),
                 self.settings.editable_settings["Silence cut-off"], # Save the old one for whisper audio cutoff, will be removed in future, left in incase we go back to old cut off
