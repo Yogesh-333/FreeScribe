@@ -246,11 +246,9 @@ class NoteStyleSelector(tk.Frame):
                 self.style_var.set(new_style_name)
                 NoteStyleSelector.current_style = new_style_name
                 NoteStyleSelector.save_styles()
-            else:
-                # Reset to previous valid selection if no style was added
-                if len(NoteStyleSelector.style_options) > 1:
-                    # Reset to current style
-                    self.style_var.set(NoteStyleSelector.current_style)
+            elif len(NoteStyleSelector.style_options) > 1:
+                # Reset to current style
+                self.style_var.set(NoteStyleSelector.current_style)
         else:
             NoteStyleSelector.current_style = selected_value
             NoteStyleSelector.save_styles()
