@@ -118,7 +118,6 @@ class SettingsWindow():
             "Auto Shutdown Containers on Exit": True,
             "Use Docker Status Bar": False,
             "Show Welcome Message": True,
-            "Enable Scribe Template": False,
             SettingsKeys.USE_PRE_PROCESSING.value: False,
             "Use Post-Processing": FeatureToggle.POST_PROCESSING,
             "AI Server Self-Signed Certificates": False,
@@ -152,8 +151,6 @@ class SettingsWindow():
         self.OPENAI_API_KEY = "None"
         # self.API_STYLE = "OpenAI" # FUTURE FEATURE REVISION
         self.main_window = None
-        self.scribe_template_values = []
-        self.scribe_template_mapping = {}
         
         # Initialize setting types dictionary
         self.setting_types = {}
@@ -248,7 +245,6 @@ class SettingsWindow():
 
 
         self.adv_general_settings = [
-            # "Enable Scribe Template", # Uncomment if you want to implement the feature right now removed as it doesn't have a real structured implementation
             SettingsKeys.AUDIO_PROCESSING_TIMEOUT_LENGTH.value,
             SettingsKeys.STORE_RECORDINGS_LOCALLY.value,
             SettingsKeys.STORE_NOTES_LOCALLY.value,
@@ -344,10 +340,7 @@ class SettingsWindow():
 
                 if self.editable_settings["Use Docker Status Bar"] and self.main_window is not None:
                     self.main_window.create_docker_status_bar()
-                
-                if self.editable_settings["Enable Scribe Template"] and self.main_window is not None:
-                    self.main_window.create_scribe_template()
-                
+                            
                 return self.OPENAI_API_KEY
         except FileNotFoundError:
             logger.info("Settings file not found. Using default settings.")
@@ -742,32 +735,3 @@ class SettingsWindow():
             bool: The value of the 'Use Low Memory Mode' setting
         """
         return self.editable_settings[SettingsKeys.USE_LOW_MEM_MODE.value]
-    
-    def write_scribe_data(self, file, text):
-        """
-        Writes the provided text to a file, handling UnicodeEncodeError gracefully.
-        This method attempts to write the given text to the specified file. If a UnicodeEncodeError occurs,
-        it will catch the exception and display an error message to the user, indicating that the text contains
-        unsupported characters. The method will return False if the write operation fails due to an unsupported character
-
-        :param file: The file object to write to.
-        :type file: file-like object
-        :param text: The text to write to the file.
-        :type text: str
-        :returns: True if the write operation is successful, False if it fails due to an
-        unsupported character.
-        :rtype: bool
-        """
-        try:
-            file.write(text)
-        except UnicodeEncodeError as e:
-            problematic_char = e.object[e.start:e.end]
-            import tkinter.messagebox as messagebox
-            messagebox.showerror(
-                "Invalid Character", 
-                f"Settings contain an unsupported character: '{problematic_char}'\n"
-                f"Please remove special symbols and save again."
-            )
-            logger.exception("Failed to write scribe data due to unsupported character")
-            return False
-        return True

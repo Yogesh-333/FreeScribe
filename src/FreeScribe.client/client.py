@@ -1888,10 +1888,6 @@ def set_full_view():
         if app_settings.editable_settings["Use Docker Status Bar"]:
             window.create_docker_status_bar()
 
-        if app_settings.editable_settings["Enable Scribe Template"]:
-            window.destroy_scribe_template()
-            window.create_scribe_template()
-
         # Save minimal view geometry and restore last full view geometry
         last_minimal_position = root.geometry()
         root.update_idletasks()
@@ -1977,9 +1973,6 @@ def set_minimal_view():
 
         # Destroy and re-create components as needed
         window.destroy_docker_status_bar()
-        if app_settings.editable_settings["Enable Scribe Template"]:
-            window.destroy_scribe_template()
-            window.create_scribe_template(row=1, column=0, columnspan=3, pady=5)
 
         # Remove the minimal view geometry and save the current full view geometry
         remove_min_max(root)
@@ -2115,8 +2108,6 @@ response_display.scrolled_text.configure(state='normal')
 response_display.scrolled_text.insert("1.0", "Medical Note")
 response_display.scrolled_text.configure(state='disabled')
 
-if app_settings.editable_settings["Enable Scribe Template"]:
-    window.create_scribe_template()
 
 # Create a frame to hold both timestamp listbox and mic test
 history_frame = ttk.Frame(root)
