@@ -311,7 +311,8 @@ class NoteStyleSelector(tk.Frame):
                            initial_name=current_style,
                            initial_pre=existing_data['pre_prompt'],
                            initial_post=existing_data['post_prompt'],
-                           read_only=is_default)
+                           read_only=is_default,
+                           is_edit=True)
         
         if dialog.result and not is_default:
             new_name, pre_prompt, post_prompt = dialog.result
@@ -420,7 +421,7 @@ class StyleDialog:
         read_only (bool): Whether the dialog is in read-only mode.
         dialog (tk.Toplevel): The dialog window.
     """
-    def __init__(self, parent, title, initial_name="", initial_pre="", initial_post="", read_only=False):
+    def __init__(self, parent, title, initial_name="", initial_pre="", initial_post="", read_only=False, is_edit=False):
         """
         Initializes the StyleDialog window.
         
@@ -535,13 +536,13 @@ class StyleDialog:
         
         # Only show OK button if not read-only, or disable it if read-only
         if self.read_only:
-            ok_button = tk.Button(inner_frame, text="OK", command=self.ok_clicked, 
+            ok_button = tk.Button(inner_frame, text="OK", command=lambda: self.ok_clicked(is_edit=is_edit), 
                                 width=10, font=('Arial', 10), state='disabled')
             ok_button.pack(side=tk.LEFT, padx=10)
             tk.Button(inner_frame, text="Close", command=self.cancel_clicked, 
                      width=10, font=('Arial', 10)).pack(side=tk.LEFT, padx=10)
         else:
-            tk.Button(inner_frame, text="OK", command=self.ok_clicked, 
+            tk.Button(inner_frame, text="OK", command=lambda: self.ok_clicked(is_edit=is_edit), 
                      width=10, font=('Arial', 10)).pack(side=tk.LEFT, padx=10)
             tk.Button(inner_frame, text="Cancel", command=self.cancel_clicked, 
                      width=10, font=('Arial', 10)).pack(side=tk.LEFT, padx=10)
@@ -588,7 +589,7 @@ class StyleDialog:
             self.warning_frame.destroy()
             self.warning_frame = None
     
-    def ok_clicked(self):
+    def ok_clicked(self, is_edit=False):
         """
         Handles the OK button click event.
         
@@ -614,7 +615,7 @@ class StyleDialog:
             self.name_entry.focus_set()
             return
         else:
-            if name in NoteStyleSelector.style_options:
+            if not is_edit and name in NoteStyleSelector.style_options:
                 self.show_error_warning(f"⚠️ Template style '{name}' already exists - Please choose a different name")
                 return
     
