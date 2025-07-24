@@ -36,6 +36,7 @@ import numpy as np
 import tkinter as tk
 import math
 import traceback
+import asyncio
 from tkinter import ttk, filedialog
 import tkinter.messagebox as messagebox
 import librosa
@@ -70,8 +71,7 @@ from services.factual_consistency import find_factual_inconsistency
 import utils.arg_parser
 from services.whisper_hallucination_cleaner import hallucination_cleaner, load_hallucination_cleaner_model
 from utils.log_config import logger
-import asyncio
-import httpx
+from UI.NoteStyleSelector import NoteStyleSelector
 from utils.network.base import NetworkConfig
 from utils.network.openai_client import OpenAIClient
 
@@ -1572,6 +1572,7 @@ def generate_note(formatted_message, cancel_event):
     """
     try:
         summary = None
+        current_prompt_info = NoteStyleSelector.get_current_prompt_info()
         if use_aiscribe:
             # If pre-processing is enabled
             if app_settings.editable_settings[SettingsKeys.USE_PRE_PROCESSING.value]:
@@ -1579,7 +1580,7 @@ def generate_note(formatted_message, cancel_event):
                 list_of_facts = send_text_to_chatgpt(f"{app_settings.editable_settings['Pre-Processing']} {formatted_message}", cancel_event)
                 
                 #Make a note from the facts
-                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {list_of_facts} {app_settings.AISCRIBE2}", cancel_event)
+                medical_note = send_text_to_chatgpt(f"{current_prompt_info.pre_prompt} {list_of_facts} {current_prompt_info.post_prompt}", cancel_event)
 
                 # If post-processing is enabled check the note over
                 if app_settings.editable_settings["Use Post-Processing"]:
@@ -1591,7 +1592,7 @@ def generate_note(formatted_message, cancel_event):
                     update_gui_with_response(medical_note)
 
             else: # If pre-processing is not enabled then just generate the note
-                medical_note = send_text_to_chatgpt(f"{app_settings.AISCRIBE} {formatted_message} {app_settings.AISCRIBE2}", cancel_event)
+                medical_note = send_text_to_chatgpt(f"{current_prompt_info.pre_prompt} {formatted_message} {current_prompt_info.post_prompt}", cancel_event)
 
                 if app_settings.editable_settings["Use Post-Processing"]:
                     post_processed_note = send_text_to_chatgpt(f"{app_settings.editable_settings['Post-Processing']}\nNotes:{medical_note}", cancel_event)
@@ -1887,10 +1888,6 @@ def set_full_view():
         if app_settings.editable_settings["Use Docker Status Bar"]:
             window.create_docker_status_bar()
 
-        if app_settings.editable_settings["Enable Scribe Template"]:
-            window.destroy_scribe_template()
-            window.create_scribe_template()
-
         # Save minimal view geometry and restore last full view geometry
         last_minimal_position = root.geometry()
         root.update_idletasks()
@@ -1976,9 +1973,6 @@ def set_minimal_view():
 
         # Destroy and re-create components as needed
         window.destroy_docker_status_bar()
-        if app_settings.editable_settings["Enable Scribe Template"]:
-            window.destroy_scribe_template()
-            window.create_scribe_template(row=1, column=0, columnspan=3, pady=5)
 
         # Remove the minimal view geometry and save the current full view geometry
         remove_min_max(root)
@@ -2114,8 +2108,6 @@ response_display.scrolled_text.configure(state='normal')
 response_display.scrolled_text.insert("1.0", "Medical Note")
 response_display.scrolled_text.configure(state='disabled')
 
-if app_settings.editable_settings["Enable Scribe Template"]:
-    window.create_scribe_template()
 
 # Create a frame to hold both timestamp listbox and mic test
 history_frame = ttk.Frame(root)
@@ -2195,22 +2187,36 @@ mic_test = MicrophoneTestFrame(parent=history_frame, p=p, app_settings=app_setti
 mic_test.frame.grid(row=4, column=0, pady=10, sticky='nsew')  # Use grid to place the frame
 
 # Add a footer frame at the bottom of the window
-footer_frame = tk.Frame(root, bg="darkgray", height=30)
-footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")  # Use grid instead of pack
+footer_frame = tk.Frame(root, bg="lightgrey", height=30)
+footer_frame.grid(row=100, column=0, columnspan=100, sticky="ew")
 
-# Add "Version 2" label in the center of the footer
+# Configure footer frame grid columns
+# Left spacer
+footer_frame.grid_columnconfigure(0, weight=1)  
+# NoteStyleSelector (center)
+footer_frame.grid_columnconfigure(1, weight=0) 
+# Right spacer 
+footer_frame.grid_columnconfigure(2, weight=1) 
+
+# Add NoteStyleSelector in the center of the footer
+note_style_selector = NoteStyleSelector(root, footer_frame)
+note_style_selector.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+
+# Add version label in a small box in the bottom right
 version = get_application_version()
+version_frame = tk.Frame(footer_frame, bg="lightgrey", relief="sunken", bd=1)
+version_frame.grid(row=0, column=2, sticky="e", padx=5, pady=2)
+
 version_label = tk.Label(
-    footer_frame,
+    version_frame,
     text=f"FreeScribe Client {version}",
-    bg="darkgray").pack(
-        side="left",
-        expand=True,
-        padx=2,
-    pady=5)
+    bg="lightgrey",
+    font=("Arial", 8),
+    padx=5,
+    pady=2
+)
+version_label.pack()
 
-
-window.update_aiscribe_texts(None)
 # Bind Alt+P to send_and_receive function
 root.bind('<Alt-p>', lambda event: pause_button.invoke())
 
