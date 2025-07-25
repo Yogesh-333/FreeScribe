@@ -615,7 +615,7 @@ class StyleDialog:
             self.name_entry.focus_set()
             return
         else:
-            if not is_edit and name in NoteStyleSelector.template_options:
+            if not is_edit and name in NoteStyleSelector.style_options:
                 self.show_error_warning(f"⚠️ Template '{name}' already exists - Please choose a different name")
                 return
     
