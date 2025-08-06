@@ -21,8 +21,8 @@ filelock==3.16.1
 flatbuffers==25.2.10
 fsspec==2024.9.0
 googlemaps==4.10.0
-h11==0.14.0
-httpcore==1.0.5
+h11==0.16.0
+httpcore==1.0.9
 httpx==0.27.2
 huggingface-hub==0.28.1
 humanfriendly==10.0
