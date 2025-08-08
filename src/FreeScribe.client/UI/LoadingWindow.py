@@ -184,16 +184,7 @@ class LoadingWindow:
         >>> # Do some processing
         >>> popup.destroy()  # Properly clean up and close the window
         """
-        def _destroy_ui():
-            start_time = time.time()
-            logger.debug("Waiting for LoadingWindow UI to be built")
-            while not self.ui_built:
-                elapsed_time = time.time() - start_time
-                if int(elapsed_time) % 2 == 0 or elapsed_time < 1:
-                    logger.info(f"Waiting for LoadingWindowUI to build (elapsed={elapsed_time}s, built={self.ui_built})")
-                time.sleep(0.1)
-            
-            logger.debug("LoadingWindow UI is built, proceeding to destroy it")
+        def _destroy_ui_main_thread():
             if self.popup:
                 # Enable the parent window
                 if self.parent:
@@ -210,7 +201,20 @@ class LoadingWindow:
                     logger.debug("Destroying popup window")
                     self.popup.destroy()
 
+        def _wait_for_ui_and_destroy():
+            start_time = time.time()
+            logger.debug("Waiting for LoadingWindow UI to be built")
+            while not self.ui_built:
+                elapsed_time = time.time() - start_time
+                if int(elapsed_time) % 2 == 0 or elapsed_time < 1:
+                    logger.info(f"Waiting for LoadingWindowUI to build (elapsed={elapsed_time}s, built={self.ui_built})")
+                time.sleep(0.1)
+                
+            # Schedule the UI destruction on the main thread
+            logger.debug("LoadingWindow UI is built, proceeding to destroy it")
+            self.popup.after(0, _destroy_ui_main_thread)
+
         # Run the destroy logic in a separate thread to make it non-blocking
-        destroy_thread = threading.Thread(target=_destroy_ui, daemon=True)
+        destroy_thread = threading.Thread(target=_wait_for_ui_and_destroy, daemon=True)
         destroy_thread.start()
 
