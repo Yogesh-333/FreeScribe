@@ -5,6 +5,7 @@ from utils.log_config import logger
 import utils.system
 import UI.Helpers
 import time
+import threading
 
 class LoadingWindow:
     """
@@ -183,7 +184,6 @@ class LoadingWindow:
         >>> # Do some processing
         >>> popup.destroy()  # Properly clean up and close the window
         """
-        # wait for the UI to be built
         def _destroy_ui():
             start_time = time.time()
             logger.debug("Waiting for LoadingWindow UI to be built")
@@ -210,11 +210,7 @@ class LoadingWindow:
                     logger.debug("Destroying popup window")
                     self.popup.destroy()
 
-        if self.parent and hasattr(self.parent, 'after'):
-            logger.debug("Using parent.after to destroy LoadingWindow UI")
-            self.parent.after(0, _destroy_ui)
-        else:
-            # Call the destroy function directly if parent is not available
-            logger.debug("Parent not available, calling _destroy_ui directly")
-            _destroy_ui()
+        # Run the destroy logic in a separate thread to make it non-blocking
+        destroy_thread = threading.Thread(target=_destroy_ui, daemon=True)
+        destroy_thread.start()
 
