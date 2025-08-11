@@ -1776,7 +1776,7 @@ def upload_file():
 def start_flashing():
     global is_flashing
     is_flashing = True
-    root.after(0, flash_circle())
+    root.after(0, flash_circle)
 
 
 def stop_flashing():
