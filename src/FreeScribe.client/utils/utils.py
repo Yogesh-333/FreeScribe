@@ -1,6 +1,7 @@
-
 import ctypes
 from utils.file_utils import get_file_path
+from utils.log_config import logger
+
 # Define the mutex name and error code
 MUTEX_NAME = 'Global\\FreeScribe_Instance'
 ERROR_ALREADY_EXISTS = 183
@@ -35,15 +36,6 @@ def bring_to_front(app_name: str):
     U32DLL.ShowWindow(hwnd, SW_SHOW)
     U32DLL.SetForegroundWindow(hwnd)
 
-def close_mutex():
-    """
-    Close the mutex handle to release the resource.
-    """
-    global mutex
-    if mutex:
-        ctypes.windll.kernel32.ReleaseMutex(mutex)
-        ctypes.windll.kernel32.CloseHandle(mutex)
-        mutex = None
 
 def get_application_version():
         version_str = "vx.x.x.alpha"
@@ -51,6 +43,6 @@ def get_application_version():
             with open(get_file_path('__version__'), 'r') as file:
                 version_str = file.read().strip()
         except Exception as e:
-            print(f"Error loading version file ({type(e).__name__}). {e}")
+            logger.exception("Failed to read version file")
         finally:
             return version_str

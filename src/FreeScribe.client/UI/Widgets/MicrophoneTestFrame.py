@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image, ImageTk
 from utils.file_utils import get_file_path
 from UI.SettingsWindowUI import SettingsWindowUI
+from utils.log_config import logger
 
 class MicrophoneState:
     SELECTED_MICROPHONE_INDEX = None
@@ -30,6 +31,14 @@ class MicrophoneTestFrame:
         self.app_settings = app_settings
         self.stream = None  # Persistent audio stream
         self.is_stream_active = False  # Track if the stream is active
+
+        # Style colours for the volume meter segments
+        self.style_colours = {
+            'green': '#2ecc71',
+            'yellow': '#f1c40f',
+            'red': '#e74c3c',
+            'inactive': '#95a5a6'
+        }
 
         self.setting_window = SettingsWindowUI(self.app_settings, self, self.root)  # Settings window
 
@@ -61,16 +70,16 @@ class MicrophoneTestFrame:
             default_input_info = self.p.get_default_input_device_info()
             self.default_input_index = default_input_info['index']
         except IOError as e:
-            print(f"Failed to initialize microphone ({type(e).__name__}): {e}")
+            logger.exception(f"Failed to initialize microphone ({type(e).__name__}): {e}")
             self.default_input_index = None
 
         device_count = self.p.get_device_count()
+        defaultHostApi = self.p.get_default_host_api_info()
         for i in range(device_count):
             device_info = self.p.get_device_info_by_index(i)
-            if device_info['maxInputChannels'] > 0:
+            if device_info['maxInputChannels'] > 0 and device_info['hostApi'] == defaultHostApi['index']:
                 device_name = device_info['name']
-                excluded_names = ["Virtual", "Output", "Wave Out", "What U Hear", "Aux", "Port"]
-                if not any(excluded_name.lower() in device_name.lower() for excluded_name in excluded_names) and device_name not in [name for _, name in self.mic_list]:
+                if device_name not in [name for _, name in self.mic_list]:
                     self.mic_list.append((i, device_name))
                     self.mic_mapping[device_name] = i
         # Load the selected microphone from settings if available
@@ -100,10 +109,6 @@ class MicrophoneTestFrame:
         style = ttk.Style()
         style.configure('Disabled.TFrame', background='lightgray')  # Gray background for disabled state 
         style.configure('Mic.TCombobox', padding=(5, 5, 5, 5))
-        style.configure('Green.TFrame', background='#2ecc71')
-        style.configure('Yellow.TFrame', background='#f1c40f')
-        style.configure('Red.TFrame', background='#e74c3c')
-        style.configure('Inactive.TFrame', background='#95a5a6')
 
         # Dropdown for microphone selection
         mic_options = [f"{name}" for _, name in self.mic_list]
@@ -137,7 +142,7 @@ class MicrophoneTestFrame:
             mic_icon_label = ttk.Label(meter_frame, image=self.mic_photo)
             mic_icon_label.grid(row=0, column=0, padx=(5, 0), sticky='nsew')
         except Exception as e:
-            print(f"Error loading microphone icon: {e}")
+            logger.exception(f"Error loading microphone icon: {e}")
 
         # Create volume meter segments
         self.segments_frame = ttk.Frame(meter_frame)
@@ -147,7 +152,7 @@ class MicrophoneTestFrame:
         self.SEGMENT_COUNT = 20
         self.segments = []
         for i in range(self.SEGMENT_COUNT):
-            segment = ttk.Frame(self.segments_frame, width=10, height=20)
+            segment = tk.Frame(self.segments_frame, width=10, height=20)
             segment.grid(row=0, column=i, padx=1)
             segment.grid_propagate(False)
             self.segments.append(segment)
@@ -155,6 +160,7 @@ class MicrophoneTestFrame:
         # Status label for feedback
         self.status_label = ttk.Label(self.frame, text="Microphone: Ready", foreground="green")
         self.status_label.grid(row=2, column=0, pady=(0, 0), padx=(10, 0), sticky='nsew')
+        self.on_dropdown_click(None)
 
     def initialize_selected_microphone(self):
         """
@@ -214,6 +220,7 @@ class MicrophoneTestFrame:
             self.status_label.config(text="Error: No microphones available", foreground="red")
             MicrophoneState.SELECTED_MICROPHONE_INDEX = None
             MicrophoneState.SELECTED_MICROPHONE_NAME = None
+
     def update_selected_microphone(self, selected_index):
         """
         Update the selected microphone index and name.
@@ -250,7 +257,7 @@ class MicrophoneTestFrame:
                 self.is_stream_active = True
             except Exception as e:
                 self.status_label.config(text="Error: Microphone not found", foreground="red")
-                print(f"Failed to open microphone ({type(e).__name__}): {e}")
+                logger.exception(f"Failed to open microphone ({type(e).__name__}): {e}")
         else:
             MicrophoneState.SELECTED_MICROPHONE_INDEX = None
             MicrophoneState.SELECTED_MICROPHONE_NAME = None
@@ -267,7 +274,7 @@ class MicrophoneTestFrame:
                     self.stream.stop_stream()
                 self.stream.close()
             except Exception as e:
-                print(f"Error closing stream: {e}")
+                logger.exception(f"Error closing stream: {e}")
             finally:
                 self.stream = None
                 self.is_stream_active = False
@@ -287,7 +294,7 @@ class MicrophoneTestFrame:
                 self.status_label.config(text="Microphone: Connected", foreground="green")
             except Exception as e:
                 self.status_label.config(text="Error: Microphone not found", foreground="red")
-                print(f"Failed to open microphone ({type(e).__name__}): {e}")
+                logger.exception(f"Failed to open microphone ({type(e).__name__}): {e}")
 
     def update_volume_meter(self):
         """
@@ -315,14 +322,14 @@ class MicrophoneTestFrame:
                 if i < active_segments:
                     # Adjusted threshold for green
                     if i < self.SEGMENT_COUNT * 0.4:  
-                        segment.configure(style='Green.TFrame')
+                        segment.configure(bg=self.style_colours['green'])
                         # Adjusted threshold for yellow
                     elif i < self.SEGMENT_COUNT * 0.7:
-                        segment.configure(style='Yellow.TFrame')
+                        segment.configure(bg=self.style_colours['yellow'])
                     else:
-                        segment.configure(style='Red.TFrame')
+                        segment.configure(bg=self.style_colours['red'])
                 else:
-                    segment.configure(style='Inactive.TFrame')
+                    segment.configure(bg=self.style_colours['inactive'])
 
         except OSError as e:
             # Handle both Stream closed and Unanticipated host error
@@ -332,14 +339,15 @@ class MicrophoneTestFrame:
                 # Handle any other stream errors
                 self.status_label.config(text="Error: Unknown Error. Check debug log for more.", foreground="red")
             
-            print(f"Error in update_volume_meter({type(e).__name__}): {e}")
+            logger.exception(f"Error in update_volume_meter({type(e).__name__}): {e}")
             self.is_stream_active = False
             self.stream = None
             for segment in self.segments:
-                segment.configure(style='Inactive.TFrame')
+                segment.configure(bg=self.style_colours['inactive'])
 
         self.frame.after(50, self.update_volume_meter)
 
+    @staticmethod
     def get_selected_microphone_index():
         """
         Get the selected microphone index.
@@ -359,18 +367,31 @@ class MicrophoneTestFrame:
             enabled (bool): If True, enable the microphone test state. If False, disable it.
 
         Notes:
-            - For `ttk.Frame` or `tk.Frame` segments, the original style is stored before applying 
-            the disabled style. This allows the original style to be restored when re-enabled.
-            - The `_frame_original_styles` dictionary is used to store the original styles of frames.
-
-        Example:
-            >>> self.set_mic_test_state(True)  # Enable microphone test state
-            >>> self.set_mic_test_state(False) # Disable microphone test state
+            - For macOS compatibility, we use a combination of 'state' for ttk widgets and direct
+            property changes for standard tk widgets
+            - For tk.Frame segments, we update background color and other properties directly
+            - The `_frame_original_styles` dictionary is used to store the original properties
         """
-        self.mic_dropdown.state(['!disabled' if enabled else 'disabled'])
-        self.status_label.state(['!disabled' if enabled else 'disabled'])         
-        for segment in self.segments: 
-            if isinstance(segment, (ttk.Frame, tk.Frame)):
+        # Handle the microphone dropdown (ttk widget)
+        if hasattr(self.mic_dropdown, 'state'):
+            self.mic_dropdown.state(['!disabled'] if enabled else ['disabled'])
+        else:
+            self.mic_dropdown.configure(state='normal' if enabled else 'disabled')
+
+        # Handle the status label
+        if hasattr(self.status_label, 'state'):
+            self.status_label.state(['!disabled'] if enabled else ['disabled'])
+        else:
+            self.status_label.configure(state='normal' if enabled else 'disabled')
+            
+        # Initialize the storage dictionary if it doesn't exist
+        if not hasattr(self, '_frame_original_styles'):
+            self._frame_original_styles = {}
+            
+        # Handle segments
+        for segment in self.segments:
+            if isinstance(segment, ttk.Frame):
+                # Handle ttk.Frame
                 if enabled:
                     # Restore original style if it exists
                     original_style = self._frame_original_styles.get(segment, '')
@@ -381,8 +402,35 @@ class MicrophoneTestFrame:
                     if segment not in self._frame_original_styles:
                         self._frame_original_styles[segment] = current_style
                     segment.configure(style='Disabled.TFrame')
+            elif isinstance(segment, tk.Frame):
+                # Handle tk.Frame differently since macOS can have issues with ttk styling
+                if enabled:
+                    # Restore original properties
+                    if segment in self._frame_original_styles:
+                        properties = self._frame_original_styles[segment]
+                        segment.configure(**properties)
+                else:
+                    # Store original properties
+                    properties = {
+                        'bg': segment.cget('bg'),
+                        'highlightbackground': segment.cget('highlightbackground') if 'highlightbackground' in segment.keys() else None,
+                        'highlightcolor': segment.cget('highlightcolor') if 'highlightcolor' in segment.keys() else None
+                    }
+                    self._frame_original_styles[segment] = {k: v for k, v in properties.items() if v is not None}
+                    
+                    # Apply disabled appearance
+                    segment.configure(bg=self.style_colours.get('inactive', '#cccccc'))
+                    if 'highlightbackground' in segment.keys():
+                        segment.configure(highlightbackground='#cccccc')
+                    if 'highlightcolor' in segment.keys():
+                        segment.configure(highlightcolor='#cccccc')
             else:
-                segment.state(['!disabled' if enabled else 'disabled'])  
+                # Handle other ttk widgets
+                if hasattr(segment, 'state'):
+                    segment.state(['!disabled'] if enabled else ['disabled'])
+                else:
+                    # Handle regular tk widgets
+                    segment.configure(state='normal' if enabled else 'disabled')
 
     def __del__(self):
         """
@@ -394,6 +442,6 @@ class MicrophoneTestFrame:
                     self.stream.stop_stream()
                 self.stream.close()
             except Exception as e:
-                print(f"Error closing stream in destructor: {e}")
+                logger.exception(f"Error closing stream in destructor: {e}")
         if self.p:
             self.p.terminate()
